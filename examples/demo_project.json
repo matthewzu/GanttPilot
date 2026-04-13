@@ -1,0 +1,137 @@
+{
+  "id": "demo0001",
+  "name": "示例项目",
+  "description": "GanttPilot 功能演示项目，包含需求分析和开发实现两个里程碑",
+  "remote_url": "",
+  "remote_username": "",
+  "remote_password": "",
+  "milestones": [
+    {
+      "id": "ms01",
+      "name": "需求分析",
+      "description": "完成需求调研和文档编写",
+      "color": "#7BC67E",
+      "deadline": "20250131",
+      "plans": [
+        {
+          "id": "p01",
+          "content": "用户调研",
+          "executor": "Alice",
+          "start_date": "20250106",
+          "end_date": "20250117",
+          "skip_non_workdays": true,
+          "skip_dates": [],
+          "color": "",
+          "status": "finished",
+          "progress": 100,
+          "actual_end_date": "20250115",
+          "activities": [
+            {
+              "id": "a01",
+              "executor": "Alice",
+              "date": "20250106",
+              "hours": 4,
+              "content": "用户访谈准备"
+            },
+            {
+              "id": "a02",
+              "executor": "Alice",
+              "date": "20250110",
+              "hours": 6,
+              "content": "用户访谈执行"
+            }
+          ]
+        },
+        {
+          "id": "p02",
+          "content": "需求文档编写",
+          "executor": "Bob",
+          "start_date": "20250113",
+          "end_date": "20250124",
+          "skip_non_workdays": true,
+          "skip_dates": [],
+          "color": "",
+          "status": "active",
+          "progress": 70,
+          "actual_end_date": "",
+          "activities": [
+            {
+              "id": "a03",
+              "executor": "Bob",
+              "date": "20250113",
+              "hours": 8,
+              "content": "需求文档初稿"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ms02",
+      "name": "开发实现",
+      "description": "核心功能开发",
+      "color": "#4A90D9",
+      "deadline": "20250228",
+      "plans": [
+        {
+          "id": "p03",
+          "content": "后端API开发",
+          "executor": "Charlie",
+          "start_date": "20250120",
+          "end_date": "20250214",
+          "skip_non_workdays": true,
+          "skip_dates": [],
+          "color": "",
+          "status": "active",
+          "progress": 30,
+          "actual_end_date": "",
+          "activities": [
+            {
+              "id": "a04",
+              "executor": "Charlie",
+              "date": "20250120",
+              "hours": 8,
+              "content": "API框架搭建"
+            },
+            {
+              "id": "a05",
+              "executor": "Charlie",
+              "date": "20250125",
+              "hours": 6,
+              "content": "数据库设计"
+            }
+          ]
+        },
+        {
+          "id": "p04",
+          "content": "前端界面开发",
+          "executor": "Alice",
+          "start_date": "20250127",
+          "end_date": "20250221",
+          "skip_non_workdays": true,
+          "skip_dates": [],
+          "color": "",
+          "status": "finished",
+          "progress": 100,
+          "actual_end_date": "20250225",
+          "activities": [
+            {
+              "id": "a06",
+              "executor": "Alice",
+              "date": "20250127",
+              "hours": 8,
+              "content": "UI组件开发"
+            },
+            {
+              "id": "a07",
+              "executor": "Alice",
+              "date": "20250210",
+              "hours": 8,
+              "content": "页面集成测试"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
