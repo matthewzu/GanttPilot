@@ -175,12 +175,14 @@ class GanttPilotGUI:
             if not messagebox.askyesno(self._t("update_check"), self._t("update_available", new_version)):
                 return
             if asset_url:
-                # Auto-download in background
                 self.status_var.set(self._t("downloading_update"))
                 self.root.update()
                 threading.Thread(target=lambda: self._download_update(asset_url, new_version), daemon=True).start()
             else:
-                webbrowser.open(download_url)
+                # No platform-specific asset found, try download_url as fallback
+                self.status_var.set(self._t("downloading_update"))
+                self.root.update()
+                threading.Thread(target=lambda: self._download_update(download_url, new_version), daemon=True).start()
         self.root.after(0, show)
 
     def _download_update(self, asset_url, new_version):
