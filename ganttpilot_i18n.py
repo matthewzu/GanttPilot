@@ -116,8 +116,8 @@ TEXTS = {
         "cloning": "正在克隆...",
         "downloading_update": "正在下载更新...",
         "actual_end_date": "实际完成时间",
-        "compress_threshold": "压缩阈值(天)",
-        "max_chart_width": "最大图表宽度(px)",
+        "compress_threshold": "报告图片压缩阈值(天)",
+        "max_chart_width": "报告图片最大宽度(px)",
         "planned_hours": "计划工时",
     },
     "en": {
@@ -233,8 +233,8 @@ TEXTS = {
         "cloning": "Cloning...",
         "downloading_update": "Downloading update...",
         "actual_end_date": "Actual End Date",
-        "compress_threshold": "Compress Threshold (days)",
-        "max_chart_width": "Max Chart Width (px)",
+        "compress_threshold": "Report Image Compress Threshold (days)",
+        "max_chart_width": "Report Image Max Width (px)",
         "planned_hours": "Planned Hours",
     },
 }

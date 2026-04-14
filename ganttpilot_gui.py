@@ -1230,8 +1230,8 @@ class ConfigDialog:
             ("remote_username", t_func("username"), config.remote_username),
             ("remote_password", t_func("password"), config.remote_password),
             ("config_dir", t_func("config_dir"), config.config_dir),
-            ("compress_threshold", t_func("compress_threshold") if lang == "en" else "压缩阈值(天)", str(config.get("compress_threshold", 300))),
-            ("max_chart_width", t_func("max_chart_width") if lang == "en" else "最大图表宽度(px)", str(config.get("max_chart_width", 4000))),
+            ("compress_threshold", t_func("compress_threshold") if lang == "en" else "报告图片压缩阈值(天)", str(config.get("compress_threshold", 300))),
+            ("max_chart_width", t_func("max_chart_width") if lang == "en" else "报告图片最大宽度(px)", str(config.get("max_chart_width", 4000))),
         ]
         path_fields = {"data_dir", "config_dir"}
         self.entries = {}
