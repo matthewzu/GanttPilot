@@ -48,10 +48,19 @@ jobs:
           - 🌏 Bilingual (EN/ZH) / 中英文双语
           - 🔤 Font scaling + Gantt zoom / 字体缩放 + 甘特图缩放
           - 🔄 Auto update from GitHub / 在线自动更新
-          - 💾 Config with folder browser / 配置含文件夹浏览
+          - 🖼️ PNG report with local Gantt rendering / 本地渲染 PNG 甘特图报告
+          - 📐 Auto-compress for long projects / 长项目自动压缩
+          - 💾 Config with folder browser + report image settings / 配置含文件夹浏览 + 报告图片参数
           - 📂 Built-in demo project / 内置示例项目
 
-          ### 🆕 New in v0.4.0 / v0.4.0 新功能
+          ### 🆕 New in v0.5.1 / v0.5.1 新功能
+          - 🖼️ DrawBackend abstraction: PNG report with local rendering / DrawBackend 抽象层：本地渲染 PNG 报告
+          - 📐 Auto-compress long project Gantt images / 长项目甘特图自动压缩
+          - ⚙️ Report image compress settings in config / 配置中报告图片压缩参数
+          - 🔴 Red hatch overlay for skipped dates / 跳过日期红色斜线标注
+          - 📊 Download progress display for updates / 更新下载进度显示
+
+          ### From v0.4.0 / v0.4.0 功能
           - ⏱ Planned hours field for plans / 计划工时字段
           - 🚫 Skip date visualization on Gantt bars / 甘特图跳过日期可视化
           - ➖ `-YYYYMMDD` skip dates to add weekends as workdays / 跳过日期支持减号前缀

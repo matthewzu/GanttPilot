@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.5.1-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -21,7 +21,7 @@
 
 GanttPilot is a collaborative project manager that visualizes project status with Gantt charts. Each project is an independent Git repository, enabling multi-user collaboration through Git sync. Manage projects, milestones, plans, and activities — all from a clean right-click menu interface.
 
-Version: 0.4.0
+Version: 0.5.1
 
 ### 🚀 Quick Start
 
@@ -67,10 +67,12 @@ python main.py --version
 - 🌏 **Bilingual** - English and Chinese
 - 🔤 **Font Scaling** - Independent tree font and Gantt zoom
 - 🔄 **Auto Update** - Download with progress display from GitHub
-- 💾 **Config Persistence** - Window state, language, font, paths with folder browser
+- 💾 **Config Persistence** - Window state, language, font, paths with folder browser, report image settings
 - 📦 **Clone from Remote** - Create project by cloning existing remote repo
 - 📂 **Load Example** - Built-in demo project
-- 🚫 **Skip Date Visualization** - Skipped days shown as gray hatched overlay on Gantt bars
+- 🚫 **Skip Date Visualization** - Skipped days shown as red hatch overlay on Gantt bars
+- 🖼️ **PNG Report** - Reports embed locally rendered PNG Gantt chart (no PlantUML dependency)
+- 📐 **Auto-compress** - Long projects auto-shrink day width in report images (configurable threshold)
 
 ### 🖱️ Usage
 
@@ -137,7 +139,7 @@ GPL-3.0
 
 GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作为独立 Git 仓库，通过 Git 同步实现多人协作。
 
-版本：0.4.0
+版本：0.5.1
 
 ### 🚀 快速开始
 
@@ -181,10 +183,12 @@ python main.py --version
 - 🌏 **中英文双语**
 - 🔤 **字体缩放** - 树状图和甘特图独立缩放
 - 🔄 **在线自动更新** - 含下载进度显示
-- 💾 **配置持久化** - 含文件夹浏览按钮
+- 💾 **配置持久化** - 含文件夹浏览按钮、报告图片压缩参数
 - 📦 **远端克隆** - 从远端仓库克隆已有项目
 - 📂 **加载示例** - 内置演示项目
-- 🚫 **跳过日期可视化** - 甘特图中跳过的日期以灰色斜线标注
+- 🚫 **跳过日期可视化** - 甘特图中跳过的日期以红色斜线标注
+- 🖼️ **PNG 报告** - 报告内嵌本地渲染的 PNG 甘特图（无需 PlantUML）
+- 📐 **自动压缩** - 长项目自动缩小报告图片日宽度（可配置阈值）
 
 ### 🖱️ 操作方式
 
