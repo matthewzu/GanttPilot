@@ -854,9 +854,10 @@ class GanttPilotGUI:
             backend.save(png_path)
             png_filename = os.path.basename(png_path)
         except ImportError:
-            png_filename = None  # Pillow not available
-        except (IOError, OSError):
-            png_filename = None  # Save failed
+            png_filename = None
+        except Exception as e:
+            png_filename = None
+            self.status_var.set(f"PNG error: {e}")
 
         md = generate_gantt_markdown(proj, self.lang, png_filename)
         with open(path, "w", encoding="utf-8") as f:
