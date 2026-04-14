@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.5.1-blue.svg)
+![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -21,7 +21,7 @@
 
 GanttPilot is a collaborative project manager that visualizes project status with Gantt charts. Each project is an independent Git repository, enabling multi-user collaboration through Git sync. Manage projects, milestones, plans, and activities — all from a clean right-click menu interface.
 
-Version: 0.5.1
+Version: 0.6.0
 
 ### 🚀 Quick Start
 
@@ -59,7 +59,7 @@ python main.py --version
 - 🏷️ **Milestone Management** - Deadline, description, custom color
 - 📋 **Plan Management** - Executor, date range, planned hours, skip non-workdays, skip dates with `-YYYYMMDD` support, color, finish, set progress
 - ⏱ **Activity Tracking** - Per-executor time logging
-- 🔗 **Per-project Git Repos** - Independent repos with configurable remote (bare repos)
+- 🔗 **Per-project Git Repos** - Independent repos with configurable remote, private branch per user, PR workflow
 - 🔄 **Smart Sync** - Background sync on startup/switch/exit
 - ↩️ **Undo/Redo** - Ctrl+Z / Ctrl+Y
 - 📝 **Rich Reports** - Markdown with milestone completion rates, plan progress details, executor activity logs
@@ -122,8 +122,10 @@ Leave the "Remote URL" field empty to create a purely local project.
 - Each project is an independent Git repository stored in `~/.ganttpilot/data/{project_name}/`
 - Remote repositories must be **bare repos** (created with `git init --bare`)
 - Configurable remote main branch name (default: `main`)
-- Work branch: `priv` — all local operations commit here
-- Sync flow: fetch → pull main --rebase → rebase priv onto main → ff-merge → push main
+- Per-user private branch: `priv_{committer_name}` (configurable)
+- Sync flow: fetch main → rebase priv onto main → push priv to origin
+- Changes are merged to main via Pull Request on the remote platform
+- Project-level committer identity (name + email), auto-detected from git config
 - Automatic background sync: on startup (all projects), on project switch (previous project), on exit (current project)
 - Manual sync: right-click project → Sync
 
@@ -139,7 +141,7 @@ GPL-3.0
 
 GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作为独立 Git 仓库，通过 Git 同步实现多人协作。
 
-版本：0.5.1
+版本：0.6.0
 
 ### 🚀 快速开始
 
@@ -175,7 +177,7 @@ python main.py --version
 - 🏷️ **里程碑管理** - 截止日期、描述、自定义颜色
 - 📋 **计划管理** - 执行者、日期范围、计划工时、跳过非工作日、跳过日期（支持 `-YYYYMMDD` 格式）、颜色、终结、设置进度
 - ⏱ **活动跟踪** - 按执行者记录工时
-- 🔗 **项目级独立 Git 仓库** - 可配置远端（bare 仓库）
+- 🔗 **项目级独立 Git 仓库** - 可配置远端，每用户私有分支，PR 工作流
 - 🔄 **智能同步** - 启动/切换/退出时后台同步
 - ↩️ **撤销/恢复** - Ctrl+Z / Ctrl+Y
 - 📝 **丰富报告** - 里程碑完成率、计划进度详情、执行者工时明细
@@ -236,8 +238,10 @@ python main.py --version
 - 每个项目是独立的 Git 仓库，存储在 `~/.ganttpilot/data/{项目名}/`
 - 远端仓库必须是 **bare 仓库**（通过 `git init --bare` 创建）
 - 可配置远端主分支名称（默认 `main`）
-- 工作分支：`priv` — 所有本地操作在此分支提交
-- 同步流程：fetch → pull main --rebase → rebase priv onto main → ff-merge → push main
+- 每用户私有分支：`priv_{提交者名称}`（可配置）
+- 同步流程：fetch main → rebase priv onto main → push priv 到远端
+- 通过远端平台的 Pull Request 合并到主分支
+- 项目级提交者身份（名称 + 邮箱），可自动检测 git 配置
 - 自动后台同步：启动时（所有项目）、切换项目时（上一个项目）、退出时（当前项目）
 - 手动同步：项目右键 → 同步
 

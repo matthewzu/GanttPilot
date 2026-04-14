@@ -40,7 +40,8 @@ jobs:
           - 🚫 Skip date visualization on Gantt bars / 跳过日期甘特图可视化
           - ➖ `-YYYYMMDD` to add weekends as workdays / 减号前缀让周末变工作日
           - 📦 Clone projects from remote repos / 从远端仓库克隆项目
-          - 🔗 Per-project independent Git repos / 项目级独立 Git 仓库
+          - 🔗 Per-project Git repos with private branch + PR workflow / 项目级 Git 仓库 + 私有分支 + PR 工作流
+          - 👤 Project-level committer identity / 项目级提交者身份
           - 🔄 Smart background sync / 智能后台同步
           - ↩️ Undo/Redo (Ctrl+Z/Y) / 撤销恢复
           - 📝 Rich reports with completion rates / 丰富报告含完成率
@@ -53,7 +54,14 @@ jobs:
           - 💾 Config with folder browser + report image settings / 配置含文件夹浏览 + 报告图片参数
           - 📂 Built-in demo project / 内置示例项目
 
-          ### 🆕 New in v0.5.1 / v0.5.1 新功能
+          ### 🆕 New in v0.6.0 / v0.6.0 新功能
+          - 🔀 Push to private branch instead of main / 推送到私有分支而非主分支
+          - 👤 Project-level committer identity (name + email) / 项目级提交者身份
+          - 🔍 Auto-detect git user config / 自动检测 git 用户配置
+          - 📋 PR hint after sync / 同步后提示创建 Pull Request
+          - 🔒 Git install + committer check before sync / 同步前检测 git 和提交者
+
+          ### From v0.5.x / v0.5.x 功能
           - 🖼️ DrawBackend abstraction: PNG report with local rendering / DrawBackend 抽象层：本地渲染 PNG 报告
           - 📐 Auto-compress long project Gantt images / 长项目甘特图自动压缩
           - ⚙️ Report image compress settings in config / 配置中报告图片压缩参数
