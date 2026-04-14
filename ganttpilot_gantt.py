@@ -256,11 +256,14 @@ class GanttRenderer:
     COMPRESS_THRESHOLD = 300  # auto-compress day_width when total_days exceeds this
     MAX_CHART_WIDTH = 4000    # max chart pixel width when compressed
 
-    def __init__(self, backend: DrawBackend, project, lang="zh", font_size=10):
+    def __init__(self, backend: DrawBackend, project, lang="zh", font_size=10,
+                 compress_threshold=300, max_chart_width=4000):
         self.backend = backend
         self.project = project
         self.lang = lang
         self.font_size = font_size
+        self.compress_threshold = compress_threshold
+        self.max_chart_width = max_chart_width
         # Scale layout with font size (base=10)
         scale = font_size / 10.0
         self.label_width = int(GanttRenderer.LABEL_WIDTH * scale)
@@ -325,8 +328,8 @@ class GanttRenderer:
         today = datetime.now().date()
 
         # Auto-compress day_width for long projects
-        if total_days > self.COMPRESS_THRESHOLD:
-            max_chart = self.MAX_CHART_WIDTH - self.label_width - 10
+        if total_days > self.compress_threshold:
+            max_chart = self.max_chart_width - self.label_width - 10
             self.day_width = max(4, max_chart // total_days)
 
         chart_x = self.label_width

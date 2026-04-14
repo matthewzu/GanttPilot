@@ -16,6 +16,8 @@ DEFAULT_CONFIG = {
     "remote_url": "",
     "remote_username": "",
     "remote_password": "",
+    "compress_threshold": 300,
+    "max_chart_width": 4000,
 }
 
 

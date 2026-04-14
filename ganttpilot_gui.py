@@ -449,7 +449,9 @@ class GanttPilotGUI:
         if not proj:
             return
         backend = CanvasBackend(self.gantt_canvas)
-        renderer = GanttRenderer(backend, proj, self.lang, self.gantt_zoom)
+        renderer = GanttRenderer(backend, proj, self.lang, self.gantt_zoom,
+                                 self.config.get("compress_threshold", 300),
+                                 self.config.get("max_chart_width", 4000))
         renderer.draw()
         self.status_var.set(f"{self._t('gantt_chart')}: {self.current_project}")
 
@@ -848,7 +850,9 @@ class GanttPilotGUI:
         try:
             from ganttpilot_gantt import PillowBackend
             backend = PillowBackend()
-            renderer = GanttRenderer(backend, proj, self.lang, self.gantt_zoom)
+            renderer = GanttRenderer(backend, proj, self.lang, self.gantt_zoom,
+                                     self.config.get("compress_threshold", 300),
+                                     self.config.get("max_chart_width", 4000))
             renderer.draw()
             png_path = os.path.splitext(path)[0] + "_gantt.png"
             backend.save(png_path)
@@ -1216,7 +1220,7 @@ class ConfigDialog:
         self.saved = False
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("config"))
-        self.top.geometry("580x300")
+        self.top.geometry("580x380")
         self.top.transient(parent)
         self.top.grab_set()
 
@@ -1226,6 +1230,8 @@ class ConfigDialog:
             ("remote_username", t_func("username"), config.remote_username),
             ("remote_password", t_func("password"), config.remote_password),
             ("config_dir", t_func("config_dir"), config.config_dir),
+            ("compress_threshold", t_func("compress_threshold") if lang == "en" else "压缩阈值(天)", str(config.get("compress_threshold", 300))),
+            ("max_chart_width", t_func("max_chart_width") if lang == "en" else "最大图表宽度(px)", str(config.get("max_chart_width", 4000))),
         ]
         path_fields = {"data_dir", "config_dir"}
         self.entries = {}
@@ -1252,7 +1258,13 @@ class ConfigDialog:
 
     def _save(self):
         for key, entry in self.entries.items():
-            self.config.set(key, entry.get().strip())
+            val = entry.get().strip()
+            if key in ("compress_threshold", "max_chart_width"):
+                try:
+                    val = int(val)
+                except ValueError:
+                    continue
+            self.config.set(key, val)
         self.config.save()
         self.saved = True
         self.top.destroy()
