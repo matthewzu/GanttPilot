@@ -2,18 +2,15 @@
 # -*- coding: utf-8 -*-
 """GanttPilot - Git Sync Management / Git同步管理
 
-Work branch: 'priv' (all local commits go here)
+Work branch: user-configurable priv_branch (default 'priv_{committer_name}' or 'priv')
 Remote branch: configurable main branch (default 'main')
 
 Sync flow:
-  1. Commit any pending changes on priv
-  2. Ensure remote is configured
-  3. Fetch from origin
-  4. Checkout main_branch, pull --rebase from origin/main_branch
-  5. Checkout priv, rebase onto main_branch
-  6. Checkout main_branch, merge --ff-only priv
-  7. Push main_branch to origin
-  8. Checkout priv (back to work branch)
+  1. Checkout priv_branch, commit any pending changes
+  2. Fetch from origin
+  3. Rebase priv_branch onto origin/main_branch
+  4. Push priv_branch to origin
+  NO merge/push main — use Pull Request instead.
 """
 
 import os
@@ -29,12 +26,16 @@ class GitSync:
 
     WORK_BRANCH = "priv"
 
-    def __init__(self, data_dir, remote_url="", username="", password="", main_branch="main"):
+    def __init__(self, data_dir, remote_url="", username="", password="", main_branch="main",
+                 committer_name="", committer_email="", priv_branch=""):
         self.data_dir = data_dir
         self.remote_url = remote_url
         self.username = username
         self.password = password
         self.main_branch = main_branch or "main"
+        self.committer_name = committer_name
+        self.committer_email = committer_email
+        self.priv_branch = priv_branch or (f"priv_{committer_name}" if committer_name else self.WORK_BRANCH)
 
     def clone_repo(self, remote_url, target_dir, main_branch="main"):
         """Clone a remote repository to target_dir, checkout main_branch, create priv branch."""
@@ -63,10 +64,24 @@ class GitSync:
         except Exception as e:
             raise RuntimeError(str(e))
 
-    def _run(self, *args, check=True):
+    def _committer_config(self):
+        """Return list of (key, value) tuples for committer identity config."""
+        config = []
+        if self.committer_name:
+            config.append(("user.name", self.committer_name))
+        if self.committer_email:
+            config.append(("user.email", self.committer_email))
+        return config or None
+
+    def _run(self, *args, check=True, extra_config=None):
         """Run a git command in the data directory"""
+        cmd = ["git"]
+        if extra_config:
+            for k, v in extra_config:
+                cmd += ["-c", f"{k}={v}"]
+        cmd += list(args)
         result = subprocess.run(
-            ["git"] + list(args),
+            cmd,
             cwd=self.data_dir,
             capture_output=True,
             text=True,
@@ -119,7 +134,7 @@ class GitSync:
         if not self.is_repo():
             self._run("init")
         # Ensure priv branch exists and is checked out
-        if not self._branch_exists(self.WORK_BRANCH):
+        if not self._branch_exists(self.priv_branch):
             # If no commits yet, make an initial commit
             status = self._run("status", "--porcelain", check=False)
             if not self._run("log", "--oneline", "-1", check=False).stdout.strip():
@@ -127,23 +142,23 @@ class GitSync:
                 self._run("add", "-A", check=False)
                 self._run("commit", "--allow-empty", "-m", "Initial commit")
             try:
-                self._run("checkout", "-b", self.WORK_BRANCH)
+                self._run("checkout", "-b", self.priv_branch)
             except RuntimeError:
-                self._run("checkout", self.WORK_BRANCH)
+                self._run("checkout", self.priv_branch)
         else:
-            self._run("checkout", self.WORK_BRANCH, check=False)
+            self._run("checkout", self.priv_branch, check=False)
 
     def commit(self, message):
         """Stage all changes and commit on priv branch"""
         if not self.is_repo():
             self.init_repo()
-        # Ensure we're on priv
-        self._run("checkout", self.WORK_BRANCH, check=False)
+        # Ensure we're on priv branch
+        self._run("checkout", self.priv_branch, check=False)
         self._run("add", "-A")
         status = self._run("status", "--porcelain", check=False)
         if not status.stdout.strip():
             return False
-        self._run("commit", "-m", message)
+        self._run("commit", "-m", message, extra_config=self._committer_config())
         return True
 
     def _remote_branch_exists(self, branch):
@@ -151,62 +166,77 @@ class GitSync:
         result = self._run("ls-remote", "--heads", "origin", branch, check=False)
         return branch in result.stdout
 
+    @staticmethod
+    def check_git_installed():
+        """Check if git is installed, return (bool, version_string)"""
+        try:
+            result = subprocess.run(
+                ["git", "--version"], capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=10,
+                creationflags=_SUBPROCESS_FLAGS,
+            )
+            return result.returncode == 0, result.stdout.strip()
+        except (FileNotFoundError, OSError):
+            return False, ""
+
+    @staticmethod
+    def detect_git_user():
+        """Detect current environment git user.name and user.email, return (name, email)"""
+        name, email = "", ""
+        try:
+            r = subprocess.run(
+                ["git", "config", "user.name"], capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=10,
+                creationflags=_SUBPROCESS_FLAGS,
+            )
+            name = r.stdout.strip()
+        except (FileNotFoundError, OSError):
+            pass
+        try:
+            r = subprocess.run(
+                ["git", "config", "user.email"], capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=10,
+                creationflags=_SUBPROCESS_FLAGS,
+            )
+            email = r.stdout.strip()
+        except (FileNotFoundError, OSError):
+            pass
+        return name, email
+
     def sync(self):
-        """Sync with bare remote repo.
+        """Sync with remote repo via private branch.
 
         Flow:
-          1. Commit pending changes on priv
-          2. Fetch from origin
-          3. Pull remote main (create local main if needed)
-          4. Rebase priv onto main
-          5. Fast-forward merge priv into main
-          6. Push main to origin
-          7. Back to priv
+          1. Checkout priv_branch, commit pending changes
+          2. Configure remote, fetch from origin
+          3. Rebase priv_branch onto origin/main_branch
+          4. Push priv_branch to origin
+          NO merge/push main.
         """
         if not self.remote_url or not self.is_repo():
             return False
 
+        wb = self.priv_branch
         mb = self.main_branch
-        wb = self.WORK_BRANCH
 
-        # 1. Commit pending on priv
+        # 1. Commit pending on priv_branch
         self._run("checkout", wb, check=False)
         self._run("add", "-A", check=False)
         status = self._run("status", "--porcelain", check=False)
         if status.stdout.strip():
-            self._run("commit", "-m", "Auto-commit before sync")
+            self._run("commit", "-m", "Auto-commit before sync",
+                      extra_config=self._committer_config())
 
         # 2. Configure remote, fetch
         self._ensure_remote()
         self._run("fetch", "origin", check=False)
 
-        # 3. Ensure local main exists and is up to date
-        remote_has_main = self._remote_branch_exists(mb)
-        if not self._branch_exists(mb):
-            if remote_has_main:
-                self._run("checkout", "-b", mb, f"origin/{mb}")
-            else:
-                # Remote empty — create main from priv
-                self._run("checkout", "-b", mb, wb)
-        else:
-            self._run("checkout", mb)
-            if remote_has_main:
-                self._run("pull", "--rebase", "origin", mb, check=False)
-
-        # 4. Rebase priv onto main
-        self._run("checkout", wb)
-        rebase_result = self._run("rebase", mb, check=False)
+        # 3. Rebase priv_branch onto origin/main_branch
+        rebase_result = self._run("rebase", f"origin/{mb}", check=False)
         if rebase_result.returncode != 0:
             self._run("rebase", "--abort", check=False)
-            self._run("merge", mb, "--no-edit", check=False)
+            raise RuntimeError("Rebase conflict, aborted")
 
-        # 5. Merge priv into main (fast-forward)
-        self._run("checkout", mb)
-        self._run("merge", wb, "--ff-only", check=False)
-
-        # 6. Push main to origin
-        self._run("push", "-u", "origin", mb)
-
-        # 7. Back to priv
-        self._run("checkout", wb)
+        # 4. Push priv_branch to origin
+        self._run("push", "-u", "origin", wb)
         return True

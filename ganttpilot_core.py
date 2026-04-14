@@ -94,6 +94,12 @@ class DataStore:
                     # Fill missing project-level defaults
                     if "description" not in proj:
                         proj["description"] = ""
+                    if "committer_name" not in proj:
+                        proj["committer_name"] = ""
+                    if "committer_email" not in proj:
+                        proj["committer_email"] = ""
+                    if "priv_branch" not in proj:
+                        proj["priv_branch"] = ""
                     # Fill missing progress/actual_end_date defaults for each plan
                     for ms in proj.get("milestones", []):
                         for plan in ms.get("plans", []):
