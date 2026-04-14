@@ -1,0 +1,134 @@
+name: Auto Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: GanttPilot ${{ github.ref_name }}
+        body: |
+          ## GanttPilot ${{ github.ref_name }}
+
+          Collaborative Project Manager with Gantt Chart / 基于甘特图的协作式项目管理器
+
+          ### 📥 Download / 下载
+          - **Windows**: `GanttPilot.exe` — Double-click to run / 双击运行
+          - **macOS**: `GanttPilot.dmg` — Open DMG to run / 打开 DMG 运行
+          - **Linux**: `GanttPilot` — `chmod +x GanttPilot && ./GanttPilot`
+
+          💡 Supports both GUI and CLI modes / 支持 GUI 和 CLI 双模式:
+          - GUI (default): `GanttPilot`
+          - CLI: `GanttPilot --cli`
+
+          ### ✨ All Features / 全部功能
+          - 📊 Native Gantt chart with progress bars / 原生甘特图，含进度条
+          - 📌 Milestone deadlines with diamond markers / 里程碑截止日期（菱形标记）
+          - 📈 Plan progress tracking (0-100%) / 计划进度追踪
+          - 🎨 Per-executor auto-coloring / 每个执行者自动分配颜色
+          - 📁 Project CRUD with description / 项目增删改含描述
+          - ⏱ Planned hours for plans / 计划工时
+          - 🚫 Skip date visualization on Gantt bars / 跳过日期甘特图可视化
+          - ➖ `-YYYYMMDD` to add weekends as workdays / 减号前缀让周末变工作日
+          - 📦 Clone projects from remote repos / 从远端仓库克隆项目
+          - 🔗 Per-project independent Git repos / 项目级独立 Git 仓库
+          - 🔄 Smart background sync / 智能后台同步
+          - ↩️ Undo/Redo (Ctrl+Z/Y) / 撤销恢复
+          - 📝 Rich reports with completion rates / 丰富报告含完成率
+          - 🖥️ GUI + CLI dual mode / GUI + CLI 双模式
+          - 🌏 Bilingual (EN/ZH) / 中英文双语
+          - 🔤 Font scaling + Gantt zoom / 字体缩放 + 甘特图缩放
+          - 🔄 Auto update from GitHub / 在线自动更新
+          - 💾 Config with folder browser / 配置含文件夹浏览
+          - 📂 Built-in demo project / 内置示例项目
+
+          ### 🆕 New in v0.4.0 / v0.4.0 新功能
+          - ⏱ Planned hours field for plans / 计划工时字段
+          - 🚫 Skip date visualization on Gantt bars / 甘特图跳过日期可视化
+          - ➖ `-YYYYMMDD` skip dates to add weekends as workdays / 跳过日期支持减号前缀
+          - 📊 Download progress display for updates / 更新下载进度显示
+
+          ### From v0.3.x / v0.3.x 功能
+          - 📈 Plan progress tracking with visual bars / 计划进度追踪（可视化进度条）
+          - 📊 Milestone completion rates in reports / 报告中里程碑完成率
+          - 📦 Clone projects from remote repos / 从远端仓库克隆项目
+          - 📁 Project description field / 项目描述字段
+          - 🖱️ Unified create dialogs / 统一创建对话框
+          - 📂 Load example project / 加载示例项目
+          - 📂 Folder browser in config / 配置中文件夹浏览按钮
+          - 🔇 Hidden console windows for git operations / 隐藏 git 操作控制台窗口
+
+          ### From v0.2.0 / v0.2.0 功能
+          - ↩️ Undo/Redo with Ctrl+Z/Y / 撤销恢复
+          - ✏️ Edit all items via right-click / 右键编辑所有属性
+          - 🔗 Per-project Git repos / 项目级独立 Git 仓库
+          - 📌 Milestone deadlines / 里程碑截止日期
+          - 🔍 Independent Gantt zoom / 甘特图独立缩放
+          - 🔄 Auto-download updates / 自动下载更新
+
+          Documentation / 文档: [README.md](https://github.com/${{ github.repository }})
+        draft: false
+        prerelease: false
+
+  build-windows:
+    needs: create-release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    - run: |
+        pip install pyinstaller
+        pyinstaller --onefile --windowed --name=GanttPilot --icon=ganttpilot.ico --add-data "ganttpilot.ico;." main.py
+    - uses: softprops/action-gh-release@v1
+      with:
+        files: dist/GanttPilot.exe
+
+  build-macos:
+    needs: create-release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    - run: |
+        pip install pyinstaller
+        pyinstaller --onefile --windowed --name=GanttPilot --add-data "ganttpilot.ico:." main.py
+        mkdir dmg_temp
+        cp dist/GanttPilot dmg_temp/
+        hdiutil create -volname "GanttPilot" -srcfolder dmg_temp -ov -format UDZO GanttPilot.dmg
+    - uses: softprops/action-gh-release@v1
+      with:
+        files: GanttPilot.dmg
+
+  build-linux:
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    - run: |
+        pip install pyinstaller
+        pyinstaller --onefile --windowed --name=GanttPilot --icon=ganttpilot.ico --add-data "ganttpilot.ico:." main.py
+    - uses: softprops/action-gh-release@v1
+      with:
+        files: dist/GanttPilot
