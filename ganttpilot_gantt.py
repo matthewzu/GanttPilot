@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 """GanttPilot - Gantt Chart Rendering / 甘特图渲染
 
-Native tkinter Canvas rendering with per-executor coloring.
-Also generates PlantUML @startgantt markup for markdown reports.
+DrawBackend abstraction with CanvasBackend (GUI) and PillowBackend (PNG export).
+Also generates PlantUML @startgantt markup for browser viewing.
 """
 
 import zlib
 import webbrowser
+from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
+from typing import Optional, Sequence, Tuple
 
 
 # ── Executor color palette ───────────────────────────────────
@@ -71,8 +73,180 @@ def _weekday_short(d, lang="zh"):
     return names[d.weekday()]
 
 
+# ── DrawBackend abstract base class ─────────────────────────
+
+class DrawBackend(ABC):
+    """甘特图绘制后端抽象接口"""
+
+    @abstractmethod
+    def set_size(self, width: int, height: int) -> None:
+        """设置画布/图片尺寸"""
+        ...
+
+    @abstractmethod
+    def clear(self) -> None:
+        """清除所有已绘制内容"""
+        ...
+
+    @abstractmethod
+    def rectangle(self, x1: float, y1: float, x2: float, y2: float,
+                  fill: str = "", outline: str = "", width: int = 0) -> None:
+        """绘制矩形"""
+        ...
+
+    @abstractmethod
+    def line(self, x1: float, y1: float, x2: float, y2: float,
+             fill: str = "#000000", width: int = 1,
+             dash: Optional[Tuple[int, ...]] = None) -> None:
+        """绘制线段"""
+        ...
+
+    @abstractmethod
+    def text(self, x: float, y: float, text: str,
+             font_size: int = 10, fill: str = "#000000",
+             anchor: str = "nw", bold: bool = False) -> None:
+        """绘制文本"""
+        ...
+
+    @abstractmethod
+    def polygon(self, points: Sequence[Tuple[float, float]],
+                fill: str = "", outline: str = "", width: int = 1) -> None:
+        """绘制多边形"""
+        ...
+
+
+# ── CanvasBackend ────────────────────────────────────────────
+
+class CanvasBackend(DrawBackend):
+    """tkinter Canvas 绘制后端，用于 GUI 实时渲染"""
+
+    def __init__(self, canvas) -> None:
+        self._canvas = canvas
+
+    def set_size(self, width: int, height: int) -> None:
+        self._canvas.configure(scrollregion=(0, 0, width, height))
+
+    def clear(self) -> None:
+        self._canvas.delete("all")
+
+    def rectangle(self, x1, y1, x2, y2, fill="", outline="", width=0):
+        self._canvas.create_rectangle(x1, y1, x2, y2,
+                                       fill=fill, outline=outline, width=width)
+
+    def line(self, x1, y1, x2, y2, fill="#000000", width=1, dash=None):
+        kwargs = {"fill": fill, "width": width}
+        if dash:
+            kwargs["dash"] = dash
+        self._canvas.create_line(x1, y1, x2, y2, **kwargs)
+
+    def text(self, x, y, text, font_size=10, fill="#000000", anchor="nw", bold=False):
+        font = ("", font_size, "bold") if bold else ("", font_size)
+        self._canvas.create_text(x, y, anchor=anchor, text=text,
+                                  font=font, fill=fill)
+
+    def polygon(self, points, fill="", outline="", width=1):
+        flat = [coord for pt in points for coord in pt]
+        self._canvas.create_polygon(*flat, fill=fill, outline=outline, width=width)
+
+
+# ── PillowBackend ────────────────────────────────────────────
+
+class PillowBackend(DrawBackend):
+    """Pillow ImageDraw 绘制后端，用于 PNG 导出"""
+
+    def __init__(self, width: int = 800, height: int = 600) -> None:
+        from PIL import Image, ImageDraw, ImageFont
+        self._Image = Image
+        self._ImageDraw = ImageDraw
+        self._ImageFont = ImageFont
+        self._image = Image.new("RGB", (width, height), "white")
+        self._draw = ImageDraw.Draw(self._image)
+
+    def set_size(self, width: int, height: int) -> None:
+        self._image = self._Image.new("RGB", (width, height), "white")
+        self._draw = self._ImageDraw.Draw(self._image)
+
+    def clear(self) -> None:
+        w, h = self._image.size
+        self._draw.rectangle([0, 0, w, h], fill="white")
+
+    def rectangle(self, x1, y1, x2, y2, fill="", outline="", width=0):
+        fill = fill if fill else None
+        outline = outline if outline else None
+        self._draw.rectangle([x1, y1, x2, y2],
+                              fill=fill, outline=outline, width=max(width, 0))
+
+    def line(self, x1, y1, x2, y2, fill="#000000", width=1, dash=None):
+        # Pillow 不原生支持 dash，直接画实线
+        self._draw.line([x1, y1, x2, y2], fill=fill, width=width)
+
+    def text(self, x, y, text, font_size=10, fill="#000000", anchor="nw", bold=False):
+        # 将 tkinter anchor 映射为 Pillow anchor
+        anchor_map = {
+            "nw": "la", "n": "ma", "ne": "ra",
+            "w": "lm", "center": "mm", "e": "rm",
+            "sw": "ld", "s": "md", "se": "rd",
+        }
+        pil_anchor = anchor_map.get(anchor, "la")
+        font = self._get_font(font_size, bold)
+        self._draw.text((x, y), text, fill=fill, font=font, anchor=pil_anchor)
+
+    def polygon(self, points, fill="", outline="", width=1):
+        fill = fill if fill else None
+        outline = outline if outline else None
+        self._draw.polygon(points, fill=fill, outline=outline, width=width)
+
+    def save(self, path: str) -> None:
+        """保存图片到文件"""
+        self._image.save(path)
+
+    def _get_font(self, size: int, bold: bool = False):
+        """获取字体，优先使用系统中文字体，回退到默认字体"""
+        import sys as _sys
+        font_paths = []
+        if _sys.platform == "win32":
+            font_paths = [
+                "C:/Windows/Fonts/msyh.ttc",      # 微软雅黑
+                "C:/Windows/Fonts/msyhbd.ttc",     # 微软雅黑粗体
+                "C:/Windows/Fonts/simhei.ttf",     # 黑体
+            ]
+        elif _sys.platform == "darwin":
+            font_paths = [
+                "/System/Library/Fonts/PingFang.ttc",
+                "/System/Library/Fonts/STHeiti Light.ttc",
+            ]
+        else:
+            font_paths = [
+                "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+            ]
+
+        if bold:
+            # 尝试粗体字体
+            bold_paths = [p for p in font_paths if "bd" in p.lower() or "bold" in p.lower()]
+            for fp in bold_paths:
+                try:
+                    return self._ImageFont.truetype(fp, size)
+                except (OSError, IOError):
+                    continue
+
+        for fp in font_paths:
+            try:
+                return self._ImageFont.truetype(fp, size)
+            except (OSError, IOError):
+                continue
+
+        # 回退到 Pillow 默认字体
+        try:
+            return self._ImageFont.truetype("arial.ttf", size)
+        except (OSError, IOError):
+            return self._ImageFont.load_default()
+
+
+
 class GanttRenderer:
-    """Renders a Gantt chart on a tkinter Canvas with per-executor coloring."""
+    """Renders a Gantt chart via DrawBackend with per-executor coloring."""
 
     LABEL_WIDTH = 200
     ROW_HEIGHT = 26
@@ -80,8 +254,8 @@ class GanttRenderer:
     HEADER_HEIGHT = 44
     PADDING = 3
 
-    def __init__(self, canvas, project, lang="zh", font_size=10):
-        self.canvas = canvas
+    def __init__(self, backend: DrawBackend, project, lang="zh", font_size=10):
+        self.backend = backend
         self.project = project
         self.lang = lang
         self.font_size = font_size
@@ -92,10 +266,8 @@ class GanttRenderer:
         self.day_width = int(GanttRenderer.DAY_WIDTH * scale)
         self.header_height = int(GanttRenderer.HEADER_HEIGHT * scale)
         self.padding = max(2, int(GanttRenderer.PADDING * scale))
-        self.font = ("", font_size)
-        self.font_bold = ("", font_size, "bold")
-        self.font_small = ("", max(7, font_size - 2))
-        self.font_tiny = ("", max(6, font_size - 3))
+        self.font_size_small = max(7, font_size - 2)
+        self.font_size_tiny = max(6, font_size - 3)
         self._executor_colors = {}
         self._color_idx = 0
 
@@ -109,7 +281,7 @@ class GanttRenderer:
         return self._executor_colors[executor]
 
     def draw(self):
-        self.canvas.delete("all")
+        self.backend.clear()
         if not self.project:
             return
 
@@ -132,7 +304,7 @@ class GanttRenderer:
                 tasks.append(("task", label, start, end, status, executor, plan_color, ms_color, None, progress, skip_dates_list, skip_non_wd))
 
         if not tasks:
-            self.canvas.create_text(10, 10, anchor="nw", text="No data", font=self.font)
+            self.backend.text(10, 10, "No data", font_size=self.font_size)
             return
 
         # Date range
@@ -155,13 +327,13 @@ class GanttRenderer:
         total_width = chart_x + chart_width + 10
         total_height = self.header_height + len(tasks) * self.row_height + 40
 
-        self.canvas.configure(scrollregion=(0, 0, total_width, total_height))
+        self.backend.set_size(total_width, total_height)
 
         # ── Weekend columns ──────────────────────────────────
         for i, d in enumerate(dates):
             x = chart_x + i * self.day_width
             if d.weekday() >= 5:
-                self.canvas.create_rectangle(
+                self.backend.rectangle(
                     x, 0, x + self.day_width, total_height,
                     fill=COLOR_WEEKEND_BG, outline="",
                 )
@@ -169,29 +341,29 @@ class GanttRenderer:
         # ── Grid lines (vertical) ───────────────────────────
         for i, d in enumerate(dates):
             x = chart_x + i * self.day_width
-            self.canvas.create_line(x, 0, x, total_height, fill=COLOR_GRID)
+            self.backend.line(x, 0, x, total_height, fill=COLOR_GRID)
 
         # ── Header row 1: weekday names ──────────────────────
         for i, d in enumerate(dates):
             x = chart_x + i * self.day_width
             wd = _weekday_short(d, self.lang)
             color = "#CC6666" if d.weekday() >= 5 else "#666666"
-            self.canvas.create_text(
-                x + self.day_width // 2, 6, anchor="n",
-                text=wd, font=self.font_tiny, fill=color,
+            self.backend.text(
+                x + self.day_width // 2, 6, wd,
+                font_size=self.font_size_tiny, fill=color, anchor="n",
             )
 
         # ── Header row 2: day numbers ────────────────────────
         for i, d in enumerate(dates):
             x = chart_x + i * self.day_width
             color = "#CC6666" if d.weekday() >= 5 else "#333333"
-            self.canvas.create_text(
-                x + self.day_width // 2, 20, anchor="n",
-                text=str(d.day), font=self.font_small, fill=color,
+            self.backend.text(
+                x + self.day_width // 2, 20, str(d.day),
+                font_size=self.font_size_small, fill=color, anchor="n",
             )
 
         # ── Header separator ─────────────────────────────────
-        self.canvas.create_line(0, self.header_height, total_width, self.header_height, fill=COLOR_BORDER)
+        self.backend.line(0, self.header_height, total_width, self.header_height, fill=COLOR_BORDER)
 
         # ── Month labels at bottom ───────────────────────────
         bottom_y = self.header_height + len(tasks) * self.row_height + 8
@@ -209,7 +381,8 @@ class GanttRenderer:
                                       "7月", "8月", "9月", "10月", "11月", "12月"]
                     names = month_names_zh if self.lang == "zh" else month_names_en
                     label = f"{names[current_month[1]]} {current_month[0]}"
-                    self.canvas.create_text(mid, bottom_y, anchor="n", text=label, font=self.font_bold, fill="#555")
+                    self.backend.text(mid, bottom_y, label,
+                                      font_size=self.font_size, fill="#555", anchor="n", bold=True)
                 current_month = month_key
                 month_start_x = x
         if current_month:
@@ -220,12 +393,13 @@ class GanttRenderer:
                               "7月", "8月", "9月", "10月", "11月", "12月"]
             names = month_names_zh if self.lang == "zh" else month_names_en
             label = f"{names[current_month[1]]} {current_month[0]}"
-            self.canvas.create_text(mid, bottom_y, anchor="n", text=label, font=self.font_bold, fill="#555")
+            self.backend.text(mid, bottom_y, label,
+                              font_size=self.font_size, fill="#555", anchor="n", bold=True)
 
         # ── Today line ───────────────────────────────────────
         if min_date <= today <= max_date:
             tx = chart_x + (today - min_date).days * self.day_width + self.day_width // 2
-            self.canvas.create_line(tx, 0, tx, total_height, fill=COLOR_TODAY, width=2, dash=(4, 2))
+            self.backend.line(tx, 0, tx, total_height, fill=COLOR_TODAY, width=2, dash=(4, 2))
 
         # ── Draw tasks ───────────────────────────────────────
         for row, (kind, label, start, end, status, executor, plan_color, ms_color, deadline, progress, skip_dates_list, skip_non_wd) in enumerate(tasks):
@@ -233,32 +407,34 @@ class GanttRenderer:
             mid_y = y + self.row_height // 2
 
             # Row separator
-            self.canvas.create_line(0, y + self.row_height, total_width, y + self.row_height, fill=COLOR_GRID)
+            self.backend.line(0, y + self.row_height, total_width, y + self.row_height, fill=COLOR_GRID)
 
             if kind == "milestone":
                 # Milestone row
-                self.canvas.create_rectangle(0, y, total_width, y + self.row_height, fill=COLOR_MILESTONE_BG, outline="")
-                self.canvas.create_text(8, mid_y, anchor="w", text=label, font=self.font_bold, fill=COLOR_MILESTONE_FG)
+                self.backend.rectangle(0, y, total_width, y + self.row_height, fill=COLOR_MILESTONE_BG, outline="")
+                self.backend.text(8, mid_y, label,
+                                  font_size=self.font_size, fill=COLOR_MILESTONE_FG, anchor="w", bold=True)
                 # Draw deadline diamond marker
                 if deadline and min_date <= deadline <= max_date:
                     dx = chart_x + (deadline - min_date).days * self.day_width + self.day_width // 2
                     sz = self.row_height // 3
-                    self.canvas.create_polygon(
-                        dx, mid_y - sz, dx + sz, mid_y, dx, mid_y + sz, dx - sz, mid_y,
+                    self.backend.polygon(
+                        [(dx, mid_y - sz), (dx + sz, mid_y), (dx, mid_y + sz), (dx - sz, mid_y)],
                         fill="#E74C3C", outline="#C0392B", width=1,
                     )
                     # Date label next to diamond
-                    self.canvas.create_text(
-                        dx + sz + 4, mid_y, anchor="w",
-                        text=deadline.strftime("%m/%d"), font=self.font_tiny, fill="#C0392B",
+                    self.backend.text(
+                        dx + sz + 4, mid_y, deadline.strftime("%m/%d"),
+                        font_size=self.font_size_tiny, fill="#C0392B", anchor="w",
                     )
             else:
                 # Label area background
-                self.canvas.create_rectangle(0, y, chart_x, y + self.row_height, fill=COLOR_LABEL_BG, outline="")
+                self.backend.rectangle(0, y, chart_x, y + self.row_height, fill=COLOR_LABEL_BG, outline="")
 
                 # Task label (truncate if needed)
                 display = label if len(label) <= 24 else label[:22] + "…"
-                self.canvas.create_text(8, mid_y, anchor="w", text=display, font=self.font, fill="#333")
+                self.backend.text(8, mid_y, display,
+                                  font_size=self.font_size, fill="#333", anchor="w")
 
                 # Task bar
                 if start and end:
@@ -276,16 +452,16 @@ class GanttRenderer:
                         color = self._get_executor_color(executor)
 
                     # Bar with rounded feel (two rects)
-                    self.canvas.create_rectangle(bx1, by1, bx2, by2, fill=color, outline="", width=0)
+                    self.backend.rectangle(bx1, by1, bx2, by2, fill=color, outline="", width=0)
                     # Slight border
-                    self.canvas.create_rectangle(bx1, by1, bx2, by2, fill="", outline=color, width=1)
+                    self.backend.rectangle(bx1, by1, bx2, by2, fill="", outline=color, width=1)
 
                     # Progress bar overlay
                     if progress > 0:
                         bar_total_width = bx2 - bx1
                         progress_width = bar_total_width * progress / 100
                         dark_color = darken_color(color, 0.6)
-                        self.canvas.create_rectangle(
+                        self.backend.rectangle(
                             bx1, by1, bx1 + progress_width, by2,
                             fill=dark_color, outline="", width=0,
                         )
@@ -302,16 +478,16 @@ class GanttRenderer:
 
                     # Only show text if bar is wide enough
                     if bar_width > 30:
-                        self.canvas.create_text(
-                            bar_mid, mid_y, anchor="center",
-                            text=bar_label, font=self.font_small, fill="white",
+                        self.backend.text(
+                            bar_mid, mid_y, bar_label,
+                            font_size=self.font_size_small, fill="white", anchor="center",
                         )
 
                     # Executor tag after bar
                     if executor and bar_width < 120:
-                        self.canvas.create_text(
-                            bx2 + 4, mid_y, anchor="w",
-                            text=executor, font=self.font_tiny, fill="#888",
+                        self.backend.text(
+                            bx2 + 4, mid_y, executor,
+                            font_size=self.font_size_tiny, fill="#888", anchor="w",
                         )
 
                     # Skip date overlay stripes on bar
@@ -341,7 +517,7 @@ class GanttRenderer:
                             if is_skipped:
                                 sx = chart_x + (current - min_date).days * self.day_width
                                 # Draw visible diagonal hatch lines over the skipped day
-                                self.canvas.create_rectangle(
+                                self.backend.rectangle(
                                     sx, by1, sx + self.day_width, by2,
                                     fill="", outline="", width=0,
                                 )
@@ -359,17 +535,18 @@ class GanttRenderer:
                                         y2 = by2 - (sx - x2)
                                         x2 = sx
                                     if y1 < by2 and y2 > by1:
-                                        self.canvas.create_line(
+                                        self.backend.line(
                                             x1, y1, x2, y2,
                                             fill="#AA0000", width=1,
                                         )
                             current += timedelta(days=1)
 
         # ── Label column border ──────────────────────────────
-        self.canvas.create_line(chart_x, 0, chart_x, total_height, fill=COLOR_BORDER)
+        self.backend.line(chart_x, 0, chart_x, total_height, fill=COLOR_BORDER)
 
 
-# ── PlantUML generation (for markdown reports / browser) ─────
+
+# ── PlantUML generation (for browser viewing) ───────────────
 
 _PLANTUML_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_"
 PLANTUML_SERVER = "https://www.plantuml.com/plantuml/svg/"
@@ -459,17 +636,16 @@ def open_gantt_in_browser(project, lang="zh"):
     return url
 
 
-def generate_gantt_markdown(project, lang="zh"):
+def generate_gantt_markdown(project, lang="zh", png_filename=None):
     """Generate a comprehensive project report in Markdown."""
     zh = lang == "zh"
     lines = [f"# {project['name']}", ""]
 
-    # Gantt chart (PlantUML)
-    uml = generate_gantt_uml(project, lang)
-    lines.append("```plantuml")
-    lines.append(uml)
-    lines.append("```")
-    lines.append("")
+    # Gantt chart image (if PNG available) — no PlantUML code block
+    if png_filename:
+        chart_label = "甘特图" if zh else "Gantt Chart"
+        lines.append(f"![{chart_label}]({png_filename})")
+        lines.append("")
 
     # Milestones summary
     lines.append(f"## {'里程碑' if zh else 'Milestones'}")
@@ -556,4 +732,3 @@ def generate_gantt_markdown(project, lang="zh"):
             lines.append("")
 
     return "\n".join(lines)
-

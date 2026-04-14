@@ -20,7 +20,7 @@ from ganttpilot_i18n import t
 from ganttpilot_config import Config
 from ganttpilot_core import DataStore
 from ganttpilot_git import GitSync
-from ganttpilot_gantt import GanttRenderer, generate_gantt_uml, generate_gantt_markdown
+from ganttpilot_gantt import GanttRenderer, CanvasBackend, generate_gantt_markdown
 from version import VERSION
 
 GITHUB_REPO = "matthewzu/GanttPilot"
@@ -448,7 +448,8 @@ class GanttPilotGUI:
         proj = self.store.get_project(self.current_project)
         if not proj:
             return
-        renderer = GanttRenderer(self.gantt_canvas, proj, self.lang, self.gantt_zoom)
+        backend = CanvasBackend(self.gantt_canvas)
+        renderer = GanttRenderer(backend, proj, self.lang, self.gantt_zoom)
         renderer.draw()
         self.status_var.set(f"{self._t('gantt_chart')}: {self.current_project}")
 
@@ -835,16 +836,33 @@ class GanttPilotGUI:
         proj = self.store.get_project(self.current_project)
         if not proj:
             return
-        md = generate_gantt_markdown(proj, self.lang)
         path = filedialog.asksaveasfilename(
             defaultextension=".md", filetypes=[("Markdown", "*.md")],
             initialfile=f"{self.current_project}_report.md",
         )
-        if path:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(md)
-            self._commit(f"Generate report: {self.current_project}")
-            self.status_var.set(f"Report saved: {path}")
+        if not path:
+            return
+
+        # Try to render PNG with PillowBackend
+        png_filename = None
+        try:
+            from ganttpilot_gantt import PillowBackend
+            backend = PillowBackend()
+            renderer = GanttRenderer(backend, proj, self.lang, self.gantt_zoom)
+            renderer.draw()
+            png_path = os.path.splitext(path)[0] + "_gantt.png"
+            backend.save(png_path)
+            png_filename = os.path.basename(png_path)
+        except ImportError:
+            png_filename = None  # Pillow not available
+        except (IOError, OSError):
+            png_filename = None  # Save failed
+
+        md = generate_gantt_markdown(proj, self.lang, png_filename)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(md)
+        self._commit(f"Generate report: {self.current_project}")
+        self.status_var.set(f"Report saved: {path}")
 
     # ── Selection helpers ────────────────────────────────────
     def _get_selected_project(self):
