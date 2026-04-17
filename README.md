@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -21,7 +21,7 @@
 
 GanttPilot is a collaborative project manager that visualizes project status with Gantt charts. Each project is an independent Git repository, enabling multi-user collaboration through Git sync. Manage projects, milestones, plans, and activities — all from a clean right-click menu interface.
 
-Version: 0.6.0
+Version: 0.7.0
 
 ### 🚀 Quick Start
 
@@ -57,7 +57,7 @@ python main.py --version
 - 📈 **Progress Tracking** - Plan progress (0-100%), actual end date, ahead/behind schedule detection
 - 📁 **Project Management** - Add/edit/delete/clone via right-click, project description
 - 🏷️ **Milestone Management** - Deadline, description, custom color
-- 📋 **Plan Management** - Executor, date range, planned hours, skip non-workdays, skip dates with `-YYYYMMDD` support, color, finish, set progress
+- 📋 **Plan Management** - Executor, date range, planned hours, skip non-workdays, skip dates with `-YYYYMMDD` support, color, finish/reopen, set progress
 - ⏱ **Activity Tracking** - Per-executor time logging
 - 🔗 **Per-project Git Repos** - Independent repos with configurable remote, private branch per user, PR workflow
 - 🔄 **Smart Sync** - Background sync on startup/switch/exit
@@ -73,6 +73,14 @@ python main.py --version
 - 🚫 **Skip Date Visualization** - Skipped days shown as red hatch overlay on Gantt bars
 - 🖼️ **PNG Report** - Reports embed locally rendered PNG Gantt chart (no PlantUML dependency)
 - 📐 **Auto-compress** - Long projects auto-shrink day width in report images (configurable threshold)
+- 📜 **History Tab** - Gantt window includes a History tab showing Git commit log (author, date, message, diff)
+- 🌿 **Branch Selector** - Dropdown to switch branches and view Gantt chart / history for each branch
+- 🔀 **Manual Rebase Sync** - Sync no longer auto-rebases; a banner prompts when main has updates, click to rebase manually
+- ⏱ **Time Slot Hours** - Activity hours entered as start/end time slots (e.g. `0900/1200,1430/1500`), total hours auto-calculated
+- 🏷️ **Activity Tags** - Single tag per activity; time reports and project reports group summaries by tag
+- 🏷️ **Remote Branch Labels** - Remote branches in the branch selector show `[Remote]` prefix for clear identification
+- ↔️ **Resizable Panels** - Draggable splitter between Gantt chart/history and time report areas
+- 📊 **Report View Modes** - Time report supports 4 view modes: by project, by milestone, by plan, by tag; Markdown reports include all 4 dimensions
 
 ### 🖱️ Usage
 
@@ -83,7 +91,7 @@ All operations via right-click context menus:
 | Empty area | Add project, Load example, Sync, Refresh |
 | Project | Add milestone, Edit, Git config, Report, Sync, Delete |
 | Milestone | Add plan, Edit, Color, Delete |
-| Plan | Add activity, Edit, Color, Set progress, Finish, Delete |
+| Plan | Add activity, Edit, Color, Set progress, Finish, Reopen, Delete |
 | Activity | Edit, Delete |
 
 ### 📐 Data Structure
@@ -92,8 +100,12 @@ All operations via right-click context menus:
 Project (independent Git repo, with description)
   └── Milestone (deadline, description, color)
         └── Plan (executor, dates, planned hours, progress, skip dates, actual_end_date)
-              └── Activity (executor, date, hours, content)
+              └── Activity (executor, date, hours, time_slots, tag, content)
 ```
+
+- `time_slots`: Start/end time slot list, format `HHMM/HHMM` comma-separated (e.g. `0900/1200,1430/1500`)
+- `hours`: Auto-calculated from `time_slots`; retains manual value when `time_slots` is empty
+- `tag`: Single string tag for activity classification, default empty
 
 ### � Creating a Project
 
@@ -123,7 +135,8 @@ Leave the "Remote URL" field empty to create a purely local project.
 - Remote repositories must be **bare repos** (created with `git init --bare`)
 - Configurable remote main branch name (default: `main`)
 - Per-user private branch: `priv_{committer_name}` (configurable)
-- Sync flow: fetch main → rebase priv onto main → push priv to origin
+- Sync flow: fetch main → push priv to origin (no auto-rebase)
+- Manual rebase: banner prompts when main has updates, click "Sync Main" to rebase
 - Changes are merged to main via Pull Request on the remote platform
 - Project-level committer identity (name + email), auto-detected from git config
 - Automatic background sync: on startup (all projects), on project switch (previous project), on exit (current project)
@@ -141,7 +154,7 @@ GPL-3.0
 
 GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作为独立 Git 仓库，通过 Git 同步实现多人协作。
 
-版本：0.6.0
+版本：0.7.0
 
 ### 🚀 快速开始
 
@@ -175,7 +188,7 @@ python main.py --version
 - 📈 **进度追踪** - 计划进度（0-100%）、实际完成时间、提前/延期检测
 - 📁 **项目管理** - 右键添加/编辑/删除/克隆，项目描述
 - 🏷️ **里程碑管理** - 截止日期、描述、自定义颜色
-- 📋 **计划管理** - 执行者、日期范围、计划工时、跳过非工作日、跳过日期（支持 `-YYYYMMDD` 格式）、颜色、终结、设置进度
+- 📋 **计划管理** - 执行者、日期范围、计划工时、跳过非工作日、跳过日期（支持 `-YYYYMMDD` 格式）、颜色、完结/重开、设置进度
 - ⏱ **活动跟踪** - 按执行者记录工时
 - 🔗 **项目级独立 Git 仓库** - 可配置远端，每用户私有分支，PR 工作流
 - 🔄 **智能同步** - 启动/切换/退出时后台同步
@@ -191,6 +204,14 @@ python main.py --version
 - 🚫 **跳过日期可视化** - 甘特图中跳过的日期以红色斜线标注
 - 🖼️ **PNG 报告** - 报告内嵌本地渲染的 PNG 甘特图（无需 PlantUML）
 - 📐 **自动压缩** - 长项目自动缩小报告图片日宽度（可配置阈值）
+- 📜 **历史记录标签页** - 甘特图窗口增加历史记录标签，显示 Git 提交记录（提交者、时间、message、diff）
+- 🌿 **分支选择** - 下拉列表切换不同分支查看甘特图和历史记录
+- 🔀 **手动 Rebase 同步** - 同步时不自动 rebase，提示主线有更新后手动点击同步按钮
+- ⏱ **起止时间工时** - 活动工时改为填写起止时间列表（如 `0900/1200,1430/1500`），自动计算总工时
+- 🏷️ **活动标签** - 活动增加单个标签字段，工时报告和项目报告按标签分组汇总
+- 🏷️ **远端分支标识** - 分支选择器中远端分支显示 `[远端]` 前缀，便于区分
+- ↔️ **可调整面板** - 甘特图/历史记录与工时报告之间的分隔栏可拖拽调整
+- 📊 **报告查看模式** - 工时报告支持按项目、按里程碑、按计划、按标签四种查看模式；Markdown 报告同时包含四种维度统计
 
 ### 🖱️ 操作方式
 
@@ -199,7 +220,7 @@ python main.py --version
 | 空白处 | 添加项目、加载示例、同步、刷新 |
 | 项目 | 添加里程碑、编辑项目、Git 配置、生成报告、同步、删除 |
 | 里程碑 | 添加计划、编辑里程碑、设置颜色、删除 |
-| 计划 | 添加活动、编辑属性、设置颜色、设置进度、终结、删除 |
+| 计划 | 添加活动、编辑属性、设置颜色、设置进度、完结、重开、删除 |
 | 活动 | 编辑活动、删除 |
 
 ### 📐 数据结构
@@ -208,8 +229,12 @@ python main.py --version
 项目 (独立 Git 仓库，含描述)
   └── 里程碑 (截止日期、描述、颜色)
         └── 计划 (执行者、日期范围、计划工时、进度、跳过日期、实际完成时间)
-              └── 活动 (执行者、日期、小时数、内容)
+              └── 活动 (执行者、日期、小时数、工时时段、标签、内容)
 ```
+
+- `time_slots`：起止时间段列表，格式 `HHMM/HHMM` 逗号分隔（如 `0900/1200,1430/1500`）
+- `hours`：由 `time_slots` 自动计算；当 `time_slots` 为空时保留手动输入值
+- `tag`：单个字符串标签，用于活动分类，默认为空
 
 ### � 创建项目
 
@@ -239,7 +264,8 @@ python main.py --version
 - 远端仓库必须是 **bare 仓库**（通过 `git init --bare` 创建）
 - 可配置远端主分支名称（默认 `main`）
 - 每用户私有分支：`priv_{提交者名称}`（可配置）
-- 同步流程：fetch main → rebase priv onto main → push priv 到远端
+- 同步流程：fetch main → push priv 到远端（不自动 rebase）
+- 手动 rebase：主线有更新时显示提示横幅，点击"同步主线"按钮执行 rebase
 - 通过远端平台的 Pull Request 合并到主分支
 - 项目级提交者身份（名称 + 邮箱），可自动检测 git 配置
 - 自动后台同步：启动时（所有项目）、切换项目时（上一个项目）、退出时（当前项目）

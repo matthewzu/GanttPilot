@@ -708,7 +708,7 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
         lines.append("")
 
     # Collect all activities grouped by executor
-    executor_activities = {}  # {executor: [{"date", "hours", "content", "plan", "milestone"}]}
+    executor_activities = {}  # {executor: [{"date", "hours", "content", "plan", "milestone", "tag"}]}
     for ms in project.get("milestones", []):
         for plan in ms.get("plans", []):
             for act in plan.get("activities", []):
@@ -721,10 +721,12 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
                     "content": act.get("content", ""),
                     "plan": plan.get("content", ""),
                     "milestone": ms["name"],
+                    "tag": act.get("tag", ""),
                 })
 
     # Per-executor activity reports
     if executor_activities:
+        tag_label = "标签" if zh else "Tag"
         lines.append(f"## {'执行者工时明细' if zh else 'Executor Activity Details'}")
         lines.append("")
         for ex in sorted(executor_activities.keys()):
@@ -735,10 +737,127 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
             lines.append("")
             lines.append(f"{'总计' if zh else 'Total'}: **{total_hours:.1f}** {'小时' if zh else 'hours'} / **{total_days}** {'天' if zh else 'days'}")
             lines.append("")
-            lines.append(f"| {'日期' if zh else 'Date'} | {'小时' if zh else 'Hours'} | {'内容' if zh else 'Content'} | {'所属计划' if zh else 'Plan'} | {'里程碑' if zh else 'Milestone'} |")
-            lines.append("|---|---|---|---|---|")
+            lines.append(f"| {'日期' if zh else 'Date'} | {'小时' if zh else 'Hours'} | {'内容' if zh else 'Content'} | {tag_label} | {'所属计划' if zh else 'Plan'} | {'里程碑' if zh else 'Milestone'} |")
+            lines.append("|---|---|---|---|---|---|")
             for a in sorted(acts, key=lambda x: x["date"]):
-                lines.append(f"| {a['date']} | {a['hours']:.1f} | {a['content']} | {a['plan']} | {a['milestone']} |")
+                lines.append(f"| {a['date']} | {a['hours']:.1f} | {a['content']} | {a['tag']} | {a['plan']} | {a['milestone']} |")
+            lines.append("")
+
+    # Tag summary table — group all activities by tag
+    all_activities = []
+    for acts in executor_activities.values():
+        all_activities.extend(acts)
+    tag_hours = {}  # {tag: total_hours}
+    for a in all_activities:
+        t = a.get("tag", "")
+        if t not in tag_hours:
+            tag_hours[t] = 0.0
+        tag_hours[t] += a.get("hours", 0)
+
+    if tag_hours:
+        tag_label = "标签" if zh else "Tag"
+        hours_label = "小时" if zh else "Hours"
+        days_label = "天" if zh else "Days"
+        lines.append(f"## {'标签工时汇总' if zh else 'Tag Summary'}")
+        lines.append("")
+        lines.append(f"| {tag_label} | {hours_label} | {days_label} |")
+        lines.append("|---|---|---|")
+        for t in sorted(tag_hours.keys()):
+            display_tag = t if t else ("-" if not zh else "无标签")
+            total_h = tag_hours[t]
+            total_d = round(total_h / 8.0, 2)
+            lines.append(f"| {display_tag} | {total_h:.1f} | {total_d} |")
+        lines.append("")
+
+    # ── Hours by Milestone ───────────────────────────────────
+    executor_label = "执行者" if zh else "Executor"
+    hours_label = "总小时数" if zh else "Hours"
+    days_label = "总天数" if zh else "Days"
+
+    # Build milestone → executor → hours mapping
+    ms_executor_hours = {}  # {milestone_name: {executor: hours}}
+    for ms in project.get("milestones", []):
+        ms_name = ms["name"]
+        for plan in ms.get("plans", []):
+            for act in plan.get("activities", []):
+                ex = act.get("executor", "")
+                h = act.get("hours", 0)
+                if ms_name not in ms_executor_hours:
+                    ms_executor_hours[ms_name] = {}
+                if ex not in ms_executor_hours[ms_name]:
+                    ms_executor_hours[ms_name][ex] = 0.0
+                ms_executor_hours[ms_name][ex] += h
+
+    if ms_executor_hours:
+        lines.append(f"## {'按里程碑工时统计' if zh else 'Hours by Milestone'}")
+        lines.append("")
+        for ms_name in ms_executor_hours:
+            lines.append(f"### {ms_name}")
+            lines.append("")
+            lines.append(f"| {executor_label} | {hours_label} | {days_label} |")
+            lines.append("|---|---|---|")
+            for ex in sorted(ms_executor_hours[ms_name].keys()):
+                h = ms_executor_hours[ms_name][ex]
+                d = round(h / 8.0, 2)
+                lines.append(f"| {ex} | {h:.1f} | {d} |")
+            lines.append("")
+
+    # ── Hours by Plan ────────────────────────────────────────
+    plan_executor_hours = {}  # {plan_content: {executor: hours}}
+    for ms in project.get("milestones", []):
+        for plan in ms.get("plans", []):
+            plan_content = plan.get("content", "")
+            for act in plan.get("activities", []):
+                ex = act.get("executor", "")
+                h = act.get("hours", 0)
+                if plan_content not in plan_executor_hours:
+                    plan_executor_hours[plan_content] = {}
+                if ex not in plan_executor_hours[plan_content]:
+                    plan_executor_hours[plan_content][ex] = 0.0
+                plan_executor_hours[plan_content][ex] += h
+
+    if plan_executor_hours:
+        lines.append(f"## {'按计划工时统计' if zh else 'Hours by Plan'}")
+        lines.append("")
+        for plan_content in plan_executor_hours:
+            lines.append(f"### {plan_content}")
+            lines.append("")
+            lines.append(f"| {executor_label} | {hours_label} | {days_label} |")
+            lines.append("|---|---|---|")
+            for ex in sorted(plan_executor_hours[plan_content].keys()):
+                h = plan_executor_hours[plan_content][ex]
+                d = round(h / 8.0, 2)
+                lines.append(f"| {ex} | {h:.1f} | {d} |")
+            lines.append("")
+
+    # ── Hours by Tag ─────────────────────────────────────────
+    tag_executor_hours = {}  # {tag: {executor: hours}}
+    for ms in project.get("milestones", []):
+        for plan in ms.get("plans", []):
+            for act in plan.get("activities", []):
+                ex = act.get("executor", "")
+                h = act.get("hours", 0)
+                t = act.get("tag", "")
+                if t not in tag_executor_hours:
+                    tag_executor_hours[t] = {}
+                if ex not in tag_executor_hours[t]:
+                    tag_executor_hours[t][ex] = 0.0
+                tag_executor_hours[t][ex] += h
+
+    if tag_executor_hours:
+        no_tag_label = "无标签" if zh else "No Tag"
+        lines.append(f"## {'按标签工时统计' if zh else 'Hours by Tag'}")
+        lines.append("")
+        for t in sorted(tag_executor_hours.keys()):
+            display_tag = t if t else no_tag_label
+            lines.append(f"### {display_tag}")
+            lines.append("")
+            lines.append(f"| {executor_label} | {hours_label} | {days_label} |")
+            lines.append("|---|---|---|")
+            for ex in sorted(tag_executor_hours[t].keys()):
+                h = tag_executor_hours[t][ex]
+                d = round(h / 8.0, 2)
+                lines.append(f"| {ex} | {h:.1f} | {d} |")
             lines.append("")
 
     return "\n".join(lines)

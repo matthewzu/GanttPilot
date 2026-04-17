@@ -8,9 +8,9 @@ Remote branch: configurable main branch (default 'main')
 Sync flow:
   1. Checkout priv_branch, commit any pending changes
   2. Fetch from origin
-  3. Rebase priv_branch onto origin/main_branch
-  4. Push priv_branch to origin
+  3. Push priv_branch to origin
   NO merge/push main — use Pull Request instead.
+  NO auto-rebase — use manual_rebase() when needed.
 """
 
 import os
@@ -209,15 +209,13 @@ class GitSync:
         Flow:
           1. Checkout priv_branch, commit pending changes
           2. Configure remote, fetch from origin
-          3. Rebase priv_branch onto origin/main_branch
-          4. Push priv_branch to origin
-          NO merge/push main.
+          3. Push priv_branch to origin
+          NO merge/push main. NO auto-rebase.
         """
         if not self.remote_url or not self.is_repo():
             return False
 
         wb = self.priv_branch
-        mb = self.main_branch
 
         # 1. Commit pending on priv_branch
         self._run("checkout", wb, check=False)
@@ -231,12 +229,188 @@ class GitSync:
         self._ensure_remote()
         self._run("fetch", "origin", check=False)
 
-        # 3. Rebase priv_branch onto origin/main_branch
-        rebase_result = self._run("rebase", f"origin/{mb}", check=False)
-        if rebase_result.returncode != 0:
-            self._run("rebase", "--abort", check=False)
-            raise RuntimeError("Rebase conflict, aborted")
-
-        # 4. Push priv_branch to origin
+        # 3. Push priv_branch to origin
         self._run("push", "-u", "origin", wb)
         return True
+
+    def get_log(self, branch=None, max_count=50):
+        """获取指定分支的 git log 记录列表。
+
+        Args:
+            branch: 分支名，None 表示当前分支
+            max_count: 最大返回条数
+
+        Returns:
+            list[dict]: 每条记录包含 {hash, author, date, message, diff_summary}
+        """
+        try:
+            # Use NUL (\x00) as field separator and record separator for reliable parsing
+            fmt = "%H%x00%an%x00%ai%x00%s%x00"
+            cmd = ["log", f"--format={fmt}", "--stat", f"-{max_count}"]
+            if branch:
+                cmd.append(branch)
+            result = self._run(*cmd, check=True)
+            output = result.stdout
+            if not output.strip():
+                return []
+
+            records = []
+            current_hash = ""
+            current_author = ""
+            current_date = ""
+            current_message = ""
+            diff_lines = []
+
+            for line in output.splitlines():
+                if "\x00" in line:
+                    # Save previous record if exists
+                    if current_hash:
+                        records.append({
+                            "hash": current_hash,
+                            "author": current_author,
+                            "date": current_date,
+                            "message": current_message,
+                            "diff_summary": "\n".join(diff_lines).strip(),
+                        })
+                    # Parse new record header
+                    parts = line.split("\x00")
+                    current_hash = parts[0].strip() if len(parts) > 0 else ""
+                    current_author = parts[1].strip() if len(parts) > 1 else ""
+                    current_date = parts[2].strip() if len(parts) > 2 else ""
+                    current_message = parts[3].strip() if len(parts) > 3 else ""
+                    diff_lines = []
+                else:
+                    # Accumulate --stat diff summary lines
+                    stripped = line.strip()
+                    if stripped:
+                        diff_lines.append(stripped)
+
+            # Don't forget the last record
+            if current_hash:
+                records.append({
+                    "hash": current_hash,
+                    "author": current_author,
+                    "date": current_date,
+                    "message": current_message,
+                    "diff_summary": "\n".join(diff_lines).strip(),
+                })
+
+            return records
+        except Exception:
+            return []
+
+
+    def get_commit_diff(self, commit_hash):
+        """获取指定 commit 的详细 diff。
+
+        Args:
+            commit_hash: commit 的 hash 值
+
+        Returns:
+            str: diff 文本
+        """
+        try:
+            result = self._run("show", commit_hash, check=True)
+            return result.stdout
+        except Exception:
+            return ""
+
+
+    def list_branches(self):
+        """列出所有本地和远端分支。
+
+        Returns:
+            list[str]: 分支名列表（本地分支在前，远端分支以 'origin/' 前缀）
+        """
+        try:
+            result = self._run("branch", "-a", check=False)
+            if result.returncode != 0:
+                return []
+            branches = []
+            for line in result.stdout.splitlines():
+                name = line.strip().lstrip("* ").strip()
+                if not name:
+                    continue
+                # Filter out HEAD -> entries
+                if "HEAD ->" in name:
+                    continue
+                # Clean up remotes/ prefix to origin/
+                if name.startswith("remotes/"):
+                    name = name[len("remotes/"):]
+                branches.append(name)
+            return branches
+        except Exception:
+            return []
+
+    def get_current_branch(self):
+        """获取当前分支名。
+
+        Returns:
+            str: 当前分支名
+        """
+        try:
+            result = self._run("branch", "--show-current", check=False)
+            if result.returncode != 0:
+                return ""
+            return result.stdout.strip()
+        except Exception:
+            return ""
+
+
+    def read_file_from_branch(self, branch, filepath):
+        """从指定分支读取文件内容（用于加载其他分支的 project.json）。
+
+        Args:
+            branch: 分支名
+            filepath: 文件路径（相对于仓库根目录）
+
+        Returns:
+            str: 文件内容，失败时返回 None
+        """
+        try:
+            result = self._run("show", f"{branch}:{filepath}")
+            return result.stdout
+        except Exception:
+            return None
+
+    def has_remote_updates(self):
+        """检查远端主分支是否有新提交（相对于当前私有分支的基点）。
+
+        Returns:
+            bool: True 表示远端有新提交
+        """
+        if not self.remote_url:
+            return False
+        try:
+            # Get the HEAD of origin/main_branch
+            remote_head = self._run("rev-parse", f"origin/{self.main_branch}", check=False)
+            if remote_head.returncode != 0:
+                return False
+            remote_sha = remote_head.stdout.strip()
+
+            # Get the merge base between priv_branch and origin/main_branch
+            merge_base = self._run("merge-base", self.priv_branch, f"origin/{self.main_branch}", check=False)
+            if merge_base.returncode != 0:
+                return False
+            base_sha = merge_base.stdout.strip()
+
+            # If remote HEAD differs from merge base, there are new commits
+            return remote_sha != base_sha
+        except Exception:
+            return False
+
+
+    def manual_rebase(self):
+        """手动将私有分支 rebase 到远端主分支最新提交。
+
+        Raises:
+            RuntimeError: rebase 冲突时抛出异常
+        """
+        result = self._run("rebase", f"origin/{self.main_branch}", check=False)
+        if result.returncode != 0:
+            self._run("rebase", "--abort", check=False)
+            raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Rebase conflict, aborted")
+
+
+
+

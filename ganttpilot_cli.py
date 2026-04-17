@@ -81,6 +81,7 @@ class CLI:
                 "  plan add <项目> <里程碑> <执行者> <内容> <开始YYYYMMDD> <结束YYYYMMDD> [skip_weekends=1] [skip_dates=D1,D2]",
                 "  plan delete <项目> <里程碑> <计划ID>",
                 "  plan finish <项目> <里程碑> <计划ID>",
+                "  plan reopen <项目> <里程碑> <计划ID>",
                 "  plan list <项目> <里程碑>",
                 "",
                 "活动管理:",
@@ -112,6 +113,7 @@ class CLI:
                 "  plan add <project> <milestone> <executor> <content> <startYYYYMMDD> <endYYYYMMDD> [skip_weekends=1] [skip_dates=D1,D2]",
                 "  plan delete <project> <milestone> <plan_id>",
                 "  plan finish <project> <milestone> <plan_id>",
+                "  plan reopen <project> <milestone> <plan_id>",
                 "  plan list <project> <milestone>",
                 "",
                 "Activity Management:",
@@ -251,6 +253,13 @@ class CLI:
                 self._commit(f"Finish plan: {plan_id}")
             else:
                 print(self._t("not_found", plan_id))
+        elif action == "reopen" and len(args) >= 4:
+            proj, ms, plan_id = args[1], args[2], args[3]
+            if self.store.reopen_plan(proj, ms, plan_id):
+                print(self._t("plan_reopened", plan_id))
+                self._commit(f"Reopen plan: {plan_id}")
+            else:
+                print(self._t("not_found", plan_id))
         else:
             self.cmd_help()
 
@@ -305,6 +314,8 @@ class CLI:
         print(f"  {self._t('participant'):<20} {self._t('total_hours'):<12} {self._t('total_days')}")
         print(f"  {'─' * 44}")
         for ex, data in sorted(report.items()):
+            if ex == "by_tag":
+                continue
             print(f"  {ex:<20} {data['hours']:<12.1f} {data['days']:.2f}")
 
     def cmd_config(self, args=None):

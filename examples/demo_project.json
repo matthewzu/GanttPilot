@@ -1,7 +1,7 @@
 {
   "id": "demo0001",
   "name": "示例项目",
-  "description": "GanttPilot 功能演示项目，包含需求分析和开发实现两个里程碑",
+  "description": "GanttPilot 功能演示项目，包含需求分析、开发实现和运维保障三个里程碑，全面演示 time_slots 工时时段和 tag 标签功能",
   "remote_url": "",
   "remote_username": "",
   "remote_password": "",
@@ -30,15 +30,82 @@
               "id": "a01",
               "executor": "Alice",
               "date": "20250106",
-              "hours": 4,
+              "hours": 3.0,
+              "time_slots": "0900/1200",
+              "tag": "调研",
               "content": "用户访谈准备"
             },
             {
               "id": "a02",
               "executor": "Alice",
-              "date": "20250110",
-              "hours": 6,
+              "date": "20250107",
+              "hours": 6.0,
+              "time_slots": "0900/1200,1400/1700",
+              "tag": "调研",
               "content": "用户访谈执行"
+            },
+            {
+              "id": "a03",
+              "executor": "Alice",
+              "date": "20250108",
+              "hours": 2.0,
+              "time_slots": "1400/1600",
+              "tag": "会议",
+              "content": "调研结果讨论会"
+            },
+            {
+              "id": "a04",
+              "executor": "Bob",
+              "date": "20250109",
+              "hours": 4.5,
+              "time_slots": "0900/1200,1400/1530",
+              "tag": "文档",
+              "content": "调研报告撰写"
+            },
+            {
+              "id": "a05",
+              "executor": "Alice",
+              "date": "20250110",
+              "hours": 7.0,
+              "time_slots": "0830/1130,1300/1500,1530/1730",
+              "tag": "调研",
+              "content": "竞品分析与用户画像整理"
+            },
+            {
+              "id": "a06",
+              "executor": "Alice",
+              "date": "20250113",
+              "hours": 1.5,
+              "time_slots": "1000/1130",
+              "tag": "评审",
+              "content": "调研成果评审"
+            },
+            {
+              "id": "a31",
+              "executor": "Bob",
+              "date": "20250113",
+              "hours": 3.0,
+              "time_slots": "1300/1600",
+              "tag": "调研",
+              "content": "用户需求优先级分析"
+            },
+            {
+              "id": "a32",
+              "executor": "Eve",
+              "date": "20250114",
+              "hours": 5.0,
+              "time_slots": "0900/1200,1400/1600",
+              "tag": "设计",
+              "content": "用户体验流程图绘制"
+            },
+            {
+              "id": "a33",
+              "executor": "Alice",
+              "date": "20250115",
+              "hours": 2.0,
+              "time_slots": "",
+              "tag": "",
+              "content": "调研收尾整理（旧格式兼容演示：无时段无标签）"
             }
           ]
         },
@@ -56,11 +123,85 @@
           "actual_end_date": "",
           "activities": [
             {
-              "id": "a03",
+              "id": "a07",
               "executor": "Bob",
               "date": "20250113",
-              "hours": 8,
+              "hours": 8.0,
+              "time_slots": "0900/1200,1300/1800",
+              "tag": "文档",
               "content": "需求文档初稿"
+            },
+            {
+              "id": "a08",
+              "executor": "Bob",
+              "date": "20250114",
+              "hours": 3.0,
+              "time_slots": "0900/1200",
+              "tag": "文档",
+              "content": "需求文档修订"
+            },
+            {
+              "id": "a09",
+              "executor": "Alice",
+              "date": "20250115",
+              "hours": 2.0,
+              "time_slots": "1400/1600",
+              "tag": "评审",
+              "content": "需求文档评审"
+            },
+            {
+              "id": "a10",
+              "executor": "Bob",
+              "date": "20250116",
+              "hours": 4.0,
+              "time_slots": "",
+              "tag": "文档",
+              "content": "需求优先级排序（旧格式兼容演示：无时段）"
+            },
+            {
+              "id": "a11",
+              "executor": "Charlie",
+              "date": "20250117",
+              "hours": 1.5,
+              "time_slots": "1500/1630",
+              "tag": "会议",
+              "content": "需求确认会议"
+            },
+            {
+              "id": "a34",
+              "executor": "Bob",
+              "date": "20250120",
+              "hours": 7.0,
+              "time_slots": "0830/1130,1300/1500,1530/1730",
+              "tag": "文档",
+              "content": "功能规格说明书编写"
+            },
+            {
+              "id": "a35",
+              "executor": "Eve",
+              "date": "20250121",
+              "hours": 4.0,
+              "time_slots": "0900/1100,1400/1600",
+              "tag": "设计",
+              "content": "交互原型设计"
+            },
+            {
+              "id": "a36",
+              "executor": "Charlie",
+              "date": "20250122",
+              "hours": 2.5,
+              "time_slots": "1000/1230",
+              "tag": "评审",
+              "content": "技术可行性评审"
+            },
+            {
+              "id": "a37",
+              "executor": "Bob",
+              "date": "20250123",
+              "hours": 3.0,
+              "time_slots": "0900/1200",
+              "tag": "文档",
+              "content": "需求变更记录整理"
             }
           ]
         }
@@ -69,7 +210,7 @@
     {
       "id": "ms02",
       "name": "开发实现",
-      "description": "核心功能开发",
+      "description": "核心功能开发与测试",
       "color": "#4A90D9",
       "deadline": "20250228",
       "plans": [
@@ -87,18 +228,103 @@
           "actual_end_date": "",
           "activities": [
             {
-              "id": "a04",
+              "id": "a12",
               "executor": "Charlie",
               "date": "20250120",
-              "hours": 8,
+              "hours": 7.0,
+              "time_slots": "0830/1130,1300/1500,1530/1730",
+              "tag": "开发",
               "content": "API框架搭建"
             },
             {
-              "id": "a05",
+              "id": "a13",
+              "executor": "Charlie",
+              "date": "20250121",
+              "hours": 6.0,
+              "time_slots": "0900/1200,1400/1700",
+              "tag": "设计",
+              "content": "数据库表结构设计"
+            },
+            {
+              "id": "a14",
+              "executor": "Charlie",
+              "date": "20250122",
+              "hours": 3.0,
+              "time_slots": "0900/1200",
+              "tag": "开发",
+              "content": "用户认证模块开发"
+            },
+            {
+              "id": "a15",
+              "executor": "Charlie",
+              "date": "20250123",
+              "hours": 6.0,
+              "time_slots": "0900/1200,1400/1700",
+              "tag": "开发",
+              "content": "核心业务接口开发"
+            },
+            {
+              "id": "a16",
+              "executor": "David",
+              "date": "20250124",
+              "hours": 5.0,
+              "time_slots": "0900/1200,1400/1600",
+              "tag": "测试",
+              "content": "API单元测试编写"
+            },
+            {
+              "id": "a17",
               "executor": "Charlie",
               "date": "20250125",
-              "hours": 6,
-              "content": "数据库设计"
+              "hours": 2.5,
+              "time_slots": "1000/1230",
+              "tag": "",
+              "content": "代码重构（无标签演示）"
+            },
+            {
+              "id": "a18",
+              "executor": "David",
+              "date": "20250127",
+              "hours": 3.75,
+              "time_slots": "0900/1100,1400/1545",
+              "tag": "测试",
+              "content": "API集成测试"
+            },
+            {
+              "id": "a38",
+              "executor": "Charlie",
+              "date": "20250128",
+              "hours": 6.0,
+              "time_slots": "0900/1200,1400/1700",
+              "tag": "开发",
+              "content": "文件上传接口开发"
+            },
+            {
+              "id": "a39",
+              "executor": "Frank",
+              "date": "20250129",
+              "hours": 4.0,
+              "time_slots": "1300/1700",
+              "tag": "开发",
+              "content": "消息推送服务开发"
+            },
+            {
+              "id": "a40",
+              "executor": "David",
+              "date": "20250130",
+              "hours": 8.0,
+              "time_slots": "0830/1200,1300/1530,1600/1800",
+              "tag": "测试",
+              "content": "全量接口回归测试"
+            },
+            {
+              "id": "a41",
+              "executor": "Charlie",
+              "date": "20250210",
+              "hours": 2.0,
+              "time_slots": "1400/1600",
+              "tag": "评审",
+              "content": "后端代码评审"
             }
           ]
         },
@@ -116,18 +342,391 @@
           "actual_end_date": "20250225",
           "activities": [
             {
-              "id": "a06",
+              "id": "a19",
               "executor": "Alice",
               "date": "20250127",
-              "hours": 8,
+              "hours": 6.0,
+              "time_slots": "0900/1200,1400/1700",
+              "tag": "设计",
+              "content": "UI原型设计与评审"
+            },
+            {
+              "id": "a20",
+              "executor": "Alice",
+              "date": "20250128",
+              "hours": 7.0,
+              "time_slots": "0830/1130,1300/1500,1530/1730",
+              "tag": "开发",
               "content": "UI组件开发"
             },
             {
-              "id": "a07",
+              "id": "a21",
+              "executor": "Alice",
+              "date": "20250129",
+              "hours": 6.0,
+              "time_slots": "0900/1200,1400/1700",
+              "tag": "开发",
+              "content": "页面路由与状态管理"
+            },
+            {
+              "id": "a22",
+              "executor": "Bob",
+              "date": "20250130",
+              "hours": 3.0,
+              "time_slots": "0900/1200",
+              "tag": "文档",
+              "content": "前端API对接文档"
+            },
+            {
+              "id": "a23",
               "executor": "Alice",
               "date": "20250210",
-              "hours": 8,
+              "hours": 6.0,
+              "time_slots": "0900/1200,1400/1700",
+              "tag": "测试",
               "content": "页面集成测试"
+            },
+            {
+              "id": "a24",
+              "executor": "David",
+              "date": "20250211",
+              "hours": 4.0,
+              "time_slots": "1300/1700",
+              "tag": "测试",
+              "content": "跨浏览器兼容性测试"
+            },
+            {
+              "id": "a25",
+              "executor": "Alice",
+              "date": "20250212",
+              "hours": 2.0,
+              "time_slots": "1000/1200",
+              "tag": "部署",
+              "content": "前端构建与部署配置"
+            },
+            {
+              "id": "a42",
+              "executor": "Eve",
+              "date": "20250213",
+              "hours": 5.0,
+              "time_slots": "0900/1200,1400/1600",
+              "tag": "设计",
+              "content": "响应式布局适配"
+            },
+            {
+              "id": "a43",
+              "executor": "Alice",
+              "date": "20250214",
+              "hours": 3.75,
+              "time_slots": "0900/1100,1400/1545",
+              "tag": "开发",
+              "content": "国际化多语言支持"
+            },
+            {
+              "id": "a44",
+              "executor": "Frank",
+              "date": "20250217",
+              "hours": 8.0,
+              "time_slots": "",
+              "tag": "开发",
+              "content": "性能优化（旧格式兼容演示：无时段）"
+            },
+            {
+              "id": "a45",
+              "executor": "Alice",
+              "date": "20250218",
+              "hours": 1.5,
+              "time_slots": "1500/1630",
+              "tag": "会议",
+              "content": "前端进度汇报会"
+            }
+          ]
+        },
+        {
+          "id": "p05",
+          "content": "系统集成与发布",
+          "executor": "David",
+          "start_date": "20250217",
+          "end_date": "20250228",
+          "skip_non_workdays": true,
+          "skip_dates": [],
+          "color": "",
+          "status": "active",
+          "progress": 15,
+          "actual_end_date": "",
+          "activities": [
+            {
+              "id": "a26",
+              "executor": "David",
+              "date": "20250217",
+              "hours": 6.0,
+              "time_slots": "0900/1200,1400/1700",
+              "tag": "测试",
+              "content": "端到端集成测试"
+            },
+            {
+              "id": "a27",
+              "executor": "Charlie",
+              "date": "20250218",
+              "hours": 3.0,
+              "time_slots": "0900/1200",
+              "tag": "部署",
+              "content": "生产环境部署脚本编写"
+            },
+            {
+              "id": "a28",
+              "executor": "David",
+              "date": "20250219",
+              "hours": 5.0,
+              "time_slots": "",
+              "tag": "部署",
+              "content": "预发布环境验证（旧格式兼容演示：无时段）"
+            },
+            {
+              "id": "a29",
+              "executor": "Alice",
+              "date": "20250220",
+              "hours": 2.0,
+              "time_slots": "1400/1600",
+              "tag": "会议",
+              "content": "发布评审会议"
+            },
+            {
+              "id": "a30",
+              "executor": "David",
+              "date": "20250221",
+              "hours": 5.0,
+              "time_slots": "0900/1130,1400/1630",
+              "tag": "部署",
+              "content": "正式发布与监控"
+            },
+            {
+              "id": "a46",
+              "executor": "Frank",
+              "date": "20250224",
+              "hours": 6.0,
+              "time_slots": "0900/1200,1400/1700",
+              "tag": "部署",
+              "content": "CI/CD流水线配置"
+            },
+            {
+              "id": "a47",
+              "executor": "David",
+              "date": "20250225",
+              "hours": 3.0,
+              "time_slots": "0900/1200",
+              "tag": "测试",
+              "content": "生产环境冒烟测试"
+            },
+            {
+              "id": "a48",
+              "executor": "Charlie",
+              "date": "20250226",
+              "hours": 2.0,
+              "time_slots": "1000/1200",
+              "tag": "",
+              "content": "技术债务清理（无标签演示）"
+            },
+            {
+              "id": "a49",
+              "executor": "Bob",
+              "date": "20250227",
+              "hours": 4.0,
+              "time_slots": "0900/1100,1400/1600",
+              "tag": "文档",
+              "content": "发布说明文档编写"
+            },
+            {
+              "id": "a50",
+              "executor": "David",
+              "date": "20250228",
+              "hours": 1.5,
+              "time_slots": "1000/1130",
+              "tag": "会议",
+              "content": "版本发布总结会"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ms03",
+      "name": "运维保障",
+      "description": "系统运维、监控和持续改进",
+      "color": "#E8A838",
+      "deadline": "20250331",
+      "plans": [
+        {
+          "id": "p06",
+          "content": "监控体系搭建",
+          "executor": "Frank",
+          "start_date": "20250303",
+          "end_date": "20250314",
+          "skip_non_workdays": true,
+          "skip_dates": [],
+          "color": "",
+          "status": "active",
+          "progress": 50,
+          "actual_end_date": "",
+          "activities": [
+            {
+              "id": "a51",
+              "executor": "Frank",
+              "date": "20250303",
+              "hours": 6.0,
+              "time_slots": "0900/1200,1400/1700",
+              "tag": "开发",
+              "content": "日志采集系统搭建"
+            },
+            {
+              "id": "a52",
+              "executor": "Frank",
+              "date": "20250304",
+              "hours": 7.0,
+              "time_slots": "0830/1130,1300/1500,1530/1730",
+              "tag": "开发",
+              "content": "监控仪表盘开发"
+            },
+            {
+              "id": "a53",
+              "executor": "David",
+              "date": "20250305",
+              "hours": 3.0,
+              "time_slots": "0900/1200",
+              "tag": "测试",
+              "content": "告警规则测试"
+            },
+            {
+              "id": "a54",
+              "executor": "Frank",
+              "date": "20250306",
+              "hours": 4.0,
+              "time_slots": "1300/1700",
+              "tag": "部署",
+              "content": "监控系统部署上线"
+            },
+            {
+              "id": "a55",
+              "executor": "Charlie",
+              "date": "20250307",
+              "hours": 2.0,
+              "time_slots": "1400/1600",
+              "tag": "评审",
+              "content": "监控方案评审"
+            },
+            {
+              "id": "a56",
+              "executor": "Frank",
+              "date": "20250310",
+              "hours": 5.0,
+              "time_slots": "0900/1200,1400/1600",
+              "tag": "开发",
+              "content": "自动扩缩容策略实现"
+            },
+            {
+              "id": "a57",
+              "executor": "Bob",
+              "date": "20250311",
+              "hours": 3.75,
+              "time_slots": "0900/1100,1400/1545",
+              "tag": "文档",
+              "content": "运维手册编写"
+            }
+          ]
+        },
+        {
+          "id": "p07",
+          "content": "用户培训与反馈",
+          "executor": "Eve",
+          "start_date": "20250310",
+          "end_date": "20250321",
+          "skip_non_workdays": true,
+          "skip_dates": [],
+          "color": "",
+          "status": "active",
+          "progress": 20,
+          "actual_end_date": "",
+          "activities": [
+            {
+              "id": "a58",
+              "executor": "Eve",
+              "date": "20250310",
+              "hours": 6.0,
+              "time_slots": "0900/1200,1400/1700",
+              "tag": "文档",
+              "content": "用户操作手册编写"
+            },
+            {
+              "id": "a59",
+              "executor": "Eve",
+              "date": "20250311",
+              "hours": 3.0,
+              "time_slots": "0900/1200",
+              "tag": "设计",
+              "content": "培训课件制作"
+            },
+            {
+              "id": "a60",
+              "executor": "Eve",
+              "date": "20250312",
+              "hours": 4.0,
+              "time_slots": "0900/1100,1400/1600",
+              "tag": "会议",
+              "content": "第一批用户培训"
+            },
+            {
+              "id": "a61",
+              "executor": "Alice",
+              "date": "20250313",
+              "hours": 4.0,
+              "time_slots": "0900/1100,1400/1600",
+              "tag": "会议",
+              "content": "第二批用户培训"
+            },
+            {
+              "id": "a62",
+              "executor": "Eve",
+              "date": "20250314",
+              "hours": 2.5,
+              "time_slots": "1000/1230",
+              "tag": "调研",
+              "content": "用户反馈收集与分析"
+            },
+            {
+              "id": "a63",
+              "executor": "Bob",
+              "date": "20250317",
+              "hours": 5.0,
+              "time_slots": "",
+              "tag": "文档",
+              "content": "FAQ文档整理（旧格式兼容演示：无时段）"
+            },
+            {
+              "id": "a64",
+              "executor": "Eve",
+              "date": "20250318",
+              "hours": 3.0,
+              "time_slots": "1400/1700",
+              "tag": "",
+              "content": "培训效果评估（无标签演示）"
+            },
+            {
+              "id": "a65",
+              "executor": "Alice",
+              "date": "20250319",
+              "hours": 7.0,
+              "time_slots": "0830/1200,1330/1530,1600/1730",
+              "tag": "开发",
+              "content": "用户反馈问题修复"
+            },
+            {
+              "id": "a66",
+              "executor": "Eve",
+              "date": "20250320",
+              "hours": 1.5,
+              "time_slots": "1500/1630",
+              "tag": "会议",
+              "content": "项目复盘总结会"
             }
           ]
         }

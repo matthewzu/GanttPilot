@@ -10,6 +10,7 @@ Data is stored as JSON files in the data directory:
 
 import json
 import os
+import re
 import uuid
 import warnings
 from datetime import datetime, timedelta
@@ -45,6 +46,77 @@ def _workdays_between(start, end, skip_dates=None):
             count += 1
         current += timedelta(days=1)
     return count
+
+
+_TIME_SLOT_RE = re.compile(r'^(\d{4})/(\d{4})$')
+
+
+def parse_time_slots(time_slots_str):
+    """解析 Time_Slot_List 字符串为时间段列表。
+
+    Args:
+        time_slots_str: 如 "0900/1200,1430/1500"
+
+    Returns:
+        list[tuple[str, str]]: 如 [("0900", "1200"), ("1430", "1500")]
+
+    Raises:
+        ValueError: 格式不合法时抛出
+    """
+    if not time_slots_str or not time_slots_str.strip():
+        return []
+
+    slots = []
+    for part in time_slots_str.split(","):
+        part = part.strip()
+        m = _TIME_SLOT_RE.match(part)
+        if not m:
+            raise ValueError(f"Invalid time slot format: '{part}'")
+        start, end = m.group(1), m.group(2)
+        # Validate HH and MM ranges
+        for t_str in (start, end):
+            hh, mm = int(t_str[:2]), int(t_str[2:])
+            if hh > 23 or mm > 59:
+                raise ValueError(f"Time out of range: '{t_str}'")
+        # Validate start < end
+        if int(start) >= int(end):
+            raise ValueError(
+                f"Start time must be strictly before end time: '{start}/{end}'"
+            )
+        slots.append((start, end))
+    return slots
+
+
+def format_time_slots(slots):
+    """将时间段列表格式化为 Time_Slot_List 字符串。
+
+    Args:
+        slots: list[tuple[str, str]]
+
+    Returns:
+        str: 如 "0900/1200,1430/1500"
+    """
+    return ",".join(f"{s}/{e}" for s, e in slots)
+
+
+def calculate_hours_from_slots(time_slots_str):
+    """从 Time_Slot_List 计算总工时（小时数）。
+
+    Args:
+        time_slots_str: 如 "0900/1200,1430/1500"
+
+    Returns:
+        float: 总小时数（如 4.5）
+    """
+    slots = parse_time_slots(time_slots_str)
+    if not slots:
+        return 0.0
+    total_minutes = 0
+    for start, end in slots:
+        start_min = int(start[:2]) * 60 + int(start[2:])
+        end_min = int(end[:2]) * 60 + int(end[2:])
+        total_minutes += end_min - start_min
+    return total_minutes / 60.0
 
 
 class DataStore:
@@ -112,6 +184,10 @@ class DataStore:
                             # Auto-fix finished plans with progress=0
                             if plan.get("status") == "finished" and plan["progress"] == 0:
                                 plan["progress"] = 100
+                            # Fill missing activity-level defaults (backward compat)
+                            for activity in plan.get("activities", []):
+                                activity.setdefault("time_slots", "")
+                                activity.setdefault("tag", "")
                     projects.append(proj)
                 except (json.JSONDecodeError, IOError) as e:
                     warnings.warn(f"Skipping project in '{entry}': {e}")
@@ -255,6 +331,19 @@ class DataStore:
                 return True
         return False
 
+    def reopen_plan(self, project_name, milestone_name, plan_id):
+        """Reopen a finished plan, resetting status to active."""
+        ms = self._find_milestone(project_name, milestone_name)
+        if not ms:
+            return False
+        for plan in ms["plans"]:
+            if plan["id"] == plan_id:
+                plan["status"] = "active"
+                plan["actual_end_date"] = ""
+                self.save()
+                return True
+        return False
+
     def _find_plan(self, project_name, milestone_name, plan_id):
         ms = self._find_milestone(project_name, milestone_name)
         if not ms:
@@ -275,16 +364,20 @@ class DataStore:
 
     # ── Activity ─────────────────────────────────────────────
     def add_activity(self, project_name, milestone_name, plan_id,
-                     executor, date, hours, content):
+                     executor, date, hours, content, time_slots="", tag=""):
         plan = self._find_plan(project_name, milestone_name, plan_id)
         if not plan:
             return None
+        if time_slots:
+            hours = calculate_hours_from_slots(time_slots)
         activity = {
             "id": _new_id(),
             "executor": executor,
             "date": date,
             "hours": hours,
             "content": content,
+            "time_slots": time_slots,
+            "tag": tag,
         }
         plan["activities"].append(activity)
         self.save()
@@ -351,7 +444,8 @@ class DataStore:
         return True
 
     def update_activity(self, project_name, milestone_name, plan_id,
-                        activity_id, executor, date, hours, content):
+                        activity_id, executor, date, hours, content,
+                        time_slots="", tag=""):
         """Update activity attributes and persist."""
         plan = self._find_plan(project_name, milestone_name, plan_id)
         if not plan:
@@ -360,8 +454,13 @@ class DataStore:
             if act["id"] == activity_id:
                 act["executor"] = executor
                 act["date"] = date
-                act["hours"] = hours
                 act["content"] = content
+                act["time_slots"] = time_slots
+                act["tag"] = tag
+                if time_slots:
+                    act["hours"] = calculate_hours_from_slots(time_slots)
+                else:
+                    act["hours"] = hours
                 self.save()
                 return True
         return False
@@ -379,14 +478,77 @@ class DataStore:
         return result
 
     def get_time_report(self, project_name):
-        """Returns {executor: {"hours": float, "days": float}} for a project"""
+        """Returns {executor: {"hours": float, "days": float}, "by_tag": {tag: float}} for a project"""
         report = {}
+        by_tag = {}
         for ms_name, plan in self.get_all_plans_for_project(project_name):
             for act in plan.get("activities", []):
                 ex = act["executor"]
                 if ex not in report:
                     report[ex] = {"hours": 0.0, "days": 0.0}
-                report[ex]["hours"] += act.get("hours", 0)
+                hours = act.get("hours", 0)
+                report[ex]["hours"] += hours
+                tag = act.get("tag", "")
+                if tag not in by_tag:
+                    by_tag[tag] = 0.0
+                by_tag[tag] += hours
         for ex in report:
             report[ex]["days"] = round(report[ex]["hours"] / 8.0, 2)
+        report["by_tag"] = by_tag
+        return report
+
+    def get_time_report_by_milestone(self, project_name):
+        """按里程碑分组返回工时报告。
+        Returns: {milestone_name: {executor: {"hours": float, "days": float}}}
+        """
+        report = {}
+        for ms_name, plan in self.get_all_plans_for_project(project_name):
+            if ms_name not in report:
+                report[ms_name] = {}
+            for act in plan.get("activities", []):
+                ex = act["executor"]
+                if ex not in report[ms_name]:
+                    report[ms_name][ex] = {"hours": 0.0, "days": 0.0}
+                report[ms_name][ex]["hours"] += act.get("hours", 0)
+        for ms_name in report:
+            for ex in report[ms_name]:
+                report[ms_name][ex]["days"] = round(report[ms_name][ex]["hours"] / 8.0, 2)
+        return report
+
+    def get_time_report_by_plan(self, project_name):
+        """按计划分组返回工时报告。
+        Returns: {plan_content: {executor: {"hours": float, "days": float}}}
+        """
+        report = {}
+        for ms_name, plan in self.get_all_plans_for_project(project_name):
+            plan_content = plan.get("content", "")
+            if plan_content not in report:
+                report[plan_content] = {}
+            for act in plan.get("activities", []):
+                ex = act["executor"]
+                if ex not in report[plan_content]:
+                    report[plan_content][ex] = {"hours": 0.0, "days": 0.0}
+                report[plan_content][ex]["hours"] += act.get("hours", 0)
+        for plan_content in report:
+            for ex in report[plan_content]:
+                report[plan_content][ex]["days"] = round(report[plan_content][ex]["hours"] / 8.0, 2)
+        return report
+
+    def get_time_report_by_tag(self, project_name):
+        """按标签分组返回工时报告。
+        Returns: {tag: {executor: {"hours": float, "days": float}}}
+        """
+        report = {}
+        for ms_name, plan in self.get_all_plans_for_project(project_name):
+            for act in plan.get("activities", []):
+                tag = act.get("tag", "")
+                if tag not in report:
+                    report[tag] = {}
+                ex = act["executor"]
+                if ex not in report[tag]:
+                    report[tag][ex] = {"hours": 0.0, "days": 0.0}
+                report[tag][ex]["hours"] += act.get("hours", 0)
+        for tag in report:
+            for ex in report[tag]:
+                report[tag][ex]["days"] = round(report[tag][ex]["hours"] / 8.0, 2)
         return report

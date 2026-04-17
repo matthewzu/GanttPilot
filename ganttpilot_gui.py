@@ -18,7 +18,7 @@ import json
 
 from ganttpilot_i18n import t
 from ganttpilot_config import Config
-from ganttpilot_core import DataStore
+from ganttpilot_core import DataStore, parse_time_slots
 from ganttpilot_git import GitSync
 from ganttpilot_gantt import GanttRenderer, CanvasBackend, generate_gantt_markdown
 from version import VERSION
@@ -167,6 +167,7 @@ class GanttPilotGUI:
                         pass
             self.store.load()
             self.root.after(0, self.refresh_project_list)
+            self.root.after(0, self.check_remote_updates)
         except Exception:
             pass
 
@@ -306,40 +307,127 @@ class GanttPilotGUI:
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
         self.tree.bind("<Button-3>", self.on_tree_right_click)
 
-        # Right: gantt + report
+        # Right: branch selector + notebook (gantt + history) + report
         right_frame = ttk.Frame(self.paned)
         self.paned.add(right_frame, weight=3)
 
-        gantt_canvas_frame = ttk.Frame(right_frame)
-        gantt_canvas_frame.pack(fill=tk.BOTH, expand=True)
+        # Branch selector above notebook
+        branch_frame = ttk.Frame(right_frame)
+        branch_frame.pack(fill=tk.X, pady=(0, 2))
+        self.branch_label = ttk.Label(branch_frame, text=self._t("branch"))
+        self.branch_label.pack(side=tk.LEFT, padx=(0, 4))
+        self.branch_selector = ttk.Combobox(branch_frame, state="readonly", width=30)
+        self.branch_selector.pack(side=tk.LEFT, padx=2)
+        self.branch_selector.bind("<<ComboboxSelected>>", self.on_branch_changed)
+
+        # Update banner (hidden by default) — between branch selector and notebook
+        self.update_banner = ttk.Frame(right_frame)
+        self.update_banner_label = ttk.Label(self.update_banner, text=self._t("main_updated"))
+        self.update_banner_label.pack(side=tk.LEFT, padx=(4, 8))
+        self.update_banner_btn = ttk.Button(self.update_banner, text=self._t("sync_main"),
+                                            command=self.do_manual_rebase)
+        self.update_banner_btn.pack(side=tk.LEFT, padx=2)
+        # Don't pack update_banner — it starts hidden
+
+        # Vertical PanedWindow: top = notebook (gantt + history), bottom = report
+        self.right_vpaned = ttk.PanedWindow(right_frame, orient=tk.VERTICAL)
+        self.right_vpaned.pack(fill=tk.BOTH, expand=True)
+
+        # Notebook with gantt chart and history tabs
+        self.right_notebook = ttk.Notebook(self.right_vpaned)
+        self.right_vpaned.add(self.right_notebook, weight=7)
+
+        # Tab 1: Gantt Chart
+        gantt_tab_frame = ttk.Frame(self.right_notebook)
+        self.right_notebook.add(gantt_tab_frame, text=self._t("gantt_chart"))
 
         # Gantt zoom toolbar
-        gantt_toolbar = ttk.Frame(gantt_canvas_frame)
+        gantt_toolbar = ttk.Frame(gantt_tab_frame)
         gantt_toolbar.pack(fill=tk.X, pady=(0, 2))
         ttk.Label(gantt_toolbar, text="🔍").pack(side=tk.LEFT, padx=2)
         ttk.Button(gantt_toolbar, text="+", command=self.gantt_zoom_in, width=2).pack(side=tk.LEFT, padx=1)
         ttk.Button(gantt_toolbar, text="-", command=self.gantt_zoom_out, width=2).pack(side=tk.LEFT, padx=1)
 
-        self.gantt_canvas = tk.Canvas(gantt_canvas_frame, bg="white")
-        gy = ttk.Scrollbar(gantt_canvas_frame, orient=tk.VERTICAL, command=self.gantt_canvas.yview)
-        gx = ttk.Scrollbar(gantt_canvas_frame, orient=tk.HORIZONTAL, command=self.gantt_canvas.xview)
+        self.gantt_canvas = tk.Canvas(gantt_tab_frame, bg="white")
+        gy = ttk.Scrollbar(gantt_tab_frame, orient=tk.VERTICAL, command=self.gantt_canvas.yview)
+        gx = ttk.Scrollbar(gantt_tab_frame, orient=tk.HORIZONTAL, command=self.gantt_canvas.xview)
         self.gantt_canvas.configure(yscrollcommand=gy.set, xscrollcommand=gx.set)
         gy.pack(side=tk.RIGHT, fill=tk.Y)
         gx.pack(side=tk.BOTTOM, fill=tk.X)
         self.gantt_canvas.pack(fill=tk.BOTH, expand=True)
 
-        # Time report
-        report_label = ttk.Label(right_frame, text=self._t("time_report"))
-        report_label.pack(anchor=tk.W, pady=(6, 2))
-        cols = ("executor", "hours", "days")
-        self.report_tree = ttk.Treeview(right_frame, columns=cols, show="headings", height=5)
+        # Tab 2: History
+        history_tab_frame = ttk.Frame(self.right_notebook)
+        self.right_notebook.add(history_tab_frame, text=self._t("history"))
+
+        # History tab uses PanedWindow for resizable split
+        history_paned = ttk.PanedWindow(history_tab_frame, orient=tk.VERTICAL)
+        history_paned.pack(fill=tk.BOTH, expand=True)
+
+        history_top = ttk.Frame(history_paned)
+        history_paned.add(history_top, weight=6)
+
+        history_cols = ("commit_author", "commit_date", "commit_message")
+        self.history_tree = ttk.Treeview(history_top, columns=history_cols, show="headings")
+        self.history_tree.heading("commit_author", text=self._t("commit_author"))
+        self.history_tree.heading("commit_date", text=self._t("commit_date"))
+        self.history_tree.heading("commit_message", text=self._t("commit_message"))
+        self.history_tree.column("commit_author", width=120, anchor="center")
+        self.history_tree.column("commit_date", width=160, anchor="center")
+        self.history_tree.column("commit_message", width=400, anchor="w")
+        hy = ttk.Scrollbar(history_top, orient=tk.VERTICAL, command=self.history_tree.yview)
+        self.history_tree.configure(yscrollcommand=hy.set)
+        hy.pack(side=tk.RIGHT, fill=tk.Y)
+        self.history_tree.pack(fill=tk.BOTH, expand=True)
+        self.history_tree.bind("<<TreeviewSelect>>", self.on_history_select)
+
+        # Diff detail area (bottom pane of history PanedWindow)
+        history_bottom = ttk.Frame(history_paned)
+        history_paned.add(history_bottom, weight=4)
+
+        self.history_diff_text = tk.Text(history_bottom, height=10, wrap=tk.WORD, state=tk.DISABLED)
+        hd_sb = ttk.Scrollbar(history_bottom, orient=tk.VERTICAL, command=self.history_diff_text.yview)
+        self.history_diff_text.configure(yscrollcommand=hd_sb.set)
+        hd_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.history_diff_text.pack(fill=tk.BOTH, expand=True)
+
+        # Refresh history when switching to history tab
+        self.right_notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
+
+        # Time report (bottom pane of vertical PanedWindow)
+        report_frame = ttk.Frame(self.right_vpaned)
+        self.right_vpaned.add(report_frame, weight=3)
+        report_label = ttk.Label(report_frame, text=self._t("time_report"))
+        report_label.pack(anchor=tk.W, pady=(2, 2))
+
+        # Report mode selector
+        report_mode_frame = ttk.Frame(report_frame)
+        report_mode_frame.pack(fill=tk.X, pady=(0, 2))
+        self.report_mode_label = ttk.Label(report_mode_frame, text=self._t("report_mode"))
+        self.report_mode_label.pack(side=tk.LEFT, padx=(0, 4))
+        self.report_mode_combo = ttk.Combobox(report_mode_frame, state="readonly", width=20)
+        self.report_mode_combo["values"] = [
+            self._t("report_by_project"),
+            self._t("report_by_milestone"),
+            self._t("report_by_plan"),
+            self._t("report_by_tag"),
+        ]
+        self.report_mode_combo.current(0)
+        self.report_mode_combo.pack(side=tk.LEFT, padx=2)
+        self.report_mode_combo.bind("<<ComboboxSelected>>", lambda e: self.refresh_report())
+
+        cols = ("group", "executor", "hours", "days")
+        self.report_tree = ttk.Treeview(report_frame, columns=cols, show="headings", height=5)
+        self.report_tree.heading("group", text=self._t("group_col"))
         self.report_tree.heading("executor", text=self._t("executor"))
         self.report_tree.heading("hours", text=self._t("total_hours"))
         self.report_tree.heading("days", text=self._t("total_days"))
+        self.report_tree.column("group", width=0, stretch=False, minwidth=0)
         self.report_tree.column("executor", width=150, anchor="center")
         self.report_tree.column("hours", width=100, anchor="center")
         self.report_tree.column("days", width=100, anchor="center")
-        self.report_tree.pack(fill=tk.X, pady=(0, 4))
+        self.report_tree.pack(fill=tk.BOTH, expand=True, pady=(0, 4))
+        self.report_tree.tag_configure("group_header", font=("", self.config.font_size, "bold"), background="#d0d0e8")
 
         # Status bar
         self.status_var = tk.StringVar(value=f"GanttPilot v{VERSION}")
@@ -394,6 +482,7 @@ class GanttPilotGUI:
                 menu.add_command(label=f"✏ {self._t('content')}", command=self.edit_plan)
                 menu.add_command(label="🎨 " + self._t("color"), command=self.pick_color_plan)
                 menu.add_command(label=self._t("finish"), command=self.finish_selected_plan)
+                menu.add_command(label=self._t("reopen"), command=self.reopen_selected_plan)
                 menu.add_command(label=self._t("set_progress"), command=self.set_progress)
                 menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected)
@@ -406,6 +495,18 @@ class GanttPilotGUI:
 
     # ── Tree data ────────────────────────────────────────────
     def refresh_project_list(self):
+        # Save expanded state and selection before refresh
+        expanded = set()
+        selected_values = None
+        sel = self.tree.selection()
+        if sel:
+            selected_values = self.tree.item(sel[0], "values")
+        for item in self._iter_tree_items(""):
+            if self.tree.item(item, "open"):
+                vals = self.tree.item(item, "values")
+                if vals:
+                    expanded.add(tuple(vals))
+
         self.tree.delete(*self.tree.get_children())
         for proj in self.store.list_projects():
             pn = self.tree.insert("", tk.END, text=f"📁 {proj['name']}",
@@ -420,9 +521,33 @@ class GanttPilotGUI:
                     plan_n = self.tree.insert(mn, tk.END, text=txt,
                                              values=("plan", proj["name"], ms["name"], plan["id"]))
                     for act in plan.get("activities", []):
-                        atxt = f"⏱ {act['date']} {act['executor']} {act['hours']}h - {act['content']}"
+                        ts = act.get("time_slots", "")
+                        tag = act.get("tag", "")
+                        time_part = ts if ts else f"{act['hours']}h"
+                        tag_part = f" [{tag}]" if tag else ""
+                        atxt = f"⏱ {act['date']} {act['executor']} {time_part} - {act['content']}{tag_part}"
                         self.tree.insert(plan_n, tk.END, text=atxt,
                                          values=("activity", proj["name"], ms["name"], plan["id"], act["id"]))
+
+        # Restore expanded state
+        for item in self._iter_tree_items(""):
+            vals = self.tree.item(item, "values")
+            if vals and tuple(vals) in expanded:
+                self.tree.item(item, open=True)
+
+        # Restore selection
+        if selected_values:
+            for item in self._iter_tree_items(""):
+                if self.tree.item(item, "values") == selected_values:
+                    self.tree.selection_set(item)
+                    self.tree.see(item)
+                    break
+
+    def _iter_tree_items(self, parent):
+        """Recursively iterate all tree items."""
+        for item in self.tree.get_children(parent):
+            yield item
+            yield from self._iter_tree_items(item)
 
     def on_tree_select(self, event):
         sel = self.tree.selection()
@@ -438,14 +563,20 @@ class GanttPilotGUI:
             if prev:
                 self._bg_sync_project(prev)
             self.current_project = proj_name
+            self.refresh_branch_selector()
+            self.check_remote_updates()
             self.refresh_gantt()
             self.refresh_time_report()
+            self.refresh_history()
 
     def _full_refresh(self):
         self.store.load()
         self.refresh_project_list()
+        self.refresh_branch_selector()
+        self.check_remote_updates()
         self.refresh_gantt()
         self.refresh_time_report()
+        self.refresh_history()
 
     def refresh_gantt(self):
         if not self.current_project:
@@ -461,13 +592,311 @@ class GanttPilotGUI:
         self.status_var.set(f"{self._t('gantt_chart')}: {self.current_project}")
 
     def refresh_time_report(self):
+        self.refresh_report()
+
+    def refresh_report(self):
+        """Refresh the report tree based on the selected report mode."""
         for item in self.report_tree.get_children():
             self.report_tree.delete(item)
         if not self.current_project:
             return
-        report = self.store.get_time_report(self.current_project)
-        for ex, data in sorted(report.items()):
-            self.report_tree.insert("", tk.END, values=(ex, f"{data['hours']:.1f}", f"{data['days']:.2f}"))
+
+        modes = self.report_mode_combo["values"]
+        selected = self.report_mode_combo.get()
+
+        # Determine mode index (fallback to 0 = by project)
+        try:
+            mode_idx = list(modes).index(selected)
+        except ValueError:
+            mode_idx = 0
+
+        # Show/hide group column based on mode
+        if mode_idx == 0:
+            self.report_tree.column("group", width=0, stretch=False, minwidth=0)
+        else:
+            self.report_tree.column("group", width=140, stretch=True, minwidth=80)
+
+        if mode_idx == 0:
+            # By Project — flat executor list
+            report = self.store.get_time_report(self.current_project)
+            for ex, data in sorted(report.items()):
+                if ex == "by_tag":
+                    continue
+                self.report_tree.insert("", tk.END, values=("", ex, f"{data['hours']:.1f}", f"{data['days']:.2f}"))
+        else:
+            # Grouped modes
+            if mode_idx == 1:
+                report = self.store.get_time_report_by_milestone(self.current_project)
+            elif mode_idx == 2:
+                report = self.store.get_time_report_by_plan(self.current_project)
+            else:
+                report = self.store.get_time_report_by_tag(self.current_project)
+
+            for group_name, executors in sorted(report.items()):
+                label = group_name if group_name else "-"
+                # Group header row with background color
+                self.report_tree.insert("", tk.END, values=(label, "", "", ""), tags=("group_header",))
+                for ex, data in sorted(executors.items()):
+                    self.report_tree.insert("", tk.END, values=("", ex, f"{data['hours']:.1f}", f"{data['days']:.2f}"))
+
+    # ── History tab ─────────────────────────────────────────
+    def _on_tab_changed(self, event):
+        """Refresh history when user switches to the history tab."""
+        try:
+            idx = self.right_notebook.index(self.right_notebook.select())
+            if idx == 1:  # History tab
+                self.refresh_history()
+        except Exception:
+            pass
+
+    def refresh_history(self):
+        """Refresh the history tree with git log from the current project."""
+        # Clear existing items
+        for item in self.history_tree.get_children():
+            self.history_tree.delete(item)
+        # Clear diff area
+        self.history_diff_text.configure(state=tk.NORMAL)
+        self.history_diff_text.delete("1.0", tk.END)
+        self.history_diff_text.configure(state=tk.DISABLED)
+
+        if not self.current_project:
+            self.history_tree.insert("", tk.END, values=("", "", self._t("no_history")))
+            return
+
+        proj = self.store.get_project(self.current_project)
+        if not proj:
+            self.history_tree.insert("", tk.END, values=("", "", self._t("no_history")))
+            return
+
+        try:
+            gs = self._get_project_git(proj)
+            if not gs.is_repo():
+                self.history_tree.insert("", tk.END, values=("", "", self._t("no_history")))
+                return
+
+            records = gs.get_log()
+            if not records:
+                self.history_tree.insert("", tk.END, values=("", "", self._t("no_history")))
+                return
+
+            for rec in records:
+                self.history_tree.insert("", tk.END,
+                    values=(rec.get("author", ""), rec.get("date", ""), rec.get("message", "")),
+                    tags=(rec.get("hash", ""),))
+        except Exception:
+            self.history_tree.insert("", tk.END, values=("", "", self._t("no_history")))
+
+    # ── Branch selector ────────────────────────────────────
+    def refresh_branch_selector(self):
+        """Refresh the branch selector combobox for the current project."""
+        if not self.current_project:
+            self.branch_selector.set("")
+            self.branch_selector["values"] = []
+            self.branch_selector.configure(state="disabled")
+            return
+
+        proj = self.store.get_project(self.current_project)
+        if not proj:
+            self.branch_selector.set("")
+            self.branch_selector["values"] = []
+            self.branch_selector.configure(state="disabled")
+            return
+
+        try:
+            gs = self._get_project_git(proj)
+            if not gs.is_repo():
+                self.branch_selector.set("")
+                self.branch_selector["values"] = []
+                self.branch_selector.configure(state="disabled")
+                return
+
+            branches = gs.list_branches()
+            current = gs.get_current_branch()
+            # Store actual branch names for lookup
+            self._branch_actual_names = branches
+            # Build display names: remote branches get a prefix
+            remote_prefix = self._t("remote_prefix")
+            display_names = []
+            for b in branches:
+                if b.startswith("origin/"):
+                    display_names.append(f"{remote_prefix} {b}")
+                else:
+                    display_names.append(b)
+            self.branch_selector.configure(state="readonly")
+            self.branch_selector["values"] = display_names
+            if current and current in branches:
+                idx = branches.index(current)
+                self.branch_selector.set(display_names[idx])
+            elif display_names:
+                self.branch_selector.set(display_names[0])
+            else:
+                self.branch_selector.set("")
+        except Exception:
+            self.branch_selector.set("")
+            self.branch_selector["values"] = []
+            self.branch_selector.configure(state="disabled")
+
+    def check_remote_updates(self):
+        """Check if remote main branch has new commits and show/hide the update banner."""
+        if not self.current_project:
+            self.update_banner.pack_forget()
+            return
+
+        proj = self.store.get_project(self.current_project)
+        if not proj or not proj.get("remote_url"):
+            self.update_banner.pack_forget()
+            return
+
+        try:
+            gs = self._get_project_git(proj)
+            if not gs.is_repo():
+                self.update_banner.pack_forget()
+                return
+
+            if gs.has_remote_updates():
+                # Show banner between branch_frame and notebook
+                self.update_banner.pack(fill=tk.X, pady=(0, 2), before=self.right_vpaned)
+            else:
+                self.update_banner.pack_forget()
+        except Exception:
+            self.update_banner.pack_forget()
+
+    def do_manual_rebase(self):
+        """Handle click on the sync-main button in the update banner."""
+        if not self.current_project:
+            return
+
+        proj = self.store.get_project(self.current_project)
+        if not proj:
+            return
+
+        try:
+            gs = self._get_project_git(proj)
+            gs.manual_rebase()
+            # Success — hide banner, refresh views
+            self.update_banner.pack_forget()
+            self.store.load()
+            self.refresh_project_list()
+            self.refresh_gantt()
+            self.refresh_time_report()
+            self.refresh_history()
+            self.status_var.set(self._t("rebase_success"))
+        except RuntimeError:
+            messagebox.showerror(self._t("error"), self._t("rebase_conflict"))
+
+    def on_branch_changed(self, event=None):
+        """Handle branch selection change — load data from selected branch."""
+        selected = self.branch_selector.get()
+        if not selected or not self.current_project:
+            return
+
+        # Strip remote prefix to get actual branch name
+        remote_prefix = self._t("remote_prefix") + " "
+        if selected.startswith(remote_prefix):
+            selected = selected[len(remote_prefix):]
+
+        proj = self.store.get_project(self.current_project)
+        if not proj:
+            return
+
+        try:
+            gs = self._get_project_git(proj)
+            current = gs.get_current_branch()
+
+            if selected == current:
+                # Current working branch — load data normally
+                self.store.load()
+                self.refresh_gantt()
+                self.refresh_time_report()
+                self.refresh_history()
+                return
+
+            # Different branch — read project.json from that branch
+            content = gs.read_file_from_branch(selected, "project.json")
+            if content is None:
+                self.status_var.set(f"Cannot load project.json from branch: {selected}")
+                return
+
+            branch_proj = json.loads(content)
+            # Temporarily replace project data for display
+            backend = CanvasBackend(self.gantt_canvas)
+            renderer = GanttRenderer(backend, branch_proj, self.lang, self.gantt_zoom,
+                                     self.config.get("compress_threshold", 300),
+                                     self.config.get("max_chart_width", 4000))
+            renderer.draw()
+
+            # Refresh history for the selected branch
+            for item in self.history_tree.get_children():
+                self.history_tree.delete(item)
+            self.history_diff_text.configure(state=tk.NORMAL)
+            self.history_diff_text.delete("1.0", tk.END)
+            self.history_diff_text.configure(state=tk.DISABLED)
+
+            records = gs.get_log(branch=selected)
+            if not records:
+                self.history_tree.insert("", tk.END, values=("", "", self._t("no_history")))
+            else:
+                for rec in records:
+                    self.history_tree.insert("", tk.END,
+                        values=(rec.get("author", ""), rec.get("date", ""), rec.get("message", "")),
+                        tags=(rec.get("hash", ""),))
+
+            # Refresh time report from branch data
+            for item in self.report_tree.get_children():
+                self.report_tree.delete(item)
+            # Calculate time report from branch project data
+            report = {}
+            tag_hours = {}
+            for ms in branch_proj.get("milestones", []):
+                for plan in ms.get("plans", []):
+                    for act in plan.get("activities", []):
+                        ex = act.get("executor", "")
+                        h = float(act.get("hours", 0))
+                        if ex not in report:
+                            report[ex] = {"hours": 0, "days": 0}
+                        report[ex]["hours"] += h
+                        report[ex]["days"] = report[ex]["hours"] / 8.0
+                        tag = act.get("tag", "")
+                        if tag not in tag_hours:
+                            tag_hours[tag] = 0
+                        tag_hours[tag] += h
+            for ex, data in sorted(report.items()):
+                self.report_tree.insert("", tk.END, values=(ex, f"{data['hours']:.1f}", f"{data['days']:.2f}"))
+            if tag_hours:
+                self.report_tree.insert("", tk.END, values=("", "", ""))
+                self.report_tree.insert("", tk.END, values=(self._t("tag_summary"), "", ""))
+                for tag, hours in sorted(tag_hours.items()):
+                    label = tag if tag else "-"
+                    self.report_tree.insert("", tk.END, values=(f"  [{label}]", f"{hours:.1f}", f"{hours / 8.0:.2f}"))
+
+            self.status_var.set(f"{self._t('gantt_chart')}: {self.current_project} ({selected})")
+        except Exception as e:
+            self.status_var.set(f"Branch load error: {e}")
+
+    def on_history_select(self, event):
+        """Show diff detail when a commit is selected in the history tree."""
+        sel = self.history_tree.selection()
+        if not sel:
+            return
+        tags = self.history_tree.item(sel[0], "tags")
+        commit_hash = tags[0] if tags else ""
+        if not commit_hash or not self.current_project:
+            return
+
+        proj = self.store.get_project(self.current_project)
+        if not proj:
+            return
+
+        try:
+            gs = self._get_project_git(proj)
+            diff_text = gs.get_commit_diff(commit_hash)
+        except Exception:
+            diff_text = ""
+
+        self.history_diff_text.configure(state=tk.NORMAL)
+        self.history_diff_text.delete("1.0", tk.END)
+        self.history_diff_text.insert("1.0", diff_text)
+        self.history_diff_text.configure(state=tk.DISABLED)
 
     # ── CRUD via context menu ────────────────────────────────
     def add_project(self):
@@ -591,7 +1020,8 @@ class GanttPilotGUI:
         if dlg.result:
             r = dlg.result
             self.undo_manager.save_snapshot()
-            result = self.store.add_activity(proj, ms, plan_id, r["executor"], r["date"], r["hours"], r["content"])
+            result = self.store.add_activity(proj, ms, plan_id, r["executor"], r["date"], r["hours"], r["content"],
+                                             time_slots=r.get("time_slots", ""), tag=r.get("tag", ""))
             if result:
                 self._commit(f"Add activity: {r['content']}")
                 self.refresh_project_list()
@@ -637,6 +1067,19 @@ class GanttPilotGUI:
         self.undo_manager.save_snapshot()
         if self.store.finish_plan(proj, ms, plan_id):
             self._commit(f"Finish plan: {plan_id}")
+            self.refresh_project_list()
+            self.refresh_gantt()
+            self._update_undo_redo_buttons()
+
+    def reopen_selected_plan(self):
+        proj, ms, plan_id = self._get_selected_plan()
+        if not plan_id:
+            return
+        if not messagebox.askyesno(self._t("warning"), self._t("confirm_reopen", plan_id)):
+            return
+        self.undo_manager.save_snapshot()
+        if self.store.reopen_plan(proj, ms, plan_id):
+            self._commit(f"Reopen plan: {plan_id}")
             self.refresh_project_list()
             self.refresh_gantt()
             self._update_undo_redo_buttons()
@@ -757,7 +1200,8 @@ class GanttPilotGUI:
             r = dlg.result
             self.undo_manager.save_snapshot()
             self.store.update_activity(proj_name, ms_name, plan_id, act_id,
-                                       r["executor"], r["date"], r["hours"], r["content"])
+                                       r["executor"], r["date"], r["hours"], r["content"],
+                                       time_slots=r.get("time_slots", ""), tag=r.get("tag", ""))
             self._commit(f"Edit activity: {act_id}")
             self.refresh_project_list()
             self.refresh_time_report()
@@ -918,6 +1362,28 @@ class GanttPilotGUI:
         self.report_tree.heading("executor", text=self._t("executor"))
         self.report_tree.heading("hours", text=self._t("total_hours"))
         self.report_tree.heading("days", text=self._t("total_days"))
+        # Update notebook tab labels
+        self.right_notebook.tab(0, text=self._t("gantt_chart"))
+        self.right_notebook.tab(1, text=self._t("history"))
+        # Update branch label
+        self.branch_label.configure(text=self._t("branch"))
+        # Update banner labels
+        self.update_banner_label.configure(text=self._t("main_updated"))
+        self.update_banner_btn.configure(text=self._t("sync_main"))
+        # Update report mode selector
+        self.report_mode_label.configure(text=self._t("report_mode"))
+        current_idx = self.report_mode_combo.current()
+        self.report_mode_combo["values"] = [
+            self._t("report_by_project"),
+            self._t("report_by_milestone"),
+            self._t("report_by_plan"),
+            self._t("report_by_tag"),
+        ]
+        self.report_mode_combo.current(current_idx if current_idx >= 0 else 0)
+        # Update history tree headings
+        self.history_tree.heading("commit_author", text=self._t("commit_author"))
+        self.history_tree.heading("commit_date", text=self._t("commit_date"))
+        self.history_tree.heading("commit_message", text=self._t("commit_message"))
         self.refresh_gantt()
 
     def increase_font(self):
@@ -1009,6 +1475,7 @@ class GanttPilotGUI:
             self.refresh_project_list()
             self.refresh_gantt()
             self.refresh_time_report()
+            self.check_remote_updates()
             # Show PR hint in status bar
             priv = proj.get("priv_branch") or f"priv_{proj['committer_name']}"
             main = proj.get("remote_branch", "main")
@@ -1119,8 +1586,13 @@ class PlanDialog:
         self.skip_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(self.top, text=t_func("skip_non_workdays"), variable=self.skip_var).grid(
             row=len(fields), column=0, columnspan=2, padx=8, pady=3, sticky=tk.W)
+        # CalcPaper hint
+        hint = ttk.Label(self.top, text="💡 可使用 CalcPaper 进行工期推算" if lang == "zh" else "💡 Use CalcPaper for schedule estimation",
+                         foreground="gray", cursor="hand2")
+        hint.grid(row=len(fields) + 1, column=0, columnspan=2, padx=8, pady=(2, 0), sticky=tk.W)
+        hint.bind("<Button-1>", lambda e: __import__("webbrowser").open("https://github.com/matthewzu/CalcPaper"))
         ttk.Button(self.top, text="OK", command=self._ok).grid(
-            row=len(fields) + 1, column=0, columnspan=2, pady=10)
+            row=len(fields) + 2, column=0, columnspan=2, pady=10)
 
     def _ok(self):
         content = self.entries["content"].get().strip()
@@ -1175,8 +1647,13 @@ class PlanEditDialog:
         self.skip_var = tk.BooleanVar(value=plan.get("skip_non_workdays", True))
         ttk.Checkbutton(self.top, text=t_func("skip_non_workdays"), variable=self.skip_var).grid(
             row=len(fields), column=0, columnspan=2, padx=8, pady=3, sticky=tk.W)
+        # CalcPaper hint
+        hint = ttk.Label(self.top, text="💡 可使用 CalcPaper 进行工期推算" if lang == "zh" else "💡 Use CalcPaper for schedule estimation",
+                         foreground="gray", cursor="hand2")
+        hint.grid(row=len(fields) + 1, column=0, columnspan=2, padx=8, pady=(2, 0), sticky=tk.W)
+        hint.bind("<Button-1>", lambda e: __import__("webbrowser").open("https://github.com/matthewzu/CalcPaper"))
         ttk.Button(self.top, text="OK", command=self._ok).grid(
-            row=len(fields) + 1, column=0, columnspan=2, pady=10)
+            row=len(fields) + 2, column=0, columnspan=2, pady=10)
 
     def _ok(self):
         skip_str = self.entries["skip_dates"].get().strip()
@@ -1201,17 +1678,18 @@ class ActivityDialog:
     """Dialog for adding an activity"""
     def __init__(self, parent, t_func, lang):
         self.result = None
+        self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("activity"))
-        self.top.geometry("400x240")
+        self.top.geometry("400x280")
         self.top.transient(parent)
         self.top.grab_set()
 
         fields = [
             ("executor", t_func("executor")),
             ("date", t_func("date") + " (YYYYMMDD)"),
-            ("hours", t_func("hours")),
             ("content", t_func("content")),
+            ("time_slots", t_func("time_slots")),
         ]
         self.entries = {}
         for i, (key, label) in enumerate(fields):
@@ -1219,20 +1697,38 @@ class ActivityDialog:
             entry = ttk.Entry(self.top, width=30)
             entry.grid(row=i, column=1, padx=8, pady=4)
             self.entries[key] = entry
+        # Hint label on its own row below time_slots
+        hint_row = len(fields)
+        ttk.Label(self.top, text=t_func("time_slots_hint"), foreground="gray", font=("", 8)).grid(
+            row=hint_row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
+        # Tag field after the hint
+        tag_row = hint_row + 1
+        ttk.Label(self.top, text=t_func("tag")).grid(row=tag_row, column=0, padx=8, pady=4, sticky=tk.W)
+        tag_entry = ttk.Entry(self.top, width=30)
+        tag_entry.grid(row=tag_row, column=1, padx=8, pady=4)
+        self.entries["tag"] = tag_entry
         ttk.Button(self.top, text="OK", command=self._ok).grid(
-            row=len(fields), column=0, columnspan=2, pady=12)
+            row=tag_row + 1, column=0, columnspan=2, pady=12)
 
     def _ok(self):
         executor = self.entries["executor"].get().strip()
         date = self.entries["date"].get().strip()
-        hours_str = self.entries["hours"].get().strip()
         content = self.entries["content"].get().strip()
-        try:
-            hours = float(hours_str)
-        except ValueError:
-            return
+        time_slots = self.entries["time_slots"].get().strip()
+        tag = self.entries["tag"].get().strip()
+        # Validate time_slots if provided
+        if time_slots:
+            try:
+                parse_time_slots(time_slots)
+            except ValueError:
+                messagebox.showwarning("", self.t_func("invalid_time_slots"))
+                return
+        hours = 0.0
+        if time_slots:
+            hours = calculate_hours_from_slots(time_slots)
         if executor and date and content:
-            self.result = {"executor": executor, "date": date, "hours": hours, "content": content}
+            self.result = {"executor": executor, "date": date, "hours": hours,
+                           "content": content, "time_slots": time_slots, "tag": tag}
             self.top.destroy()
 
 
@@ -1372,15 +1868,15 @@ class ActivityEditDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_activity"))
-        self.top.geometry("400x260")
+        self.top.geometry("400x300")
         self.top.transient(parent)
         self.top.grab_set()
 
         fields = [
             ("executor", t_func("executor"), activity.get("executor", "")),
             ("date", t_func("date") + " (YYYYMMDD)", activity.get("date", "")),
-            ("hours", t_func("hours"), str(activity.get("hours", ""))),
             ("content", t_func("content"), activity.get("content", "")),
+            ("time_slots", t_func("time_slots"), activity.get("time_slots", "")),
         ]
         self.entries = {}
         for i, (key, label, val) in enumerate(fields):
@@ -1389,27 +1885,44 @@ class ActivityEditDialog:
             entry.insert(0, val)
             entry.grid(row=i, column=1, padx=8, pady=4)
             self.entries[key] = entry
+        # Hint label on its own row below time_slots
+        hint_row = len(fields)
+        ttk.Label(self.top, text=t_func("time_slots_hint"), foreground="gray", font=("", 8)).grid(
+            row=hint_row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
+        # Tag field after the hint
+        tag_row = hint_row + 1
+        ttk.Label(self.top, text=t_func("tag")).grid(row=tag_row, column=0, padx=8, pady=4, sticky=tk.W)
+        tag_entry = ttk.Entry(self.top, width=30)
+        tag_entry.insert(0, activity.get("tag", ""))
+        tag_entry.grid(row=tag_row, column=1, padx=8, pady=4)
+        self.entries["tag"] = tag_entry
         ttk.Button(self.top, text="OK", command=self._ok).grid(
-            row=len(fields), column=0, columnspan=2, pady=12)
+            row=tag_row + 1, column=0, columnspan=2, pady=12)
 
     def _ok(self):
         executor = self.entries["executor"].get().strip()
         date = self.entries["date"].get().strip()
-        hours_str = self.entries["hours"].get().strip()
         content = self.entries["content"].get().strip()
+        time_slots = self.entries["time_slots"].get().strip()
+        tag = self.entries["tag"].get().strip()
         if not executor or not date or not content:
             return
         # Validate date format
         if len(date) != 8 or not date.isdigit():
             messagebox.showwarning("", self.t_func("invalid_date"))
             return
-        try:
-            hours = float(hours_str)
-            if hours <= 0:
+        # Validate time_slots if provided
+        if time_slots:
+            try:
+                parse_time_slots(time_slots)
+            except ValueError:
+                messagebox.showwarning("", self.t_func("invalid_time_slots"))
                 return
-        except ValueError:
-            return
-        self.result = {"executor": executor, "date": date, "hours": hours, "content": content}
+        hours = 0.0
+        if time_slots:
+            hours = calculate_hours_from_slots(time_slots)
+        self.result = {"executor": executor, "date": date, "hours": hours,
+                       "content": content, "time_slots": time_slots, "tag": tag}
         self.top.destroy()
 
 
