@@ -646,19 +646,47 @@ def open_gantt_in_browser(project, lang="zh"):
     return url
 
 
+
 def generate_gantt_markdown(project, lang="zh", png_filename=None):
     """Generate a comprehensive project report in Markdown."""
     zh = lang == "zh"
     lines = [f"# {project['name']}", ""]
 
-    # Gantt chart image (if PNG available) — no PlantUML code block
+    # Section numbering counters
+    h2_num = 0   # ## level counter
+    h3_num = 0   # ### level counter (resets per h2)
+
+    def h2(title):
+        nonlocal h2_num, h3_num
+        h2_num += 1
+        h3_num = 0
+        return f"## {h2_num}. {title}"
+
+    def h3(title):
+        nonlocal h3_num
+        h3_num += 1
+        return f"### {h2_num}.{h3_num} {title}"
+
+    # Gantt chart section
+    chart_label = "甘特图" if zh else "Gantt Chart"
     if png_filename:
-        chart_label = "甘特图" if zh else "Gantt Chart"
+        lines.append(h2(chart_label))
+        lines.append("")
         lines.append(f"![{chart_label}]({png_filename})")
         lines.append("")
+    else:
+        # Fallback to PlantUML code block
+        uml = generate_gantt_uml(project, lang)
+        if uml:
+            lines.append(h2(chart_label))
+            lines.append("")
+            lines.append("```plantuml")
+            lines.append(uml)
+            lines.append("```")
+            lines.append("")
 
     # Milestones summary
-    lines.append(f"## {'里程碑' if zh else 'Milestones'}")
+    lines.append(h2("里程碑" if zh else "Milestones"))
     lines.append("")
     cr_label = "完成率" if zh else "Completion Rate"
     lines.append(f"| {'名称' if zh else 'Name'} | {'截止日期' if zh else 'Deadline'} | {'描述' if zh else 'Description'} | {'计划数' if zh else 'Plans'} | {cr_label} |")
@@ -685,7 +713,7 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
 
     has_plans = any(ms.get("plans") for ms in project.get("milestones", []))
     if has_plans:
-        lines.append(f"## {'计划进度详情' if zh else 'Plan Progress Details'}")
+        lines.append(h2("计划进度详情" if zh else "Plan Progress Details"))
         lines.append("")
         lines.append(f"| {'里程碑' if zh else 'Milestone'} | {'计划' if zh else 'Plan'} | {'执行者' if zh else 'Executor'} | {'计划工时' if zh else 'Planned Hours'} | {progress_label} | {'结束日期' if zh else 'End Date'} | {actual_end_label} | {status_label} |")
         lines.append("|---|---|---|---|---|---|---|---|")
@@ -727,13 +755,13 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
     # Per-executor activity reports
     if executor_activities:
         tag_label = "标签" if zh else "Tag"
-        lines.append(f"## {'执行者工时明细' if zh else 'Executor Activity Details'}")
+        lines.append(h2("执行者工时明细" if zh else "Executor Activity Details"))
         lines.append("")
         for ex in sorted(executor_activities.keys()):
             acts = executor_activities[ex]
             total_hours = sum(a["hours"] for a in acts)
             total_days = round(total_hours / 8.0, 2)
-            lines.append(f"### {ex}")
+            lines.append(h3(ex))
             lines.append("")
             lines.append(f"{'总计' if zh else 'Total'}: **{total_hours:.1f}** {'小时' if zh else 'hours'} / **{total_days}** {'天' if zh else 'days'}")
             lines.append("")
@@ -758,7 +786,7 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
         tag_label = "标签" if zh else "Tag"
         hours_label = "小时" if zh else "Hours"
         days_label = "天" if zh else "Days"
-        lines.append(f"## {'标签工时汇总' if zh else 'Tag Summary'}")
+        lines.append(h2("标签工时汇总" if zh else "Tag Summary"))
         lines.append("")
         lines.append(f"| {tag_label} | {hours_label} | {days_label} |")
         lines.append("|---|---|---|")
@@ -789,10 +817,10 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
                 ms_executor_hours[ms_name][ex] += h
 
     if ms_executor_hours:
-        lines.append(f"## {'按里程碑工时统计' if zh else 'Hours by Milestone'}")
+        lines.append(h2("按里程碑工时统计" if zh else "Hours by Milestone"))
         lines.append("")
         for ms_name in ms_executor_hours:
-            lines.append(f"### {ms_name}")
+            lines.append(h3(ms_name))
             lines.append("")
             lines.append(f"| {executor_label} | {hours_label} | {days_label} |")
             lines.append("|---|---|---|")
@@ -817,10 +845,10 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
                 plan_executor_hours[plan_content][ex] += h
 
     if plan_executor_hours:
-        lines.append(f"## {'按计划工时统计' if zh else 'Hours by Plan'}")
+        lines.append(h2("按计划工时统计" if zh else "Hours by Plan"))
         lines.append("")
         for plan_content in plan_executor_hours:
-            lines.append(f"### {plan_content}")
+            lines.append(h3(plan_content))
             lines.append("")
             lines.append(f"| {executor_label} | {hours_label} | {days_label} |")
             lines.append("|---|---|---|")
@@ -846,11 +874,11 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
 
     if tag_executor_hours:
         no_tag_label = "无标签" if zh else "No Tag"
-        lines.append(f"## {'按标签工时统计' if zh else 'Hours by Tag'}")
+        lines.append(h2("按标签工时统计" if zh else "Hours by Tag"))
         lines.append("")
         for t in sorted(tag_executor_hours.keys()):
             display_tag = t if t else no_tag_label
-            lines.append(f"### {display_tag}")
+            lines.append(h3(display_tag))
             lines.append("")
             lines.append(f"| {executor_label} | {hours_label} | {days_label} |")
             lines.append("|---|---|---|")
@@ -861,3 +889,5 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
             lines.append("")
 
     return "\n".join(lines)
+
+
