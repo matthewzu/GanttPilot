@@ -107,8 +107,8 @@ jobs:
       with:
         python-version: '3.9'
     - run: |
-        pip install pyinstaller
-        pyinstaller --onefile --windowed --name=GanttPilot --icon=ganttpilot.ico --add-data "ganttpilot.ico;." main.py
+        pip install pyinstaller Pillow
+        pyinstaller --onefile --windowed --name=GanttPilot --icon=ganttpilot.ico --add-data "ganttpilot.ico;." --hidden-import PIL main.py
     - uses: softprops/action-gh-release@v1
       with:
         files: dist/GanttPilot.exe
@@ -124,8 +124,8 @@ jobs:
       with:
         python-version: '3.9'
     - run: |
-        pip install pyinstaller
-        pyinstaller --onefile --windowed --name=GanttPilot --add-data "ganttpilot.ico:." main.py
+        pip install pyinstaller Pillow
+        pyinstaller --onefile --windowed --name=GanttPilot --add-data "ganttpilot.ico:." --hidden-import PIL main.py
         mkdir dmg_temp
         cp dist/GanttPilot dmg_temp/
         hdiutil create -volname "GanttPilot" -srcfolder dmg_temp -ov -format UDZO GanttPilot.dmg
@@ -144,8 +144,8 @@ jobs:
       with:
         python-version: '3.9'
     - run: |
-        pip install pyinstaller
-        pyinstaller --onefile --windowed --name=GanttPilot --icon=ganttpilot.ico --add-data "ganttpilot.ico:." main.py
+        pip install pyinstaller Pillow
+        pyinstaller --onefile --windowed --name=GanttPilot --icon=ganttpilot.ico --add-data "ganttpilot.ico:." --hidden-import PIL main.py
     - uses: softprops/action-gh-release@v1
       with:
         files: dist/GanttPilot
