@@ -39,8 +39,10 @@ class GitSync:
 
     def clone_repo(self, remote_url, target_dir, main_branch="main"):
         """Clone a remote repository to target_dir, checkout main_branch, create priv branch."""
+        # Use authenticated URL if credentials are available
+        auth_url = self._auth_url() or remote_url
         result = subprocess.run(
-            ["git", "clone", remote_url, target_dir],
+            ["git", "clone", auth_url, target_dir],
             capture_output=True, text=True, encoding="utf-8",
             errors="replace", timeout=120, creationflags=_SUBPROCESS_FLAGS,
         )

@@ -23,7 +23,21 @@ from ganttpilot_git import GitSync
 from ganttpilot_gantt import GanttRenderer, CanvasBackend, generate_gantt_markdown
 from version import VERSION
 
+import shutil
+import stat
+
 GITHUB_REPO = "matthewzu/GanttPilot"
+
+
+def _force_rmtree(path):
+    """Remove a directory tree, handling Windows read-only files (e.g. .git pack files)."""
+    def _on_error(func, fpath, exc_info):
+        try:
+            os.chmod(fpath, stat.S_IWRITE)
+            func(fpath)
+        except Exception:
+            pass
+    shutil.rmtree(path, onerror=_on_error)
 
 
 class UpdateChecker:
@@ -161,6 +175,8 @@ class GanttPilotGUI:
                 if proj.get("remote_url"):
                     try:
                         gs = self._get_project_git(proj)
+                        if not gs.is_repo():
+                            continue  # Skip startup sync if repo was deleted
                         gs.init_repo()
                         gs.sync()
                     except Exception:
@@ -916,6 +932,9 @@ class GanttPilotGUI:
             # Clone to a temp name first, then reconcile with project.json name
             tmp_dir = os.path.join(self.config.data_dir, f"_clone_tmp_{name}")
             try:
+                # Clean up any leftover temp dir from a previous failed clone
+                if os.path.exists(tmp_dir):
+                    _force_rmtree(tmp_dir)
                 gs = GitSync(tmp_dir, remote_url, main_branch=remote_branch)
                 gs.clone_repo(remote_url, tmp_dir, remote_branch)
                 # Read the actual project name from cloned project.json
@@ -947,11 +966,14 @@ class GanttPilotGUI:
                 # Rename temp dir to the real project name
                 final_dir = os.path.join(self.config.data_dir, real_name)
                 if os.path.exists(final_dir):
-                    import shutil
-                    shutil.rmtree(tmp_dir)
-                    messagebox.showerror(self._t("error"), self._t("name_duplicate", real_name))
-                    return
-                os.rename(tmp_dir, final_dir)
+                    # Check if it's an orphaned directory (no matching project in store)
+                    if not self.store.get_project(real_name):
+                        _force_rmtree(final_dir)
+                    else:
+                        _force_rmtree(tmp_dir)
+                        messagebox.showerror(self._t("error"), self._t("name_duplicate", real_name))
+                        return
+                shutil.move(tmp_dir, final_dir)
                 self.store.load()
                 self.refresh_project_list()
                 self.refresh_gantt()
@@ -960,8 +982,7 @@ class GanttPilotGUI:
             except Exception as e:
                 # Clean up temp dir on failure
                 if os.path.exists(tmp_dir):
-                    import shutil
-                    shutil.rmtree(tmp_dir, ignore_errors=True)
+                    _force_rmtree(tmp_dir)
                 messagebox.showerror(self._t("error"), self._t("clone_failed", str(e)))
                 self.status_var.set(self._t("clone_failed", str(e)))
         else:
@@ -1041,9 +1062,13 @@ class GanttPilotGUI:
             return
         self.undo_manager.save_snapshot()
         if kind == "project":
-            self.store.delete_project(values[1])
-            self._commit(f"Delete project: {values[1]}")
+            proj_name = values[1]
+            proj_dir = os.path.join(self.config.data_dir, proj_name)
+            self.store.delete_project(proj_name)
             self.current_project = None
+            # Remove project directory from disk (after clearing current_project so no git ops)
+            if os.path.isdir(proj_dir):
+                _force_rmtree(proj_dir)
         elif kind == "milestone":
             self.store.delete_milestone(values[1], values[2])
             self._commit(f"Delete milestone: {values[2]}")
@@ -1099,7 +1124,8 @@ class GanttPilotGUI:
             self._update_undo_redo_buttons()
 
     def load_example(self):
-        example_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "examples", "demo_project.json")
+        fname = "demo_project_en.json" if self.lang == "en" else "demo_project.json"
+        example_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "examples", fname)
         if not os.path.exists(example_path):
             messagebox.showerror(self._t("error"), self._t("file_not_found", example_path))
             return
@@ -1469,6 +1495,15 @@ class GanttPilotGUI:
         self.root.update()
         try:
             gs = self._get_project_git(proj)
+            proj_dir = os.path.join(self.config.data_dir, proj["name"])
+            # If project directory was deleted, re-clone from remote
+            if not gs.is_repo():
+                remote_url = proj.get("remote_url", "")
+                remote_branch = proj.get("remote_branch", "main")
+                if os.path.exists(proj_dir):
+                    _force_rmtree(proj_dir)
+                gs.clone_repo(remote_url, proj_dir, remote_branch)
+                gs = self._get_project_git(proj)
             gs.init_repo()
             gs.sync()
             self.store.load()
@@ -1505,6 +1540,8 @@ class GanttPilotGUI:
         def _do():
             try:
                 gs = self._get_project_git(proj)
+                if not gs.is_repo():
+                    return  # Skip background sync if repo was deleted
                 gs.init_repo()
                 gs.sync()
             except Exception:
