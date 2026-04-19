@@ -155,6 +155,10 @@ TEXTS = {
         "reopen": "重开",
         "confirm_reopen": "确认重开计划 '{}'？",
         "plan_reopened": "计划 '{}' 已重开",
+        "update_check": "更新检查",
+        "update_available": "发现新版本 {}！是否立即下载更新？",
+        "update_not_ready": "v{} 发布资源尚未就绪，请稍后重试。",
+        "downloading_update": "正在下载更新...",
     },
     "en": {
         "app_title": "GanttPilot - Collaborative Project Manager",
@@ -308,6 +312,10 @@ TEXTS = {
         "reopen": "Reopen",
         "confirm_reopen": "Reopen plan '{}'?",
         "plan_reopened": "Plan '{}' reopened",
+        "update_check": "Update",
+        "update_available": "New version {} available! Download now?",
+        "update_not_ready": "v{} release assets are not ready yet. Please try again later.",
+        "downloading_update": "Downloading update...",
     },
 }
 

@@ -55,21 +55,32 @@ class UpdateChecker:
             req = urllib.request.Request(url, headers={"User-Agent": "GanttPilot"})
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode())
+            # Skip draft or prerelease
+            if data.get("draft") or data.get("prerelease"):
+                return
             tag = data.get("tag_name", "").lstrip("v")
             if tag and tag != self.current_version:
                 # Find platform-specific asset URL
                 asset_url = None
+                asset_size = 0
                 platform = sys.platform
                 for asset in data.get("assets", []):
+                    # Skip assets still being uploaded
+                    if asset.get("state") != "uploaded":
+                        continue
                     name = asset.get("name", "").lower()
+                    matched = False
                     if platform == "win32" and name.endswith(".exe"):
-                        asset_url = asset["browser_download_url"]
+                        matched = True
                     elif platform == "darwin" and name.endswith(".dmg"):
-                        asset_url = asset["browser_download_url"]
+                        matched = True
                     elif platform.startswith("linux") and not name.endswith((".exe", ".dmg")):
+                        matched = True
+                    if matched:
                         asset_url = asset["browser_download_url"]
+                        asset_size = asset.get("size", 0)
                 dl_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases")
-                self.callback(tag, dl_url, asset_url)
+                self.callback(tag, dl_url, asset_url, asset_size)
         except Exception:
             pass
 
@@ -187,23 +198,23 @@ class GanttPilotGUI:
         except Exception:
             pass
 
-    def _show_update_notification(self, new_version, download_url, asset_url=None):
+    def _show_update_notification(self, new_version, download_url, asset_url=None, asset_size=0):
         def show():
+            if not asset_url:
+                # No platform-specific asset ready yet
+                msg = self._t("update_not_ready", new_version) if hasattr(self, '_t') else \
+                    f"v{new_version} 发布资源尚未就绪，请稍后重试。"
+                messagebox.showinfo(self._t("update_check"), msg)
+                return
             if not messagebox.askyesno(self._t("update_check"), self._t("update_available", new_version)):
                 return
-            if asset_url:
-                self.status_var.set(self._t("downloading_update"))
-                self.root.update()
-                threading.Thread(target=lambda: self._download_update(asset_url, new_version), daemon=True).start()
-            else:
-                # No platform-specific asset found, try download_url as fallback
-                self.status_var.set(self._t("downloading_update"))
-                self.root.update()
-                threading.Thread(target=lambda: self._download_update(download_url, new_version), daemon=True).start()
+            self.status_var.set(self._t("downloading_update"))
+            self.root.update()
+            threading.Thread(target=lambda: self._download_update(asset_url, new_version, asset_size), daemon=True).start()
         self.root.after(0, show)
 
-    def _download_update(self, asset_url, new_version):
-        """Download update with progress reporting."""
+    def _download_update(self, asset_url, new_version, expected_size=0):
+        """Download update with progress reporting and integrity checks."""
         try:
             import time
             req = urllib.request.Request(asset_url, headers={"User-Agent": "GanttPilot"})
@@ -230,6 +241,36 @@ class GanttPilotGUI:
                         msg = f"{dl_mb:.1f}MB  {speed/1024:.0f}KB/s"
                     self.root.after(0, lambda m=msg: self.status_var.set(m))
                 data = b"".join(chunks)
+
+            # --- Integrity checks ---
+            # 1. Size check against Content-Length
+            if total > 0 and len(data) != total:
+                raise RuntimeError(
+                    f"Size mismatch: expected {total} bytes, got {len(data)}" if self.lang == "en"
+                    else f"大小不匹配: 预期 {total} 字节, 实际 {len(data)}")
+            # 2. Size check against GitHub asset size
+            if expected_size > 0 and len(data) != expected_size:
+                raise RuntimeError(
+                    f"Size mismatch with release: expected {expected_size} bytes, got {len(data)}" if self.lang == "en"
+                    else f"与发布信息不匹配: 预期 {expected_size} 字节, 实际 {len(data)}")
+            # 3. Minimum size sanity check (< 100KB is suspicious for an app binary)
+            if len(data) < 102400:
+                raise RuntimeError(
+                    f"Downloaded file too small ({len(data)} bytes), possibly incomplete" if self.lang == "en"
+                    else f"下载文件过小 ({len(data)} 字节)，可能不完整")
+            # 4. Binary header validation
+            if sys.platform == "win32" and data[:2] != b"MZ":
+                raise RuntimeError(
+                    "Invalid executable (not a valid PE file)" if self.lang == "en"
+                    else "无效的可执行文件 (非有效 PE 格式)")
+            elif sys.platform == "darwin" and data[:4] not in (b"\xfe\xed\xfa\xce", b"\xfe\xed\xfa\xcf", b"\xca\xfe\xba\xbe"):
+                raise RuntimeError(
+                    "Invalid executable (not a valid Mach-O file)" if self.lang == "en"
+                    else "无效的可执行文件 (非有效 Mach-O 格式)")
+            elif sys.platform.startswith("linux") and data[:4] != b"\x7fELF":
+                raise RuntimeError(
+                    "Invalid executable (not a valid ELF file)" if self.lang == "en"
+                    else "无效的可执行文件 (非有效 ELF 格式)")
 
             # Determine exe path
             exe_path = sys.executable
