@@ -5,6 +5,62 @@
   "remote_url": "",
   "remote_username": "",
   "remote_password": "",
+  "requirements": [
+    {
+      "id": "req00001",
+      "category": "功能",
+      "subject": "用户管理",
+      "description": "实现用户注册、登录、权限管理等核心用户管理功能",
+      "tasks": [
+        {
+          "id": "task0001",
+          "subject": "用户调研与需求分析",
+          "effort_days": 5.0,
+          "description": "开展用户访谈，收集需求并整理调研报告"
+        },
+        {
+          "id": "task0002",
+          "subject": "用户认证模块开发",
+          "effort_days": 8.0,
+          "description": "实现用户注册、登录、密码重置等认证功能"
+        }
+      ]
+    },
+    {
+      "id": "req00002",
+      "category": "功能",
+      "subject": "前端界面",
+      "description": "设计并实现响应式前端界面，支持多终端访问",
+      "tasks": [
+        {
+          "id": "task0003",
+          "subject": "UI原型设计",
+          "effort_days": 6.0,
+          "description": "完成UI原型设计与交互评审"
+        },
+        {
+          "id": "task0004",
+          "subject": "前端组件开发",
+          "effort_days": 10.0,
+          "description": "开发核心UI组件、页面路由与状态管理"
+        }
+      ]
+    },
+    {
+      "id": "req00003",
+      "category": "运维",
+      "subject": "监控与运维",
+      "description": "搭建系统监控体系，确保系统稳定运行",
+      "tasks": [
+        {
+          "id": "task0005",
+          "subject": "监控系统搭建",
+          "effort_days": 7.0,
+          "description": "搭建日志采集、监控仪表盘和告警系统"
+        }
+      ]
+    }
+  ],
   "milestones": [
     {
       "id": "ms01",
@@ -25,6 +81,7 @@
           "status": "finished",
           "progress": 100,
           "actual_end_date": "20250115",
+          "linked_task_id": "task0001",
           "activities": [
             {
               "id": "a01",
@@ -226,6 +283,7 @@
           "status": "active",
           "progress": 30,
           "actual_end_date": "",
+          "linked_task_id": "task0002",
           "activities": [
             {
               "id": "a12",
@@ -340,6 +398,7 @@
           "status": "finished",
           "progress": 100,
           "actual_end_date": "20250225",
+          "linked_task_id": "task0004",
           "activities": [
             {
               "id": "a19",
@@ -568,6 +627,7 @@
           "status": "active",
           "progress": 50,
           "actual_end_date": "",
+          "linked_task_id": "task0005",
           "activities": [
             {
               "id": "a51",

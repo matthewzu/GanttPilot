@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.7.2-blue.svg)
+![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -21,7 +21,7 @@
 
 GanttPilot is a collaborative project manager that visualizes project status with Gantt charts. Each project is an independent Git repository, enabling multi-user collaboration through Git sync. Manage projects, milestones, plans, and activities — all from a clean right-click menu interface.
 
-Version: 0.7.2
+Version: 0.8.0
 
 ### 🚀 Quick Start
 
@@ -56,9 +56,13 @@ python main.py --version
 - 📌 **Milestone Deadlines** - Diamond markers on Gantt chart
 - 📈 **Progress Tracking** - Plan progress (0-100%), actual end date, ahead/behind schedule detection
 - 📁 **Project Management** - Add/edit/delete/clone via right-click, project description
+- 📋 **Requirement Management** - Create requirements with category, subject, and description under Requirement Analysis node
+- ✅ **Task Management** - Break down requirements into tasks with effort estimation (person-days)
+- 🔗 **Requirement Tracking** - Link plans to tasks, track requirements → tasks → plans → progress in a dedicated tab
 - 🏷️ **Milestone Management** - Deadline, description, custom color
-- 📋 **Plan Management** - Executor, date range, planned hours, skip non-workdays, skip dates with `-YYYYMMDD` support, color, finish/reopen, set progress
+- 📋 **Plan Management** - Executor, date range, linked task, skip non-workdays, skip dates with `-YYYYMMDD` support, color, finish/reopen, set progress
 - ⏱ **Activity Tracking** - Per-executor time logging
+- 🛠️ **Unified Toolbar** - Add, Edit, Delete, Move Up, Move Down buttons with context-sensitive enable/disable
 - 🔗 **Per-project Git Repos** - Independent repos with configurable remote, private branch per user, PR workflow
 - 🔄 **Smart Sync** - Background sync on startup/switch/exit
 - ↩️ **Undo/Redo** - Ctrl+Z / Ctrl+Y
@@ -84,25 +88,34 @@ python main.py --version
 
 ### 🖱️ Usage
 
-All operations via right-click context menus:
+All operations via toolbar buttons and right-click context menus:
 
-| Right-click on | Available actions |
-| --- | --- |
-| Empty area | Add project, Load example, Sync, Refresh |
-| Project | Add milestone, Edit, Git config, Report, Sync, Delete |
-| Milestone | Add plan, Edit, Color, Delete |
-| Plan | Add activity, Edit, Color, Set progress, Finish, Reopen, Delete |
-| Activity | Edit, Delete |
+| Node / Area | Toolbar | Right-click |
+| --- | --- | --- |
+| Empty area | — | Add project, Load example, Sync, Refresh |
+| Project | — | Add milestone, Edit, Git config, Report, Sync, Delete |
+| Requirement Analysis | Add (requirement) | Add requirement |
+| Requirement | Add (task), Edit, Delete, Move Up/Down | Add task, Edit, Delete |
+| Task | Edit, Delete, Move Up/Down | Edit, Delete |
+| Plan Execution | Add (milestone) | Add milestone |
+| Milestone | Add (plan), Edit, Delete, Move Up/Down | Add plan, Edit, Color, Delete |
+| Plan | Add (activity), Edit, Delete, Move Up/Down | Add activity, Edit, Color, Set progress, Finish, Reopen, Delete |
+| Activity | Edit, Delete | Edit, Delete |
 
 ### 📐 Data Structure
 
 ```
 Project (independent Git repo, with description)
-  └── Milestone (deadline, description, color)
-        └── Plan (executor, dates, planned hours, progress, skip dates, actual_end_date)
-              └── Activity (executor, date, hours, time_slots, tag, content)
+  ├── Requirement Analysis
+  │     └── Requirement (category, subject, description)
+  │           └── Task (subject, effort_days, description)
+  └── Plan Execution
+        └── Milestone (deadline, description, color)
+              └── Plan (executor, dates, linked_task, progress, skip dates, actual_end_date)
+                    └── Activity (executor, date, hours, time_slots, tag, content)
 ```
 
+- `linked_task_id`: References a task ID from requirements, linking plan to requirement tracking
 - `time_slots`: Start/end time slot list, format `HHMM/HHMM` comma-separated (e.g. `0900/1200,1430/1500`)
 - `hours`: Auto-calculated from `time_slots`; retains manual value when `time_slots` is empty
 - `tag`: Single string tag for activity classification, default empty
@@ -154,7 +167,7 @@ GPL-3.0
 
 GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作为独立 Git 仓库，通过 Git 同步实现多人协作。
 
-版本：0.7.0
+版本：0.8.0
 
 ### 🚀 快速开始
 
@@ -187,9 +200,13 @@ python main.py --version
 - 📌 **里程碑截止日期** - 甘特图菱形标记
 - 📈 **进度追踪** - 计划进度（0-100%）、实际完成时间、提前/延期检测
 - 📁 **项目管理** - 右键添加/编辑/删除/克隆，项目描述
+- 📋 **需求管理** - 在需求分析节点下创建需求，支持类别、主题和描述
+- ✅ **任务管理** - 将需求拆解为任务，支持工作量估算（人日）
+- 🔗 **需求跟踪** - 计划关联任务，在需求跟踪标签页中查看需求→任务→计划→进度跟踪链条
 - 🏷️ **里程碑管理** - 截止日期、描述、自定义颜色
-- 📋 **计划管理** - 执行者、日期范围、计划工时、跳过非工作日、跳过日期（支持 `-YYYYMMDD` 格式）、颜色、完结/重开、设置进度
+- 📋 **计划管理** - 执行者、日期范围、关联任务、跳过非工作日、跳过日期（支持 `-YYYYMMDD` 格式）、颜色、完结/重开、设置进度
 - ⏱ **活动跟踪** - 按执行者记录工时
+- 🛠️ **统一工具栏** - 添加、编辑、删除、上移、下移按钮，根据选中节点类型自动启用/禁用
 - 🔗 **项目级独立 Git 仓库** - 可配置远端，每用户私有分支，PR 工作流
 - 🔄 **智能同步** - 启动/切换/退出时后台同步
 - ↩️ **撤销/恢复** - Ctrl+Z / Ctrl+Y
@@ -215,23 +232,34 @@ python main.py --version
 
 ### 🖱️ 操作方式
 
-| 右键点击 | 可用操作 |
-| --- | --- |
-| 空白处 | 添加项目、加载示例、同步、刷新 |
-| 项目 | 添加里程碑、编辑项目、Git 配置、生成报告、同步、删除 |
-| 里程碑 | 添加计划、编辑里程碑、设置颜色、删除 |
-| 计划 | 添加活动、编辑属性、设置颜色、设置进度、完结、重开、删除 |
-| 活动 | 编辑活动、删除 |
+通过工具栏按钮和右键菜单进行所有操作：
+
+| 节点 / 区域 | 工具栏 | 右键菜单 |
+| --- | --- | --- |
+| 空白处 | — | 添加项目、加载示例、同步、刷新 |
+| 项目 | — | 添加里程碑、编辑项目、Git 配置、生成报告、同步、删除 |
+| 需求分析 | 添加（需求） | 添加需求 |
+| 需求 | 添加（任务）、编辑、删除、上移/下移 | 添加任务、编辑、删除 |
+| 任务 | 编辑、删除、上移/下移 | 编辑、删除 |
+| 计划执行 | 添加（里程碑） | 添加里程碑 |
+| 里程碑 | 添加（计划）、编辑、删除、上移/下移 | 添加计划、编辑里程碑、设置颜色、删除 |
+| 计划 | 添加（活动）、编辑、删除、上移/下移 | 添加活动、编辑属性、设置颜色、设置进度、完结、重开、删除 |
+| 活动 | 编辑、删除 | 编辑活动、删除 |
 
 ### 📐 数据结构
 
 ```
 项目 (独立 Git 仓库，含描述)
-  └── 里程碑 (截止日期、描述、颜色)
-        └── 计划 (执行者、日期范围、计划工时、进度、跳过日期、实际完成时间)
-              └── 活动 (执行者、日期、小时数、工时时段、标签、内容)
+  ├── 需求分析
+  │     └── 需求 (类别、主题、描述)
+  │           └── 任务 (主题、工作量/人日、描述)
+  └── 计划执行
+        └── 里程碑 (截止日期、描述、颜色)
+              └── 计划 (执行者、日期范围、关联任务、进度、跳过日期、实际完成时间)
+                    └── 活动 (执行者、日期、小时数、工时时段、标签、内容)
 ```
 
+- `linked_task_id`：引用需求中的任务 ID，将计划与需求跟踪链条关联
 - `time_slots`：起止时间段列表，格式 `HHMM/HHMM` 逗号分隔（如 `0900/1200,1430/1500`）
 - `hours`：由 `time_slots` 自动计算；当 `time_slots` 为空时保留手动输入值
 - `tag`：单个字符串标签，用于活动分类，默认为空

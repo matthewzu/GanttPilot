@@ -172,6 +172,9 @@ class DataStore:
                         proj["committer_email"] = ""
                     if "priv_branch" not in proj:
                         proj["priv_branch"] = ""
+                    # Backward compat: initialize empty requirements list for old projects
+                    if "requirements" not in proj:
+                        proj["requirements"] = []
                     # Fill missing progress/actual_end_date defaults for each plan
                     for ms in proj.get("milestones", []):
                         for plan in ms.get("plans", []):
@@ -181,6 +184,9 @@ class DataStore:
                                 plan["actual_end_date"] = ""
                             if "planned_hours" not in plan:
                                 plan["planned_hours"] = 0
+                            # Backward compat: initialize linked_task_id for old plans
+                            if "linked_task_id" not in plan:
+                                plan["linked_task_id"] = ""
                             # Auto-fix finished plans with progress=0
                             if plan.get("status") == "finished" and plan["progress"] == 0:
                                 plan["progress"] = 100
@@ -222,6 +228,7 @@ class DataStore:
             "remote_url": remote_url,
             "remote_username": remote_username,
             "remote_password": remote_password,
+            "requirements": [],
             "milestones": [],
         }
         self.data["projects"].append(proj)
@@ -278,13 +285,109 @@ class DataStore:
                 return ms
         return None
 
+    # ── Requirement ──────────────────────────────────────────
+    def list_requirements(self, project_name):
+        proj = self.get_project(project_name)
+        return proj["requirements"] if proj else []
+
+    def get_requirement(self, project_name, req_id):
+        proj = self.get_project(project_name)
+        if not proj:
+            return None
+        for req in proj.get("requirements", []):
+            if req["id"] == req_id:
+                return req
+        return None
+
+    def add_requirement(self, project_name, category, subject, description):
+        proj = self.get_project(project_name)
+        if not proj:
+            return None
+        req = {
+            "id": _new_id(),
+            "category": category,
+            "subject": subject,
+            "description": description,
+            "tasks": [],
+        }
+        proj.setdefault("requirements", []).append(req)
+        self.save()
+        return req
+
+    def update_requirement(self, project_name, req_id, category, subject, description):
+        req = self.get_requirement(project_name, req_id)
+        if not req:
+            return False
+        req["category"] = category
+        req["subject"] = subject
+        req["description"] = description
+        self.save()
+        return True
+
+    def delete_requirement(self, project_name, req_id):
+        proj = self.get_project(project_name)
+        if not proj:
+            return False
+        reqs = proj.get("requirements", [])
+        before = len(reqs)
+        proj["requirements"] = [r for r in reqs if r["id"] != req_id]
+        if len(proj["requirements"]) < before:
+            self.save()
+            return True
+        return False
+
+    # ── Task ─────────────────────────────────────────────────
+    def add_task(self, project_name, req_id, subject, effort_days, description):
+        req = self.get_requirement(project_name, req_id)
+        if not req:
+            return None
+        task = {
+            "id": _new_id(),
+            "subject": subject,
+            "effort_days": float(effort_days),
+            "description": description,
+        }
+        req.setdefault("tasks", []).append(task)
+        self.save()
+        return task
+
+    def update_task(self, project_name, req_id, task_id, subject, effort_days, description):
+        req = self.get_requirement(project_name, req_id)
+        if not req:
+            return False
+        for task in req.get("tasks", []):
+            if task["id"] == task_id:
+                task["subject"] = subject
+                task["effort_days"] = float(effort_days)
+                task["description"] = description
+                self.save()
+                return True
+        return False
+
+    def delete_task(self, project_name, req_id, task_id):
+        req = self.get_requirement(project_name, req_id)
+        if not req:
+            return False
+        tasks = req.get("tasks", [])
+        before = len(tasks)
+        req["tasks"] = [t for t in tasks if t["id"] != task_id]
+        if len(req["tasks"]) < before:
+            self.save()
+            return True
+        return False
+
+    def list_tasks(self, project_name, req_id):
+        req = self.get_requirement(project_name, req_id)
+        return req.get("tasks", []) if req else []
+
     # ── Plan ─────────────────────────────────────────────────
     def list_plans(self, project_name, milestone_name):
         ms = self._find_milestone(project_name, milestone_name)
         return ms["plans"] if ms else []
 
     def add_plan(self, project_name, milestone_name, content, executor,
-                 start_date, end_date, skip_non_workdays=True, skip_dates=None, color=""):
+                 start_date, end_date, skip_non_workdays=True, skip_dates=None,
+                 color="", linked_task_id=""):
         ms = self._find_milestone(project_name, milestone_name)
         if not ms:
             return None
@@ -297,6 +400,7 @@ class DataStore:
             "skip_non_workdays": skip_non_workdays,
             "skip_dates": skip_dates or [],
             "color": color,
+            "linked_task_id": linked_task_id,
             "planned_hours": 0,
             "status": "active",
             "progress": 0,
@@ -465,7 +569,91 @@ class DataStore:
                 return True
         return False
 
+    # ── Node ordering ────────────────────────────────────────
+    @staticmethod
+    def _swap_in_list(lst, id_key, item_id, direction):
+        """Swap an item with its sibling in a list.
+
+        Args:
+            lst: The list containing items.
+            id_key: The key used to identify items (e.g. "id", "name").
+            item_id: The value of id_key for the target item.
+            direction: "up" or "down".
+
+        Returns:
+            True if swapped, False if no-op (already at boundary or not found).
+        """
+        idx = None
+        for i, item in enumerate(lst):
+            if item[id_key] == item_id:
+                idx = i
+                break
+        if idx is None:
+            return False
+        if direction == "up":
+            if idx == 0:
+                return False
+            lst[idx], lst[idx - 1] = lst[idx - 1], lst[idx]
+            return True
+        elif direction == "down":
+            if idx >= len(lst) - 1:
+                return False
+            lst[idx], lst[idx + 1] = lst[idx + 1], lst[idx]
+            return True
+        return False
+
+    def move_requirement(self, project_name, req_id, direction):
+        """Move a requirement up or down within the project's requirements list."""
+        proj = self.get_project(project_name)
+        if not proj:
+            return False
+        if self._swap_in_list(proj.get("requirements", []), "id", req_id, direction):
+            self.save()
+            return True
+        return False
+
+    def move_task(self, project_name, req_id, task_id, direction):
+        """Move a task up or down within its requirement's tasks list."""
+        req = self.get_requirement(project_name, req_id)
+        if not req:
+            return False
+        if self._swap_in_list(req.get("tasks", []), "id", task_id, direction):
+            self.save()
+            return True
+        return False
+
+    def move_milestone(self, project_name, ms_name, direction):
+        """Move a milestone up or down within the project's milestones list."""
+        proj = self.get_project(project_name)
+        if not proj:
+            return False
+        if self._swap_in_list(proj.get("milestones", []), "name", ms_name, direction):
+            self.save()
+            return True
+        return False
+
+    def move_plan(self, project_name, ms_name, plan_id, direction):
+        """Move a plan up or down within its milestone's plans list."""
+        ms = self._find_milestone(project_name, ms_name)
+        if not ms:
+            return False
+        if self._swap_in_list(ms.get("plans", []), "id", plan_id, direction):
+            self.save()
+            return True
+        return False
+
     # ── Query helpers ────────────────────────────────────────
+    def get_all_tasks_for_project(self, project_name):
+        """Return [(req_dict, task_dict)] for all requirements and their tasks in the project."""
+        proj = self.get_project(project_name)
+        if not proj:
+            return []
+        result = []
+        for req in proj.get("requirements", []):
+            for task in req.get("tasks", []):
+                result.append((req, task))
+        return result
+
     def get_all_plans_for_project(self, project_name):
         """Flat list of (milestone_name, plan) for a project"""
         proj = self.get_project(project_name)

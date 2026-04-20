@@ -159,6 +159,52 @@ TEXTS = {
         "update_available": "发现新版本 {}！是否立即下载更新？",
         "update_not_ready": "v{} 发布资源尚未就绪，请稍后重试。",
         "downloading_update": "正在下载更新...",
+        # ── Requirement tracking / 需求跟踪 ──
+        "requirement_analysis": "需求分析",
+        "plan_execution": "计划执行",
+        "requirement": "需求",
+        "task": "任务",
+        "category": "类别",
+        "subject": "主题",
+        "effort_days": "工作量(人日)",
+        "linked_task": "关联任务",
+        "tracking_tab": "需求跟踪",
+        "req_category": "需求类别",
+        "req_subject": "需求主题",
+        "task_subject": "任务主题",
+        "linked_plan": "关联计划",
+        "plan_progress": "计划进度",
+        "move_up": "上移",
+        "move_down": "下移",
+        "edit": "编辑",
+        "add_requirement": "添加需求",
+        "edit_requirement": "编辑需求",
+        "add_task": "添加任务",
+        "edit_task": "编辑任务",
+        "edit_plan": "编辑计划",
+        "requirement_added": "需求 '{}' 已添加",
+        "requirement_deleted": "需求 '{}' 已删除",
+        "task_added": "任务 '{}' 已添加",
+        "task_deleted": "任务 '{}' 已删除",
+        "subject_required": "请输入主题",
+        "invalid_effort": "请输入有效数值",
+        "effort_non_negative": "工作量必须大于等于 0",
+        "report_req_analysis": "需求分析",
+        "report_req_tracking": "需求跟踪",
+        "task_count": "任务数",
+        "help_text": (
+            "GanttPilot - 协作式项目管理器\n\n"
+            "项目结构：\n"
+            "• 📋 需求分析 → 管理需求和任务节点\n"
+            "• 📊 计划执行 → 管理里程碑、计划和活动\n\n"
+            "工具栏操作：\n"
+            "• 添加/编辑/删除 → 根据选中节点类型操作\n"
+            "• 上移/下移 → 调整同级节点顺序\n\n"
+            "需求跟踪：\n"
+            "• 在需求分析下创建需求和任务\n"
+            "• 在计划中关联任务，建立跟踪链条\n"
+            "• 需求跟踪标签页查看完整跟踪关系\n"
+        ),
     },
     "en": {
         "app_title": "GanttPilot - Collaborative Project Manager",
@@ -316,6 +362,52 @@ TEXTS = {
         "update_available": "New version {} available! Download now?",
         "update_not_ready": "v{} release assets are not ready yet. Please try again later.",
         "downloading_update": "Downloading update...",
+        # ── Requirement tracking ──
+        "requirement_analysis": "Requirement Analysis",
+        "plan_execution": "Plan Execution",
+        "requirement": "Requirement",
+        "task": "Task",
+        "category": "Category",
+        "subject": "Subject",
+        "effort_days": "Effort(days)",
+        "linked_task": "Linked Task",
+        "tracking_tab": "Requirement Tracking",
+        "req_category": "Category",
+        "req_subject": "Requirement",
+        "task_subject": "Task",
+        "linked_plan": "Linked Plan",
+        "plan_progress": "Progress",
+        "move_up": "Move Up",
+        "move_down": "Move Down",
+        "edit": "Edit",
+        "add_requirement": "Add Requirement",
+        "edit_requirement": "Edit Requirement",
+        "add_task": "Add Task",
+        "edit_task": "Edit Task",
+        "edit_plan": "Edit Plan",
+        "requirement_added": "Requirement '{}' added",
+        "requirement_deleted": "Requirement '{}' deleted",
+        "task_added": "Task '{}' added",
+        "task_deleted": "Task '{}' deleted",
+        "subject_required": "Subject is required",
+        "invalid_effort": "Please enter a valid number",
+        "effort_non_negative": "Effort must be greater than or equal to 0",
+        "report_req_analysis": "Requirement Analysis",
+        "report_req_tracking": "Requirement Tracking",
+        "task_count": "Tasks",
+        "help_text": (
+            "GanttPilot - Collaborative Project Manager\n\n"
+            "Project Structure:\n"
+            "• 📋 Requirement Analysis → Manage requirements and tasks\n"
+            "• 📊 Plan Execution → Manage milestones, plans and activities\n\n"
+            "Toolbar:\n"
+            "• Add/Edit/Delete → Operate based on selected node type\n"
+            "• Move Up/Down → Reorder sibling nodes\n\n"
+            "Requirement Tracking:\n"
+            "• Create requirements and tasks under Requirement Analysis\n"
+            "• Link tasks in plans to build tracking chains\n"
+            "• View full tracking in the Requirement Tracking tab\n"
+        ),
     },
 }
 

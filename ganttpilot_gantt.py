@@ -685,6 +685,23 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
             lines.append("```")
             lines.append("")
 
+    # Requirement Analysis section (before milestones, skip if no requirements)
+    has_requirements = bool(project.get("requirements"))
+    if has_requirements:
+        req_analysis_label = "需求分析" if zh else "Requirement Analysis"
+        task_count_label = "任务数" if zh else "Tasks"
+        lines.append(h2(req_analysis_label))
+        lines.append("")
+        lines.append(f"| {'类别' if zh else 'Category'} | {'主题' if zh else 'Subject'} | {'描述' if zh else 'Description'} | {task_count_label} |")
+        lines.append("|---|---|---|---|")
+        for req in project.get("requirements", []):
+            cat = req.get("category", "") or "-"
+            subj = req.get("subject", "") or "-"
+            desc = req.get("description", "") or "-"
+            tc = len(req.get("tasks", []))
+            lines.append(f"| {cat} | {subj} | {desc} | {tc} |")
+        lines.append("")
+
     # Milestones summary
     lines.append(h2("里程碑" if zh else "Milestones"))
     lines.append("")
@@ -733,6 +750,39 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
                         schedule_note = on_time_label
                 hours_str = f"{p_hours:.1f}h" if p_hours else "-"
                 lines.append(f"| {ms['name']} | {plan.get('content', '')} | {plan.get('executor', '')} | {hours_str} | {p_progress}% | {p_end} | {p_actual or '-'} | {schedule_note} |")
+        lines.append("")
+
+    # Requirement Tracking section (after plan progress details, skip if no requirements)
+    if has_requirements:
+        req_tracking_label = "需求跟踪" if zh else "Requirement Tracking"
+        lines.append(h2(req_tracking_label))
+        lines.append("")
+        lines.append(f"| {'需求类别' if zh else 'Category'} | {'需求主题' if zh else 'Requirement'} | {'任务主题' if zh else 'Task'} | {'工作量(人日)' if zh else 'Effort(days)'} | {'关联计划' if zh else 'Linked Plan'} | {'计划进度' if zh else 'Progress'} |")
+        lines.append("|---|---|---|---|---|---|")
+        # Build task_id -> plan mapping
+        task_plan_map = {}
+        for ms in project.get("milestones", []):
+            for plan in ms.get("plans", []):
+                linked = plan.get("linked_task_id", "")
+                if linked:
+                    task_plan_map[linked] = (plan.get("content", ""), plan.get("progress", 0))
+        for req in project.get("requirements", []):
+            cat = req.get("category", "")
+            subj = req.get("subject", "")
+            tasks = req.get("tasks", [])
+            if not tasks:
+                lines.append(f"| {cat} | {subj} | - | - | - | - |")
+            else:
+                for i, task in enumerate(tasks):
+                    r_cat = cat if i == 0 else ""
+                    r_subj = subj if i == 0 else ""
+                    t_subj = task.get("subject", "")
+                    effort = task.get("effort_days", 0)
+                    effort_str = f"{effort}" if effort else "-"
+                    plan_info = task_plan_map.get(task.get("id", ""))
+                    linked_plan = plan_info[0] if plan_info else "-"
+                    plan_progress = f"{plan_info[1]}%" if plan_info else "-"
+                    lines.append(f"| {r_cat} | {r_subj} | {t_subj} | {effort_str} | {linked_plan} | {plan_progress} |")
         lines.append("")
 
     # Collect all activities grouped by executor

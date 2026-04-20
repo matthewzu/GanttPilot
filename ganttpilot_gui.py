@@ -18,7 +18,7 @@ import json
 
 from ganttpilot_i18n import t
 from ganttpilot_config import Config
-from ganttpilot_core import DataStore, parse_time_slots
+from ganttpilot_core import DataStore, parse_time_slots, calculate_hours_from_slots
 from ganttpilot_git import GitSync
 from ganttpilot_gantt import GanttRenderer, CanvasBackend, generate_gantt_markdown
 from version import VERSION
@@ -27,6 +27,84 @@ import shutil
 import stat
 
 GITHUB_REPO = "matthewzu/GanttPilot"
+
+# ── Toolbar button state mapping ─────────────────────────────
+TOOLBAR_STATE = {
+    None:                  {"add": False, "edit": False, "delete": False, "up": False, "down": False},
+    "project":             {"add": False, "edit": False, "delete": False, "up": False, "down": False},
+    "req_analysis":        {"add": True,  "edit": False, "delete": False, "up": False, "down": False},
+    "requirement":         {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True},
+    "task":                {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True},
+    "plan_execution":      {"add": True,  "edit": False, "delete": False, "up": False, "down": False},
+    "milestone":           {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True},
+    "plan":                {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True},
+    "activity":            {"add": False, "edit": True,  "delete": True,  "up": False, "down": False},
+}
+
+
+def format_requirement_display(category, subject):
+    """Format requirement display text: [category]subject if category non-empty, else just subject."""
+    if category:
+        return f"[{category}]{subject}"
+    return subject
+
+
+def format_linked_task_display(category, req_subject, task_subject):
+    """Format linked task dropdown display: [category]req_subject / task_subject.
+
+    When category is empty, format is 'req_subject / task_subject'.
+    """
+    if category:
+        return f"[{category}]{req_subject} / {task_subject}"
+    return f"{req_subject} / {task_subject}"
+
+
+def build_tracking_data(project):
+    """Build tracking data for the requirement tracking tab.
+
+    Pure function that can be tested without GUI.
+
+    Returns a list of dicts, each representing a row in the tracking table.
+    Requirement rows have kind='requirement', task rows have kind='task'.
+    """
+    rows = []
+    if not project:
+        return rows
+
+    # Build a lookup: task_id -> (plan_content, plan_progress)
+    task_plan_map = {}  # task_id -> (plan_content, progress)
+    for ms in project.get("milestones", []):
+        for plan in ms.get("plans", []):
+            linked = plan.get("linked_task_id", "")
+            if linked:
+                task_plan_map[linked] = (plan.get("content", ""), plan.get("progress", 0))
+
+    for req in project.get("requirements", []):
+        # Requirement group header row
+        rows.append({
+            "kind": "requirement",
+            "req_category": req.get("category", ""),
+            "req_subject": req.get("subject", ""),
+            "task_subject": "",
+            "effort_days": "",
+            "linked_plan": "",
+            "plan_progress": "",
+        })
+        for task in req.get("tasks", []):
+            task_id = task.get("id", "")
+            plan_info = task_plan_map.get(task_id)
+            linked_plan = plan_info[0] if plan_info else ""
+            plan_progress = f"{plan_info[1]}%" if plan_info else ""
+            rows.append({
+                "kind": "task",
+                "req_category": "",
+                "req_subject": "",
+                "task_subject": task.get("subject", ""),
+                "effort_days": task.get("effort_days", ""),
+                "linked_plan": linked_plan,
+                "plan_progress": plan_progress,
+            })
+    return rows
 
 
 def _force_rmtree(path):
@@ -153,6 +231,13 @@ class GanttPilotGUI:
         # Tooltips for undo/redo buttons
         self._show_tooltip(self.undo_btn, self._t("undo_tooltip"))
         self._show_tooltip(self.redo_btn, self._t("redo_tooltip"))
+
+        # Tooltips for unified toolbar buttons
+        self._show_tooltip(self.tb_add_btn, self._t("add"))
+        self._show_tooltip(self.tb_edit_btn, self._t("edit"))
+        self._show_tooltip(self.tb_delete_btn, self._t("delete"))
+        self._show_tooltip(self.tb_up_btn, self._t("move_up"))
+        self._show_tooltip(self.tb_down_btn, self._t("move_down"))
 
         # Start background sync for all projects with remote_url
         threading.Thread(target=self._startup_sync, daemon=True).start()
@@ -350,6 +435,19 @@ class GanttPilotGUI:
         self.redo_btn.pack(side=tk.LEFT, padx=1)
         ttk.Button(toolbar, text="A+", command=self.increase_font, width=3).pack(side=tk.LEFT, padx=1)
         ttk.Button(toolbar, text="A-", command=self.decrease_font, width=3).pack(side=tk.LEFT, padx=1)
+
+        # Unified toolbar buttons: Add, Edit, Delete, Move Up, Move Down
+        self.tb_add_btn = ttk.Button(toolbar, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED)
+        self.tb_add_btn.pack(side=tk.LEFT, padx=1)
+        self.tb_edit_btn = ttk.Button(toolbar, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED)
+        self.tb_edit_btn.pack(side=tk.LEFT, padx=1)
+        self.tb_delete_btn = ttk.Button(toolbar, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED)
+        self.tb_delete_btn.pack(side=tk.LEFT, padx=1)
+        self.tb_up_btn = ttk.Button(toolbar, text="↑", command=self.toolbar_move_up, width=4, state=tk.DISABLED)
+        self.tb_up_btn.pack(side=tk.LEFT, padx=1)
+        self.tb_down_btn = ttk.Button(toolbar, text="↓", command=self.toolbar_move_down, width=4, state=tk.DISABLED)
+        self.tb_down_btn.pack(side=tk.LEFT, padx=1)
+
         ttk.Button(toolbar, text="⚙", command=self.open_config_dialog, width=3).pack(side=tk.RIGHT, padx=1)
         ttk.Button(toolbar, text="?", command=self.show_help, width=3).pack(side=tk.RIGHT, padx=1)
 
@@ -413,7 +511,31 @@ class GanttPilotGUI:
         gx.pack(side=tk.BOTTOM, fill=tk.X)
         self.gantt_canvas.pack(fill=tk.BOTH, expand=True)
 
-        # Tab 2: History
+        # Tab 2: Requirement Tracking (between Gantt and History)
+        tracking_tab_frame = ttk.Frame(self.right_notebook)
+        self.right_notebook.add(tracking_tab_frame, text=self._t("tracking_tab"))
+
+        tracking_cols = ("req_category", "req_subject", "task_subject", "effort_days", "linked_plan", "plan_progress")
+        self.tracking_tree = ttk.Treeview(tracking_tab_frame, columns=tracking_cols, show="headings")
+        self.tracking_tree.heading("req_category", text=self._t("req_category"))
+        self.tracking_tree.heading("req_subject", text=self._t("req_subject"))
+        self.tracking_tree.heading("task_subject", text=self._t("task_subject"))
+        self.tracking_tree.heading("effort_days", text=self._t("effort_days"))
+        self.tracking_tree.heading("linked_plan", text=self._t("linked_plan"))
+        self.tracking_tree.heading("plan_progress", text=self._t("plan_progress"))
+        self.tracking_tree.column("req_category", width=100, anchor="center")
+        self.tracking_tree.column("req_subject", width=150, anchor="center")
+        self.tracking_tree.column("task_subject", width=150, anchor="center")
+        self.tracking_tree.column("effort_days", width=100, anchor="center")
+        self.tracking_tree.column("linked_plan", width=150, anchor="center")
+        self.tracking_tree.column("plan_progress", width=100, anchor="center")
+        tracking_sb = ttk.Scrollbar(tracking_tab_frame, orient=tk.VERTICAL, command=self.tracking_tree.yview)
+        self.tracking_tree.configure(yscrollcommand=tracking_sb.set)
+        tracking_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tracking_tree.pack(fill=tk.BOTH, expand=True)
+        self.tracking_tree.tag_configure("req_header", font=("", self.config.font_size, "bold"), background="#d0d0e8")
+
+        # Tab 3: History
         history_tab_frame = ttk.Frame(self.right_notebook)
         self.right_notebook.add(history_tab_frame, text=self._t("history"))
 
@@ -514,7 +636,6 @@ class GanttPilotGUI:
 
             if kind == "project":
                 proj_name = values[1]
-                menu.add_command(label=f"+ {self._t('milestone')}", command=self.add_milestone)
                 menu.add_separator()
                 menu.add_command(label=self._t("report"), command=self.generate_report)
                 menu.add_command(label=f"✏ {self._t('edit_project')}", command=self.edit_project)
@@ -524,6 +645,22 @@ class GanttPilotGUI:
                 menu.add_command(label=self._t("sync"), command=self.do_sync)
                 menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected)
+
+            elif kind == "req_analysis":
+                menu.add_command(label=f"+ {self._t('add_requirement')}", command=self.add_requirement)
+
+            elif kind == "requirement":
+                menu.add_command(label=f"+ {self._t('add_task')}", command=self.add_task)
+                menu.add_separator()
+                menu.add_command(label=f"✏ {self._t('edit_requirement')}", command=self.edit_requirement)
+                menu.add_command(label=self._t("delete"), command=self.delete_selected)
+
+            elif kind == "task":
+                menu.add_command(label=f"✏ {self._t('edit_task')}", command=self.edit_task)
+                menu.add_command(label=self._t("delete"), command=self.delete_selected)
+
+            elif kind == "plan_execution":
+                menu.add_command(label=f"+ {self._t('milestone')}", command=self.add_milestone)
 
             elif kind == "milestone":
                 menu.add_command(label=f"+ {self._t('plan')}", command=self.add_plan)
@@ -568,9 +705,29 @@ class GanttPilotGUI:
         for proj in self.store.list_projects():
             pn = self.tree.insert("", tk.END, text=f"📁 {proj['name']}",
                                   values=("project", proj["name"]), open=True)
+
+            # ── 📋 需求分析 (Requirement Analysis) ──
+            ra_node = self.tree.insert(pn, tk.END,
+                text=f"📋 {self._t('requirement_analysis')}",
+                values=("req_analysis", proj["name"]))
+            for req in proj.get("requirements", []):
+                req_text = format_requirement_display(req.get("category", ""), req.get("subject", ""))
+                req_node = self.tree.insert(ra_node, tk.END,
+                    text=f"📝 {req_text}",
+                    values=("requirement", proj["name"], req["id"]))
+                for task in req.get("tasks", []):
+                    effort = task.get("effort_days", 0)
+                    task_text = f"🔧 {task['subject']} ({effort}d)"
+                    self.tree.insert(req_node, tk.END, text=task_text,
+                        values=("task", proj["name"], req["id"], task["id"]))
+
+            # ── 📊 计划执行 (Plan Execution) ──
+            pe_node = self.tree.insert(pn, tk.END,
+                text=f"📊 {self._t('plan_execution')}",
+                values=("plan_execution", proj["name"]))
             for ms in proj.get("milestones", []):
                 dl = f" [{ms['deadline']}]" if ms.get("deadline") else ""
-                mn = self.tree.insert(pn, tk.END, text=f"📌 {ms['name']}{dl}",
+                mn = self.tree.insert(pe_node, tk.END, text=f"📌 {ms['name']}{dl}",
                                       values=("milestone", proj["name"], ms["name"]))
                 for plan in ms.get("plans", []):
                     icon = "✅" if plan["status"] == "finished" else "📋"
@@ -609,10 +766,15 @@ class GanttPilotGUI:
     def on_tree_select(self, event):
         sel = self.tree.selection()
         if not sel:
+            self._update_toolbar_state(None, None)
             return
         values = self.tree.item(sel[0], "values")
         if not values:
+            self._update_toolbar_state(None, None)
             return
+        kind = values[0]
+        # Update toolbar state based on selected node type
+        self._update_toolbar_state(kind, sel[0])
         proj_name = values[1] if len(values) >= 2 else None
         if proj_name and proj_name != self.current_project:
             # Background sync the previous project before switching
@@ -625,6 +787,28 @@ class GanttPilotGUI:
             self.refresh_gantt()
             self.refresh_time_report()
             self.refresh_history()
+
+    def _update_toolbar_state(self, kind, item):
+        """Update toolbar button enabled/disabled state based on selected node type."""
+        state = TOOLBAR_STATE.get(kind, TOOLBAR_STATE[None])
+        self.tb_add_btn.configure(state=tk.NORMAL if state["add"] else tk.DISABLED)
+        self.tb_edit_btn.configure(state=tk.NORMAL if state["edit"] else tk.DISABLED)
+        self.tb_delete_btn.configure(state=tk.NORMAL if state["delete"] else tk.DISABLED)
+
+        # For up/down, check if node is first/last among siblings
+        up_enabled = state["up"]
+        down_enabled = state["down"]
+        if item and (up_enabled or down_enabled):
+            parent = self.tree.parent(item)
+            siblings = self.tree.get_children(parent)
+            if siblings:
+                idx = list(siblings).index(item)
+                if idx == 0:
+                    up_enabled = False
+                if idx >= len(siblings) - 1:
+                    down_enabled = False
+        self.tb_up_btn.configure(state=tk.NORMAL if up_enabled else tk.DISABLED)
+        self.tb_down_btn.configure(state=tk.NORMAL if down_enabled else tk.DISABLED)
 
     def _full_refresh(self):
         self.store.load()
@@ -696,12 +880,39 @@ class GanttPilotGUI:
                 for ex, data in sorted(executors.items()):
                     self.report_tree.insert("", tk.END, values=("", ex, f"{data['hours']:.1f}", f"{data['days']:.2f}"))
 
+    # ── Tracking tab ──────────────────────────────────────────
+    def refresh_tracking(self):
+        """Refresh the requirement tracking tab with current project data."""
+        for item in self.tracking_tree.get_children():
+            self.tracking_tree.delete(item)
+        if not self.current_project:
+            return
+        proj = self.store.get_project(self.current_project)
+        if not proj:
+            return
+        rows = build_tracking_data(proj)
+        for row in rows:
+            if row["kind"] == "requirement":
+                self.tracking_tree.insert(
+                    "", tk.END,
+                    values=(row["req_category"], row["req_subject"], "", "", "", ""),
+                    tags=("req_header",),
+                )
+            else:
+                self.tracking_tree.insert(
+                    "", tk.END,
+                    values=("", "", row["task_subject"], row["effort_days"],
+                            row["linked_plan"], row["plan_progress"]),
+                )
+
     # ── History tab ─────────────────────────────────────────
     def _on_tab_changed(self, event):
-        """Refresh history when user switches to the history tab."""
+        """Refresh content when user switches tabs."""
         try:
             idx = self.right_notebook.index(self.right_notebook.select())
-            if idx == 1:  # History tab
+            if idx == 1:  # Tracking tab
+                self.refresh_tracking()
+            elif idx == 2:  # History tab
                 self.refresh_history()
         except Exception:
             pass
@@ -1058,14 +1269,15 @@ class GanttPilotGUI:
         proj, ms = self._get_selected_project_milestone()
         if not proj or not ms:
             return
-        dlg = PlanDialog(self.root, self._t, self.lang)
+        dlg = PlanDialog(self.root, self._t, self.lang, project_name=proj, store=self.store)
         self.root.wait_window(dlg.top)
         if dlg.result:
             r = dlg.result
             self.undo_manager.save_snapshot()
             result = self.store.add_plan(proj, ms, r["content"], r["executor"],
                                          r["start_date"], r["end_date"],
-                                         r["skip_non_workdays"], r["skip_dates"], r.get("color", ""))
+                                         r["skip_non_workdays"], r["skip_dates"], r.get("color", ""),
+                                         linked_task_id=r.get("linked_task_id", ""))
             if result:
                 self._commit(f"Add plan: {r['content']} to {ms}/{proj}")
                 self.refresh_project_list()
@@ -1110,6 +1322,12 @@ class GanttPilotGUI:
             # Remove project directory from disk (after clearing current_project so no git ops)
             if os.path.isdir(proj_dir):
                 _force_rmtree(proj_dir)
+        elif kind == "requirement":
+            self.store.delete_requirement(values[1], values[2])
+            self._commit(f"Delete requirement: {values[2]}")
+        elif kind == "task":
+            self.store.delete_task(values[1], values[2], values[3])
+            self._commit(f"Delete task: {values[3]}")
         elif kind == "milestone":
             self.store.delete_milestone(values[1], values[2])
             self._commit(f"Delete milestone: {values[2]}")
@@ -1303,7 +1521,7 @@ class GanttPilotGUI:
         plan = self.store._find_plan(proj, ms, plan_id)
         if not plan:
             return
-        dlg = PlanEditDialog(self.root, self._t, self.lang, plan)
+        dlg = PlanEditDialog(self.root, self._t, self.lang, plan, project_name=proj, store=self.store)
         self.root.wait_window(dlg.top)
         if dlg.result:
             self.undo_manager.save_snapshot()
@@ -1420,6 +1638,185 @@ class GanttPilotGUI:
             return values[1], values[2], values[3]
         return None, None, None
 
+    # ── Toolbar action dispatch ──────────────────────────────
+    def toolbar_add(self):
+        """Dispatch add action based on selected node type."""
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values:
+            return
+        kind = values[0]
+        if kind == "req_analysis":
+            self.add_requirement()
+        elif kind == "requirement":
+            self.add_task()
+        elif kind == "plan_execution":
+            self.add_milestone()
+        elif kind == "milestone":
+            self.add_plan()
+        elif kind == "plan":
+            self.add_activity()
+
+    def toolbar_edit(self):
+        """Dispatch edit action based on selected node type."""
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values:
+            return
+        kind = values[0]
+        if kind == "requirement":
+            self.edit_requirement()
+        elif kind == "task":
+            self.edit_task()
+        elif kind == "milestone":
+            self.edit_milestone()
+        elif kind == "plan":
+            self.edit_plan()
+        elif kind == "activity":
+            self.edit_activity()
+
+    def toolbar_delete(self):
+        """Dispatch delete action based on selected node type."""
+        self.delete_selected()
+
+    def toolbar_move_up(self):
+        """Move selected node up among siblings."""
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values:
+            return
+        kind = values[0]
+        self.undo_manager.save_snapshot()
+        moved = False
+        if kind == "requirement":
+            moved = self.store.move_requirement(values[1], values[2], "up")
+        elif kind == "task":
+            moved = self.store.move_task(values[1], values[2], values[3], "up")
+        elif kind == "milestone":
+            moved = self.store.move_milestone(values[1], values[2], "up")
+        elif kind == "plan":
+            moved = self.store.move_plan(values[1], values[2], values[3], "up")
+        if moved:
+            self._commit(f"Move up: {kind}")
+            self.refresh_project_list()
+            self._update_undo_redo_buttons()
+
+    def toolbar_move_down(self):
+        """Move selected node down among siblings."""
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values:
+            return
+        kind = values[0]
+        self.undo_manager.save_snapshot()
+        moved = False
+        if kind == "requirement":
+            moved = self.store.move_requirement(values[1], values[2], "down")
+        elif kind == "task":
+            moved = self.store.move_task(values[1], values[2], values[3], "down")
+        elif kind == "milestone":
+            moved = self.store.move_milestone(values[1], values[2], "down")
+        elif kind == "plan":
+            moved = self.store.move_plan(values[1], values[2], values[3], "down")
+        if moved:
+            self._commit(f"Move down: {kind}")
+            self.refresh_project_list()
+            self._update_undo_redo_buttons()
+
+    # ── Requirement / Task CRUD ──────────────────────────────
+    def add_requirement(self):
+        proj_name = self._get_selected_project()
+        if not proj_name:
+            return
+        dlg = RequirementDialog(self.root, self._t, self.lang)
+        self.root.wait_window(dlg.top)
+        if dlg.result:
+            r = dlg.result
+            self.undo_manager.save_snapshot()
+            result = self.store.add_requirement(proj_name, r["category"], r["subject"], r["description"])
+            if result:
+                self._commit(f"Add requirement: {r['subject']}")
+                self.refresh_project_list()
+                self.status_var.set(self._t("requirement_added", r["subject"]))
+                self._update_undo_redo_buttons()
+
+    def edit_requirement(self):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values or values[0] != "requirement":
+            return
+        proj_name, req_id = values[1], values[2]
+        req = self.store.get_requirement(proj_name, req_id)
+        if not req:
+            return
+        dlg = RequirementEditDialog(self.root, self._t, self.lang, req)
+        self.root.wait_window(dlg.top)
+        if dlg.result:
+            r = dlg.result
+            self.undo_manager.save_snapshot()
+            self.store.update_requirement(proj_name, req_id, r["category"], r["subject"], r["description"])
+            self._commit(f"Edit requirement: {r['subject']}")
+            self.refresh_project_list()
+            self._update_undo_redo_buttons()
+
+    def add_task(self):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values or values[0] != "requirement":
+            return
+        proj_name, req_id = values[1], values[2]
+        dlg = TaskDialog(self.root, self._t, self.lang)
+        self.root.wait_window(dlg.top)
+        if dlg.result:
+            r = dlg.result
+            self.undo_manager.save_snapshot()
+            result = self.store.add_task(proj_name, req_id, r["subject"], r["effort_days"], r["description"])
+            if result:
+                self._commit(f"Add task: {r['subject']}")
+                self.refresh_project_list()
+                self.status_var.set(self._t("task_added", r["subject"]))
+                self._update_undo_redo_buttons()
+
+    def edit_task(self):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values or values[0] != "task":
+            return
+        proj_name, req_id, task_id = values[1], values[2], values[3]
+        req = self.store.get_requirement(proj_name, req_id)
+        if not req:
+            return
+        task = None
+        for t in req.get("tasks", []):
+            if t["id"] == task_id:
+                task = t
+                break
+        if not task:
+            return
+        dlg = TaskEditDialog(self.root, self._t, self.lang, task)
+        self.root.wait_window(dlg.top)
+        if dlg.result:
+            r = dlg.result
+            self.undo_manager.save_snapshot()
+            self.store.update_task(proj_name, req_id, task_id, r["subject"], r["effort_days"], r["description"])
+            self._commit(f"Edit task: {r['subject']}")
+            self.refresh_project_list()
+            self._update_undo_redo_buttons()
+
     # ── Config / Font / Language ─────────────────────────────
     def toggle_language(self):
         self.lang = "en" if self.lang == "zh" else "zh"
@@ -1488,23 +1885,43 @@ class GanttPilotGUI:
     def show_help(self):
         txt = {
             "zh": (f"GanttPilot v{VERSION} - 协作式项目管理器\n\n"
-                   "右键点击树状图进行所有操作：\n"
+                   "工具栏按钮（根据选中节点自动启用/禁用）：\n"
+                   "• 添加 / 编辑 / 删除 / 上移 / 下移\n\n"
+                   "右键点击树状图进行操作：\n"
                    "• 空白处右键 → 添加项目 / 加载示例 / 同步 / 刷新\n"
                    "• 项目右键 → 添加里程碑 / 编辑项目 / Git配置 / 生成报告 / 同步 / 删除\n"
+                   "• 需求分析右键 → 添加需求\n"
+                   "• 需求右键 → 添加任务 / 编辑 / 删除\n"
+                   "• 任务右键 → 编辑 / 删除\n"
+                   "• 计划执行右键 → 添加里程碑\n"
                    "• 里程碑右键 → 添加计划 / 编辑里程碑 / 设置颜色 / 删除\n"
                    "• 计划右键 → 添加活动 / 编辑属性 / 设置颜色 / 设置进度 / 终结 / 删除\n"
                    "• 活动右键 → 编辑活动 / 删除\n\n"
+                   "需求跟踪：\n"
+                   "• 在需求分析节点下创建需求和任务\n"
+                   "• 编辑计划时可关联任务，建立需求→任务→计划跟踪链条\n"
+                   "• 需求跟踪标签页查看完整跟踪关系\n\n"
                    "快捷键：Ctrl+Z 撤销 / Ctrl+Y 恢复\n"
                    "甘特图：🔍+/- 独立缩放\n\n"
                    "跳过日期格式：20260501 (添加节假日), -20260510 (让周末变工作日)\n\n"
                    f"GitHub: https://github.com/{GITHUB_REPO}"),
             "en": (f"GanttPilot v{VERSION} - Collaborative Project Manager\n\n"
-                   "Right-click the tree for all operations:\n"
+                   "Toolbar buttons (auto-enabled based on selected node):\n"
+                   "• Add / Edit / Delete / Move Up / Move Down\n\n"
+                   "Right-click the tree for operations:\n"
                    "• Empty area → Add project / Load example / Sync / Refresh\n"
                    "• Project → Add milestone / Edit / Git config / Report / Sync / Delete\n"
+                   "• Requirement Analysis → Add requirement\n"
+                   "• Requirement → Add task / Edit / Delete\n"
+                   "• Task → Edit / Delete\n"
+                   "• Plan Execution → Add milestone\n"
                    "• Milestone → Add plan / Edit / Color / Delete\n"
                    "• Plan → Add activity / Edit / Color / Set progress / Finish / Delete\n"
                    "• Activity → Edit / Delete\n\n"
+                   "Requirement Tracking:\n"
+                   "• Create requirements and tasks under Requirement Analysis\n"
+                   "• Link tasks to plans to build requirement → task → plan tracking chain\n"
+                   "• View full tracking in the Requirement Tracking tab\n\n"
                    "Shortcuts: Ctrl+Z Undo / Ctrl+Y Redo\n"
                    "Gantt: 🔍+/- independent zoom\n\n"
                    "Skip dates: 20260501 (add holiday), -20260510 (make weekend a workday)\n\n"
@@ -1637,7 +2054,7 @@ class GanttPilotGUI:
 
 class PlanDialog:
     """Dialog for adding a plan"""
-    def __init__(self, parent, t_func, lang):
+    def __init__(self, parent, t_func, lang, project_name=None, store=None):
         self.result = None
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("plan"))
@@ -1651,7 +2068,6 @@ class PlanDialog:
             ("start_date", t_func("start_date") + " (YYYYMMDD)"),
             ("end_date", t_func("end_date") + " (YYYYMMDD)"),
             ("skip_dates", t_func("skip_dates") + " (D1,D2,...)"),
-            ("planned_hours", t_func("hours") + " (计划)"),
             ("color", "🎨 Color (#hex)"),
         ]
         self.entries = {}
@@ -1661,16 +2077,31 @@ class PlanDialog:
             entry.grid(row=i, column=1, padx=8, pady=3)
             self.entries[key] = entry
 
+        # Linked task dropdown
+        row_lt = len(fields)
+        ttk.Label(self.top, text=t_func("linked_task")).grid(row=row_lt, column=0, padx=8, pady=3, sticky=tk.W)
+        self._task_options = []  # list of (task_id, display_text)
+        self._task_display_list = [""]  # first item is empty (no linked task)
+        if store and project_name:
+            for req, task in store.get_all_tasks_for_project(project_name):
+                display = format_linked_task_display(
+                    req.get("category", ""), req.get("subject", ""), task.get("subject", ""))
+                self._task_options.append((task["id"], display))
+                self._task_display_list.append(display)
+        self.linked_task_combo = ttk.Combobox(self.top, values=self._task_display_list, state="readonly", width=28)
+        self.linked_task_combo.current(0)
+        self.linked_task_combo.grid(row=row_lt, column=1, padx=8, pady=3)
+
         self.skip_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(self.top, text=t_func("skip_non_workdays"), variable=self.skip_var).grid(
-            row=len(fields), column=0, columnspan=2, padx=8, pady=3, sticky=tk.W)
+            row=row_lt + 1, column=0, columnspan=2, padx=8, pady=3, sticky=tk.W)
         # CalcPaper hint
         hint = ttk.Label(self.top, text="💡 可使用 CalcPaper 进行工期推算" if lang == "zh" else "💡 Use CalcPaper for schedule estimation",
                          foreground="gray", cursor="hand2")
-        hint.grid(row=len(fields) + 1, column=0, columnspan=2, padx=8, pady=(2, 0), sticky=tk.W)
+        hint.grid(row=row_lt + 2, column=0, columnspan=2, padx=8, pady=(2, 0), sticky=tk.W)
         hint.bind("<Button-1>", lambda e: __import__("webbrowser").open("https://github.com/matthewzu/CalcPaper"))
         ttk.Button(self.top, text="OK", command=self._ok).grid(
-            row=len(fields) + 2, column=0, columnspan=2, pady=10)
+            row=row_lt + 3, column=0, columnspan=2, pady=10)
 
     def _ok(self):
         content = self.entries["content"].get().strip()
@@ -1680,24 +2111,28 @@ class PlanDialog:
         skip_str = self.entries["skip_dates"].get().strip()
         color = self.entries["color"].get().strip()
         skip_dates = [d.strip() for d in skip_str.split(",") if d.strip()] if skip_str else []
-        try:
-            planned_hours = float(self.entries["planned_hours"].get().strip() or "0")
-        except ValueError:
-            planned_hours = 0
+        # Resolve linked task ID from dropdown selection
+        linked_task_id = ""
+        selected = self.linked_task_combo.get()
+        if selected:
+            for tid, display in self._task_options:
+                if display == selected:
+                    linked_task_id = tid
+                    break
         if content and executor and start and end:
             self.result = {
                 "content": content, "executor": executor,
                 "start_date": start, "end_date": end,
                 "skip_non_workdays": self.skip_var.get(),
                 "skip_dates": skip_dates, "color": color,
-                "planned_hours": planned_hours,
+                "linked_task_id": linked_task_id,
             }
             self.top.destroy()
 
 
 class PlanEditDialog:
     """Dialog for editing an existing plan's properties"""
-    def __init__(self, parent, t_func, lang, plan):
+    def __init__(self, parent, t_func, lang, plan, project_name=None, store=None):
         self.result = None
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("plan"))
@@ -1711,7 +2146,6 @@ class PlanEditDialog:
             ("start_date", t_func("start_date"), plan.get("start_date", "")),
             ("end_date", t_func("end_date"), plan.get("end_date", "")),
             ("skip_dates", t_func("skip_dates"), ",".join(plan.get("skip_dates", []))),
-            ("planned_hours", t_func("hours") + " (计划)", str(plan.get("planned_hours", 0))),
             ("color", "🎨 Color", plan.get("color", "")),
         ]
         self.entries = {}
@@ -1722,23 +2156,50 @@ class PlanEditDialog:
             entry.grid(row=i, column=1, padx=8, pady=3)
             self.entries[key] = entry
 
+        # Linked task dropdown
+        row_lt = len(fields)
+        ttk.Label(self.top, text=t_func("linked_task")).grid(row=row_lt, column=0, padx=8, pady=3, sticky=tk.W)
+        self._task_options = []  # list of (task_id, display_text)
+        self._task_display_list = [""]  # first item is empty (no linked task)
+        if store and project_name:
+            for req, task in store.get_all_tasks_for_project(project_name):
+                display = format_linked_task_display(
+                    req.get("category", ""), req.get("subject", ""), task.get("subject", ""))
+                self._task_options.append((task["id"], display))
+                self._task_display_list.append(display)
+        self.linked_task_combo = ttk.Combobox(self.top, values=self._task_display_list, state="readonly", width=28)
+        # Pre-select current linked task
+        current_linked = plan.get("linked_task_id", "")
+        selected_idx = 0
+        if current_linked:
+            for i, (tid, display) in enumerate(self._task_options):
+                if tid == current_linked:
+                    selected_idx = i + 1  # +1 because index 0 is empty
+                    break
+        self.linked_task_combo.current(selected_idx)
+        self.linked_task_combo.grid(row=row_lt, column=1, padx=8, pady=3)
+
         self.skip_var = tk.BooleanVar(value=plan.get("skip_non_workdays", True))
         ttk.Checkbutton(self.top, text=t_func("skip_non_workdays"), variable=self.skip_var).grid(
-            row=len(fields), column=0, columnspan=2, padx=8, pady=3, sticky=tk.W)
+            row=row_lt + 1, column=0, columnspan=2, padx=8, pady=3, sticky=tk.W)
         # CalcPaper hint
         hint = ttk.Label(self.top, text="💡 可使用 CalcPaper 进行工期推算" if lang == "zh" else "💡 Use CalcPaper for schedule estimation",
                          foreground="gray", cursor="hand2")
-        hint.grid(row=len(fields) + 1, column=0, columnspan=2, padx=8, pady=(2, 0), sticky=tk.W)
+        hint.grid(row=row_lt + 2, column=0, columnspan=2, padx=8, pady=(2, 0), sticky=tk.W)
         hint.bind("<Button-1>", lambda e: __import__("webbrowser").open("https://github.com/matthewzu/CalcPaper"))
         ttk.Button(self.top, text="OK", command=self._ok).grid(
-            row=len(fields) + 2, column=0, columnspan=2, pady=10)
+            row=row_lt + 3, column=0, columnspan=2, pady=10)
 
     def _ok(self):
         skip_str = self.entries["skip_dates"].get().strip()
-        try:
-            planned_hours = float(self.entries["planned_hours"].get().strip() or "0")
-        except ValueError:
-            planned_hours = 0
+        # Resolve linked task ID from dropdown selection
+        linked_task_id = ""
+        selected = self.linked_task_combo.get()
+        if selected:
+            for tid, display in self._task_options:
+                if display == selected:
+                    linked_task_id = tid
+                    break
         self.result = {
             "content": self.entries["content"].get().strip(),
             "executor": self.entries["executor"].get().strip(),
@@ -1747,7 +2208,7 @@ class PlanEditDialog:
             "skip_dates": [d.strip() for d in skip_str.split(",") if d.strip()] if skip_str else [],
             "skip_non_workdays": self.skip_var.get(),
             "color": self.entries["color"].get().strip(),
-            "planned_hours": planned_hours,
+            "linked_task_id": linked_task_id,
         }
         self.top.destroy()
 
@@ -1874,19 +2335,26 @@ class ProjectEditDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_project"))
-        self.top.geometry("400x160")
+        self.top.geometry("400x230")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.columnconfigure(1, weight=1)
+        self.top.rowconfigure(1, weight=1)
 
         ttk.Label(self.top, text=t_func("project_name")).grid(row=0, column=0, padx=8, pady=6, sticky=tk.W)
         self.name_entry = ttk.Entry(self.top, width=30)
         self.name_entry.insert(0, project.get("name", ""))
         self.name_entry.grid(row=0, column=1, padx=8, pady=6)
 
-        ttk.Label(self.top, text=t_func("description")).grid(row=1, column=0, padx=8, pady=6, sticky=tk.W)
-        self.desc_entry = ttk.Entry(self.top, width=30)
-        self.desc_entry.insert(0, project.get("description", ""))
-        self.desc_entry.grid(row=1, column=1, padx=8, pady=6)
+        ttk.Label(self.top, text=t_func("description")).grid(row=1, column=0, padx=8, pady=6, sticky=tk.NW)
+        desc_frame = ttk.Frame(self.top)
+        desc_frame.grid(row=1, column=1, padx=8, pady=6, sticky=tk.NSEW)
+        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD)
+        desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
+        self.desc_text.configure(yscrollcommand=desc_sb.set)
+        self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        desc_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.desc_text.insert("1.0", project.get("description", ""))
 
         ttk.Button(self.top, text="OK", command=self._ok).grid(row=2, column=0, columnspan=2, pady=10)
 
@@ -1895,7 +2363,7 @@ class ProjectEditDialog:
         if not name:
             messagebox.showwarning("", self.t_func("name_required"))
             return
-        self.result = {"name": name, "description": self.desc_entry.get().strip()}
+        self.result = {"name": name, "description": self.desc_text.get("1.0", tk.END).strip()}
         self.top.destroy()
 
 
@@ -2180,6 +2648,209 @@ class MilestoneCreateDialog:
             "description": self.desc_entry.get().strip(),
             "deadline": self.deadline_entry.get().strip(),
             "color": self.color_entry.get().strip(),
+        }
+        self.top.destroy()
+
+
+class RequirementDialog:
+    """Dialog for adding a requirement"""
+    def __init__(self, parent, t_func, lang):
+        self.result = None
+        self.t_func = t_func
+        self.top = tk.Toplevel(parent)
+        self.top.title(t_func("add_requirement"))
+        self.top.geometry("420x280")
+        self.top.transient(parent)
+        self.top.grab_set()
+        self.top.columnconfigure(1, weight=1)
+        self.top.rowconfigure(2, weight=1)
+
+        ttk.Label(self.top, text=t_func("category")).grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
+        self.category_entry = ttk.Entry(self.top, width=30)
+        self.category_entry.grid(row=0, column=1, padx=8, pady=5)
+
+        ttk.Label(self.top, text=t_func("subject") + " *").grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
+        self.subject_entry = ttk.Entry(self.top, width=30)
+        self.subject_entry.grid(row=1, column=1, padx=8, pady=5)
+
+        ttk.Label(self.top, text=t_func("description")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.NW)
+        desc_frame = ttk.Frame(self.top)
+        desc_frame.grid(row=2, column=1, padx=8, pady=5, sticky=tk.NSEW)
+        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD)
+        desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
+        self.desc_text.configure(yscrollcommand=desc_sb.set)
+        self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        desc_sb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        ttk.Button(self.top, text="OK", command=self._ok).grid(row=3, column=0, columnspan=2, pady=10)
+
+    def _ok(self):
+        subject = self.subject_entry.get().strip()
+        if not subject:
+            messagebox.showwarning("", self.t_func("subject_required"))
+            return
+        self.result = {
+            "category": self.category_entry.get().strip(),
+            "subject": subject,
+            "description": self.desc_text.get("1.0", tk.END).strip(),
+        }
+        self.top.destroy()
+
+
+class RequirementEditDialog:
+    """Dialog for editing an existing requirement"""
+    def __init__(self, parent, t_func, lang, requirement):
+        self.result = None
+        self.t_func = t_func
+        self.top = tk.Toplevel(parent)
+        self.top.title(t_func("edit_requirement"))
+        self.top.geometry("420x280")
+        self.top.transient(parent)
+        self.top.grab_set()
+        self.top.columnconfigure(1, weight=1)
+        self.top.rowconfigure(2, weight=1)
+
+        ttk.Label(self.top, text=t_func("category")).grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
+        self.category_entry = ttk.Entry(self.top, width=30)
+        self.category_entry.insert(0, requirement.get("category", ""))
+        self.category_entry.grid(row=0, column=1, padx=8, pady=5)
+
+        ttk.Label(self.top, text=t_func("subject") + " *").grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
+        self.subject_entry = ttk.Entry(self.top, width=30)
+        self.subject_entry.insert(0, requirement.get("subject", ""))
+        self.subject_entry.grid(row=1, column=1, padx=8, pady=5)
+
+        ttk.Label(self.top, text=t_func("description")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.NW)
+        desc_frame = ttk.Frame(self.top)
+        desc_frame.grid(row=2, column=1, padx=8, pady=5, sticky=tk.NSEW)
+        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD)
+        desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
+        self.desc_text.configure(yscrollcommand=desc_sb.set)
+        self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        desc_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.desc_text.insert("1.0", requirement.get("description", ""))
+
+        ttk.Button(self.top, text="OK", command=self._ok).grid(row=3, column=0, columnspan=2, pady=10)
+
+    def _ok(self):
+        subject = self.subject_entry.get().strip()
+        if not subject:
+            messagebox.showwarning("", self.t_func("subject_required"))
+            return
+        self.result = {
+            "category": self.category_entry.get().strip(),
+            "subject": subject,
+            "description": self.desc_text.get("1.0", tk.END).strip(),
+        }
+        self.top.destroy()
+
+
+class TaskDialog:
+    """Dialog for adding a task"""
+    def __init__(self, parent, t_func, lang):
+        self.result = None
+        self.t_func = t_func
+        self.top = tk.Toplevel(parent)
+        self.top.title(t_func("add_task"))
+        self.top.geometry("420x280")
+        self.top.transient(parent)
+        self.top.grab_set()
+        self.top.columnconfigure(1, weight=1)
+        self.top.rowconfigure(2, weight=1)
+
+        ttk.Label(self.top, text=t_func("subject") + " *").grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
+        self.subject_entry = ttk.Entry(self.top, width=30)
+        self.subject_entry.grid(row=0, column=1, padx=8, pady=5)
+
+        ttk.Label(self.top, text=t_func("effort_days")).grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
+        self.effort_entry = ttk.Entry(self.top, width=30)
+        self.effort_entry.insert(0, "0")
+        self.effort_entry.grid(row=1, column=1, padx=8, pady=5)
+
+        ttk.Label(self.top, text=t_func("description")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.NW)
+        desc_frame = ttk.Frame(self.top)
+        desc_frame.grid(row=2, column=1, padx=8, pady=5, sticky=tk.NSEW)
+        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD)
+        desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
+        self.desc_text.configure(yscrollcommand=desc_sb.set)
+        self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        desc_sb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        ttk.Button(self.top, text="OK", command=self._ok).grid(row=3, column=0, columnspan=2, pady=10)
+
+    def _ok(self):
+        subject = self.subject_entry.get().strip()
+        if not subject:
+            messagebox.showwarning("", self.t_func("subject_required"))
+            return
+        try:
+            effort = float(self.effort_entry.get().strip())
+        except ValueError:
+            messagebox.showwarning("", self.t_func("invalid_effort"))
+            return
+        if effort < 0:
+            messagebox.showwarning("", self.t_func("effort_non_negative"))
+            return
+        self.result = {
+            "subject": subject,
+            "effort_days": effort,
+            "description": self.desc_text.get("1.0", tk.END).strip(),
+        }
+        self.top.destroy()
+
+
+class TaskEditDialog:
+    """Dialog for editing an existing task"""
+    def __init__(self, parent, t_func, lang, task):
+        self.result = None
+        self.t_func = t_func
+        self.top = tk.Toplevel(parent)
+        self.top.title(t_func("edit_task"))
+        self.top.geometry("420x280")
+        self.top.transient(parent)
+        self.top.grab_set()
+        self.top.columnconfigure(1, weight=1)
+        self.top.rowconfigure(2, weight=1)
+
+        ttk.Label(self.top, text=t_func("subject") + " *").grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
+        self.subject_entry = ttk.Entry(self.top, width=30)
+        self.subject_entry.insert(0, task.get("subject", ""))
+        self.subject_entry.grid(row=0, column=1, padx=8, pady=5)
+
+        ttk.Label(self.top, text=t_func("effort_days")).grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
+        self.effort_entry = ttk.Entry(self.top, width=30)
+        self.effort_entry.insert(0, str(task.get("effort_days", 0)))
+        self.effort_entry.grid(row=1, column=1, padx=8, pady=5)
+
+        ttk.Label(self.top, text=t_func("description")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.NW)
+        desc_frame = ttk.Frame(self.top)
+        desc_frame.grid(row=2, column=1, padx=8, pady=5, sticky=tk.NSEW)
+        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD)
+        desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
+        self.desc_text.configure(yscrollcommand=desc_sb.set)
+        self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        desc_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.desc_text.insert("1.0", task.get("description", ""))
+
+        ttk.Button(self.top, text="OK", command=self._ok).grid(row=3, column=0, columnspan=2, pady=10)
+
+    def _ok(self):
+        subject = self.subject_entry.get().strip()
+        if not subject:
+            messagebox.showwarning("", self.t_func("subject_required"))
+            return
+        try:
+            effort = float(self.effort_entry.get().strip())
+        except ValueError:
+            messagebox.showwarning("", self.t_func("invalid_effort"))
+            return
+        if effort < 0:
+            messagebox.showwarning("", self.t_func("effort_non_negative"))
+            return
+        self.result = {
+            "subject": subject,
+            "effort_days": effort,
+            "description": self.desc_text.get("1.0", tk.END).strip(),
         }
         self.top.destroy()
 

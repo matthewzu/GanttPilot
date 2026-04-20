@@ -5,6 +5,62 @@
   "remote_url": "",
   "remote_username": "",
   "remote_password": "",
+  "requirements": [
+    {
+      "id": "req00001",
+      "category": "Feature",
+      "subject": "User Management",
+      "description": "Implement user registration, login, and permission management",
+      "tasks": [
+        {
+          "id": "task0001",
+          "subject": "User Research & Analysis",
+          "effort_days": 5.0,
+          "description": "Conduct user interviews, collect requirements and compile research report"
+        },
+        {
+          "id": "task0002",
+          "subject": "Authentication Module",
+          "effort_days": 8.0,
+          "description": "Implement user registration, login, and password reset features"
+        }
+      ]
+    },
+    {
+      "id": "req00002",
+      "category": "Feature",
+      "subject": "Frontend UI",
+      "description": "Design and implement responsive frontend interface for multi-device access",
+      "tasks": [
+        {
+          "id": "task0003",
+          "subject": "UI Prototype Design",
+          "effort_days": 6.0,
+          "description": "Complete UI prototype design and interaction review"
+        },
+        {
+          "id": "task0004",
+          "subject": "Frontend Component Dev",
+          "effort_days": 10.0,
+          "description": "Develop core UI components, page routing and state management"
+        }
+      ]
+    },
+    {
+      "id": "req00003",
+      "category": "Ops",
+      "subject": "Monitoring & Operations",
+      "description": "Build system monitoring infrastructure to ensure stable operation",
+      "tasks": [
+        {
+          "id": "task0005",
+          "subject": "Monitoring System Setup",
+          "effort_days": 7.0,
+          "description": "Set up log collection, monitoring dashboard and alerting system"
+        }
+      ]
+    }
+  ],
   "milestones": [
     {
       "id": "ms01",
@@ -25,6 +81,7 @@
           "status": "finished",
           "progress": 100,
           "actual_end_date": "20250115",
+          "linked_task_id": "task0001",
           "activities": [
             {
               "id": "a01",
@@ -226,6 +283,7 @@
           "status": "active",
           "progress": 30,
           "actual_end_date": "",
+          "linked_task_id": "task0002",
           "activities": [
             {
               "id": "a12",
@@ -340,6 +398,7 @@
           "status": "finished",
           "progress": 100,
           "actual_end_date": "20250225",
+          "linked_task_id": "task0004",
           "activities": [
             {
               "id": "a19",
@@ -568,6 +627,7 @@
           "status": "active",
           "progress": 50,
           "actual_end_date": "",
+          "linked_task_id": "task0005",
           "activities": [
             {
               "id": "a51",
