@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.1-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -21,7 +21,7 @@
 
 GanttPilot is a collaborative project manager that visualizes project status with Gantt charts. Each project is an independent Git repository, enabling multi-user collaboration through Git sync. Manage projects, milestones, plans, and activities — all from a clean right-click menu interface.
 
-Version: 0.9.0
+Version: 0.9.1
 
 ### 🚀 Quick Start
 
@@ -83,6 +83,9 @@ python main.py --version
 - 🌿 **Branch Selector** - Dropdown to switch branches and view Gantt chart / history for each branch
 - 🔀 **Manual Rebase Sync** - Sync no longer auto-rebases; a banner prompts when main has updates, click to rebase manually
 - ⏱ **Time Slot Hours** - Activity hours entered as start/end time slots (e.g. `0900/1200,1430/1500`), total hours auto-calculated
+- ⏱ **Effort Hours** - Activity hours can also be entered directly as a number (e.g. `3.5`), mutually exclusive with time slots
+- 📊 **Project Total Hours** - Project report includes a total hours summary with per-executor breakdown and percentage
+- 📊 **Group Totals & Percentage** - Time report shows group totals and per-executor percentage in all view modes
 - 🏷️ **Activity Tags** - Single tag per activity; time reports and project reports group summaries by tag
 - 🏷️ **Remote Branch Labels** - Remote branches in the branch selector show `[Remote]` prefix for clear identification
 - ↔️ **Resizable Panels** - Draggable splitter between Gantt chart/history and time report areas
@@ -121,7 +124,7 @@ Project (independent Git repo, with description)
 
 - `linked_task_id`: References a task ID from requirements, linking plan to requirement tracking
 - `time_slots`: Start/end time slot list, format `HHMM/HHMM` comma-separated (e.g. `0900/1200,1430/1500`)
-- `hours`: Auto-calculated from `time_slots`; retains manual value when `time_slots` is empty
+- `hours`: Auto-calculated from `time_slots` when provided; or entered directly as a number when `time_slots` is empty. The two input modes are mutually exclusive
 - `tag`: Single string tag for activity classification, default empty
 
 ### � Creating a Project
@@ -171,7 +174,7 @@ GPL-3.0
 
 GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作为独立 Git 仓库，通过 Git 同步实现多人协作。
 
-版本：0.9.0
+版本：0.9.1
 
 ### 🚀 快速开始
 
@@ -230,7 +233,10 @@ python main.py --version
 - 📜 **历史记录标签页** - 甘特图窗口增加历史记录标签，显示 Git 提交记录（提交者、时间、message、diff）
 - 🌿 **分支选择** - 下拉列表切换不同分支查看甘特图和历史记录
 - 🔀 **手动 Rebase 同步** - 同步时不自动 rebase，提示主线有更新后手动点击同步按钮
-- ⏱ **起止时间工时** - 活动工时改为填写起止时间列表（如 `0900/1200,1430/1500`），自动计算总工时
+- ⏱ **起止时间工时** - 活动工时支持填写起止时间列表（如 `0900/1200,1430/1500`），自动计算总工时
+- ⏱ **直接填写小时数** - 活动工时也可直接输入小时数（如 `3.5`），与时间段二选一填写
+- 📊 **项目总工时** - 项目报告新增项目总工时章节，含每位执行者工时明细和占比
+- 📊 **分组合计与占比** - 工时统计界面所有查看模式均显示分组合计和每位执行者占比
 - 🏷️ **活动标签** - 活动增加单个标签字段，工时报告和项目报告按标签分组汇总
 - 🏷️ **远端分支标识** - 分支选择器中远端分支显示 `[远端]` 前缀，便于区分
 - ↔️ **可调整面板** - 甘特图/历史记录与工时报告之间的分隔栏可拖拽调整
@@ -264,12 +270,12 @@ python main.py --version
   └── 计划执行
         └── 里程碑 (截止日期、描述、颜色)
               └── 计划 (执行者、日期范围、关联任务、进度、跳过日期、实际完成时间)
-                    └── 活动 (执行者、日期、小时数、工时时段、标签、内容)
+                    └── 活动 (执行者、日期、小时数、工时时间段、标签、内容)
 ```
 
 - `linked_task_id`：引用需求中的任务 ID，将计划与需求跟踪链条关联
 - `time_slots`：起止时间段列表，格式 `HHMM/HHMM` 逗号分隔（如 `0900/1200,1430/1500`）
-- `hours`：由 `time_slots` 自动计算；当 `time_slots` 为空时保留手动输入值
+- `hours`：填写 `time_slots` 时自动计算；也可直接输入小时数（两种方式二选一）
 - `tag`：单个字符串标签，用于活动分类，默认为空
 
 ### � 创建项目

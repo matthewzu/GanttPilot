@@ -1,7 +1,7 @@
 {
   "id": "demo0001",
   "name": "示例项目",
-  "description": "GanttPilot 功能演示项目，包含需求分析、开发实现和运维保障三个里程碑，全面演示 time_slots 工时时段和 tag 标签功能",
+  "description": "GanttPilot 功能演示项目，包含需求分析、开发实现和运维保障三个里程碑，全面演示工时（小时数）直接填写、工时（时间段）和 tag 标签功能",
   "remote_url": "",
   "remote_username": "",
   "remote_password": "",
@@ -162,7 +162,7 @@
               "hours": 2.0,
               "time_slots": "",
               "tag": "",
-              "content": "调研收尾整理（旧格式兼容演示：无时段无标签）"
+              "content": "调研收尾整理（直接填写小时数演示）"
             }
           ]
         },
@@ -213,7 +213,7 @@
               "hours": 4.0,
               "time_slots": "",
               "tag": "文档",
-              "content": "需求优先级排序（旧格式兼容演示：无时段）"
+              "content": "需求优先级排序（直接填写小时数演示）"
             },
             {
               "id": "a11",
@@ -488,7 +488,7 @@
               "hours": 8.0,
               "time_slots": "",
               "tag": "开发",
-              "content": "性能优化（旧格式兼容演示：无时段）"
+              "content": "性能优化（直接填写小时数演示）"
             },
             {
               "id": "a45",
@@ -539,7 +539,7 @@
               "hours": 5.0,
               "time_slots": "",
               "tag": "部署",
-              "content": "预发布环境验证（旧格式兼容演示：无时段）"
+              "content": "预发布环境验证（直接填写小时数演示）"
             },
             {
               "id": "a29",
@@ -759,7 +759,7 @@
               "hours": 5.0,
               "time_slots": "",
               "tag": "文档",
-              "content": "FAQ文档整理（旧格式兼容演示：无时段）"
+              "content": "FAQ文档整理（直接填写小时数演示）"
             },
             {
               "id": "a64",

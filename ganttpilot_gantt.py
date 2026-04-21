@@ -802,18 +802,39 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
                     "tag": act.get("tag", ""),
                 })
 
+    # Project total hours summary
+    if executor_activities:
+        grand_total_hours = sum(sum(a["hours"] for a in acts) for acts in executor_activities.values())
+        grand_total_days = round(grand_total_hours / 8.0, 2)
+        pct_label = "占比" if zh else "Percentage"
+        lines.append(h2("项目总工时" if zh else "Project Total Hours"))
+        lines.append("")
+        lines.append(f"{'合计' if zh else 'Total'}: **{grand_total_hours:.1f}** {'小时' if zh else 'hours'} / **{grand_total_days}** {'天' if zh else 'days'}")
+        lines.append("")
+        lines.append(f"| {'执行者' if zh else 'Executor'} | {'总小时数' if zh else 'Hours'} | {'总天数' if zh else 'Days'} | {pct_label} |")
+        lines.append("|---|---|---|---|")
+        for ex in sorted(executor_activities.keys()):
+            ex_hours = sum(a["hours"] for a in executor_activities[ex])
+            ex_days = round(ex_hours / 8.0, 2)
+            pct = f"{ex_hours / grand_total_hours * 100:.1f}%" if grand_total_hours > 0 else "0.0%"
+            lines.append(f"| {ex} | {ex_hours:.1f} | {ex_days} | {pct} |")
+        lines.append("")
+
     # Per-executor activity reports
     if executor_activities:
         tag_label = "标签" if zh else "Tag"
+        # Calculate grand total for percentage
+        grand_total_hours = sum(sum(a["hours"] for a in acts) for acts in executor_activities.values())
         lines.append(h2("执行者工时明细" if zh else "Executor Activity Details"))
         lines.append("")
         for ex in sorted(executor_activities.keys()):
             acts = executor_activities[ex]
             total_hours = sum(a["hours"] for a in acts)
             total_days = round(total_hours / 8.0, 2)
+            pct = f"{total_hours / grand_total_hours * 100:.1f}%" if grand_total_hours > 0 else "0.0%"
             lines.append(h3(ex))
             lines.append("")
-            lines.append(f"{'总计' if zh else 'Total'}: **{total_hours:.1f}** {'小时' if zh else 'hours'} / **{total_days}** {'天' if zh else 'days'}")
+            lines.append(f"{'总计' if zh else 'Total'}: **{total_hours:.1f}** {'小时' if zh else 'hours'} / **{total_days}** {'天' if zh else 'days'} ({pct})")
             lines.append("")
             lines.append(f"| {'日期' if zh else 'Date'} | {'小时' if zh else 'Hours'} | {'内容' if zh else 'Content'} | {tag_label} | {'所属计划' if zh else 'Plan'} | {'里程碑' if zh else 'Milestone'} |")
             lines.append("|---|---|---|---|---|---|")
@@ -867,17 +888,23 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
                 ms_executor_hours[ms_name][ex] += h
 
     if ms_executor_hours:
+        pct_label = "占比" if zh else "Percentage"
         lines.append(h2("按里程碑工时统计" if zh else "Hours by Milestone"))
         lines.append("")
         for ms_name in ms_executor_hours:
             lines.append(h3(ms_name))
             lines.append("")
-            lines.append(f"| {executor_label} | {hours_label} | {days_label} |")
-            lines.append("|---|---|---|")
+            group_total = sum(ms_executor_hours[ms_name].values())
+            group_days = round(group_total / 8.0, 2)
+            lines.append(f"{'合计' if zh else 'Total'}: **{group_total:.1f}** {'小时' if zh else 'hours'} / **{group_days}** {'天' if zh else 'days'}")
+            lines.append("")
+            lines.append(f"| {executor_label} | {hours_label} | {days_label} | {pct_label} |")
+            lines.append("|---|---|---|---|")
             for ex in sorted(ms_executor_hours[ms_name].keys()):
                 h = ms_executor_hours[ms_name][ex]
                 d = round(h / 8.0, 2)
-                lines.append(f"| {ex} | {h:.1f} | {d} |")
+                pct = f"{h / group_total * 100:.1f}%" if group_total > 0 else "0.0%"
+                lines.append(f"| {ex} | {h:.1f} | {d} | {pct} |")
             lines.append("")
 
     # ── Hours by Plan ────────────────────────────────────────
@@ -895,17 +922,23 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
                 plan_executor_hours[plan_content][ex] += h
 
     if plan_executor_hours:
+        pct_label = "占比" if zh else "Percentage"
         lines.append(h2("按计划工时统计" if zh else "Hours by Plan"))
         lines.append("")
         for plan_content in plan_executor_hours:
             lines.append(h3(plan_content))
             lines.append("")
-            lines.append(f"| {executor_label} | {hours_label} | {days_label} |")
-            lines.append("|---|---|---|")
+            group_total = sum(plan_executor_hours[plan_content].values())
+            group_days = round(group_total / 8.0, 2)
+            lines.append(f"{'合计' if zh else 'Total'}: **{group_total:.1f}** {'小时' if zh else 'hours'} / **{group_days}** {'天' if zh else 'days'}")
+            lines.append("")
+            lines.append(f"| {executor_label} | {hours_label} | {days_label} | {pct_label} |")
+            lines.append("|---|---|---|---|")
             for ex in sorted(plan_executor_hours[plan_content].keys()):
                 h = plan_executor_hours[plan_content][ex]
                 d = round(h / 8.0, 2)
-                lines.append(f"| {ex} | {h:.1f} | {d} |")
+                pct = f"{h / group_total * 100:.1f}%" if group_total > 0 else "0.0%"
+                lines.append(f"| {ex} | {h:.1f} | {d} | {pct} |")
             lines.append("")
 
     # ── Hours by Tag ─────────────────────────────────────────
@@ -924,18 +957,24 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
 
     if tag_executor_hours:
         no_tag_label = "无标签" if zh else "No Tag"
+        pct_label = "占比" if zh else "Percentage"
         lines.append(h2("按标签工时统计" if zh else "Hours by Tag"))
         lines.append("")
         for t in sorted(tag_executor_hours.keys()):
             display_tag = t if t else no_tag_label
             lines.append(h3(display_tag))
             lines.append("")
-            lines.append(f"| {executor_label} | {hours_label} | {days_label} |")
-            lines.append("|---|---|---|")
+            group_total = sum(tag_executor_hours[t].values())
+            group_days = round(group_total / 8.0, 2)
+            lines.append(f"{'合计' if zh else 'Total'}: **{group_total:.1f}** {'小时' if zh else 'hours'} / **{group_days}** {'天' if zh else 'days'}")
+            lines.append("")
+            lines.append(f"| {executor_label} | {hours_label} | {days_label} | {pct_label} |")
+            lines.append("|---|---|---|---|")
             for ex in sorted(tag_executor_hours[t].keys()):
                 h = tag_executor_hours[t][ex]
                 d = round(h / 8.0, 2)
-                lines.append(f"| {ex} | {h:.1f} | {d} |")
+                pct = f"{h / group_total * 100:.1f}%" if group_total > 0 else "0.0%"
+                lines.append(f"| {ex} | {h:.1f} | {d} | {pct} |")
             lines.append("")
 
     return "\n".join(lines)

@@ -609,16 +609,18 @@ class GanttPilotGUI:
         self.report_mode_combo.pack(side=tk.LEFT, padx=2)
         self.report_mode_combo.bind("<<ComboboxSelected>>", lambda e: self.refresh_report())
 
-        cols = ("group", "executor", "hours", "days")
+        cols = ("group", "executor", "hours", "days", "percentage")
         self.report_tree = ttk.Treeview(report_frame, columns=cols, show="headings", height=5)
         self.report_tree.heading("group", text=self._t("group_col"))
         self.report_tree.heading("executor", text=self._t("executor"))
         self.report_tree.heading("hours", text=self._t("total_hours"))
         self.report_tree.heading("days", text=self._t("total_days"))
+        self.report_tree.heading("percentage", text=self._t("percentage"))
         self.report_tree.column("group", width=0, stretch=False, minwidth=0)
-        self.report_tree.column("executor", width=150, anchor="center")
-        self.report_tree.column("hours", width=100, anchor="center")
-        self.report_tree.column("days", width=100, anchor="center")
+        self.report_tree.column("executor", width=140, anchor="center")
+        self.report_tree.column("hours", width=90, anchor="center")
+        self.report_tree.column("days", width=90, anchor="center")
+        self.report_tree.column("percentage", width=80, anchor="center")
         self.report_tree.pack(fill=tk.BOTH, expand=True, pady=(0, 4))
         self.report_tree.tag_configure("group_header", font=("", self.config.font_size, "bold"), background="#d0d0e8")
 
@@ -782,11 +784,10 @@ class GanttPilotGUI:
                     plan_n = self.tree.insert(mn, tk.END, text=txt,
                                              values=("plan", proj["name"], ms["name"], plan["id"]))
                     for act in plan.get("activities", []):
-                        ts = act.get("time_slots", "")
                         tag = act.get("tag", "")
-                        time_part = ts if ts else f"{act['hours']}h"
+                        hours = act.get("hours", 0)
                         tag_part = f" [{tag}]" if tag else ""
-                        atxt = f"⏱ {act['date']} {act['executor']} {time_part} - {act['content']}{tag_part}"
+                        atxt = f"⏱ {act['date']} {act['executor']} {hours}h - {act['content']}{tag_part}"
                         self.tree.insert(plan_n, tk.END, text=atxt,
                                          values=("activity", proj["name"], ms["name"], plan["id"], act["id"]))
 
@@ -912,12 +913,20 @@ class GanttPilotGUI:
             self.report_tree.column("group", width=140, stretch=True, minwidth=80)
 
         if mode_idx == 0:
-            # By Project — flat executor list
+            # By Project — flat executor list with total row on top
             report = self.store.get_time_report(self.current_project)
+            # Calculate project total
+            proj_total_hours = sum(data['hours'] for ex, data in report.items() if ex != "by_tag")
+            proj_total_days = round(proj_total_hours / 8.0, 2)
+            # Insert total row first
+            self.report_tree.insert("", tk.END,
+                                    values=("", self._t("group_total"), f"{proj_total_hours:.1f}", f"{proj_total_days:.2f}", ""),
+                                    tags=("group_header",))
             for ex, data in sorted(report.items()):
                 if ex == "by_tag":
                     continue
-                self.report_tree.insert("", tk.END, values=("", ex, f"{data['hours']:.1f}", f"{data['days']:.2f}"))
+                pct = f"{data['hours'] / proj_total_hours * 100:.1f}%" if proj_total_hours > 0 else "0.0%"
+                self.report_tree.insert("", tk.END, values=("", ex, f"{data['hours']:.1f}", f"{data['days']:.2f}", pct))
         else:
             # Grouped modes
             if mode_idx == 1:
@@ -929,10 +938,16 @@ class GanttPilotGUI:
 
             for group_name, executors in sorted(report.items()):
                 label = group_name if group_name else "-"
-                # Group header row with background color
-                self.report_tree.insert("", tk.END, values=(label, "", "", ""), tags=("group_header",))
+                # Calculate group total
+                group_total_hours = sum(data['hours'] for data in executors.values())
+                group_total_days = round(group_total_hours / 8.0, 2)
+                # Group header row with total
+                self.report_tree.insert("", tk.END,
+                                        values=(label, self._t("group_total"), f"{group_total_hours:.1f}", f"{group_total_days:.2f}", ""),
+                                        tags=("group_header",))
                 for ex, data in sorted(executors.items()):
-                    self.report_tree.insert("", tk.END, values=("", ex, f"{data['hours']:.1f}", f"{data['days']:.2f}"))
+                    pct = f"{data['hours'] / group_total_hours * 100:.1f}%" if group_total_hours > 0 else "0.0%"
+                    self.report_tree.insert("", tk.END, values=("", ex, f"{data['hours']:.1f}", f"{data['days']:.2f}", pct))
 
     # ── Tracking tab ──────────────────────────────────────────
     def refresh_tracking(self):
@@ -1183,13 +1198,15 @@ class GanttPilotGUI:
                             tag_hours[tag] = 0
                         tag_hours[tag] += h
             for ex, data in sorted(report.items()):
-                self.report_tree.insert("", tk.END, values=(ex, f"{data['hours']:.1f}", f"{data['days']:.2f}"))
+                branch_total = sum(d['hours'] for d in report.values())
+                pct = f"{data['hours'] / branch_total * 100:.1f}%" if branch_total > 0 else "0.0%"
+                self.report_tree.insert("", tk.END, values=("", ex, f"{data['hours']:.1f}", f"{data['days']:.2f}", pct))
             if tag_hours:
-                self.report_tree.insert("", tk.END, values=("", "", ""))
-                self.report_tree.insert("", tk.END, values=(self._t("tag_summary"), "", ""))
+                self.report_tree.insert("", tk.END, values=("", "", "", "", ""))
+                self.report_tree.insert("", tk.END, values=(self._t("tag_summary"), "", "", "", ""))
                 for tag, hours in sorted(tag_hours.items()):
                     label = tag if tag else "-"
-                    self.report_tree.insert("", tk.END, values=(f"  [{label}]", f"{hours:.1f}", f"{hours / 8.0:.2f}"))
+                    self.report_tree.insert("", tk.END, values=(f"  [{label}]", "", f"{hours:.1f}", f"{hours / 8.0:.2f}", ""))
 
             self.status_var.set(f"{self._t('gantt_chart')}: {self.current_project} ({selected})")
         except Exception as e:
@@ -2025,6 +2042,7 @@ class GanttPilotGUI:
         self.report_tree.heading("executor", text=self._t("executor"))
         self.report_tree.heading("hours", text=self._t("total_hours"))
         self.report_tree.heading("days", text=self._t("total_days"))
+        self.report_tree.heading("percentage", text=self._t("percentage"))
         # Update notebook tab labels
         self.right_notebook.tab(0, text=self._t("gantt_chart"))
         self.right_notebook.tab(1, text=self._t("history"))
@@ -2422,41 +2440,81 @@ class ActivityDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("activity"))
-        self.top.geometry("400x280")
+        self.top.geometry("420x360")
         self.top.transient(parent)
         self.top.grab_set()
 
+        row = 0
         fields = [
             ("executor", t_func("executor")),
             ("date", t_func("date") + " (YYYYMMDD)"),
             ("content", t_func("content")),
-            ("time_slots", t_func("time_slots")),
         ]
         self.entries = {}
-        for i, (key, label) in enumerate(fields):
-            ttk.Label(self.top, text=label).grid(row=i, column=0, padx=8, pady=4, sticky=tk.W)
+        for key, label in fields:
+            ttk.Label(self.top, text=label).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
             entry = ttk.Entry(self.top, width=30)
-            entry.grid(row=i, column=1, padx=8, pady=4)
+            entry.grid(row=row, column=1, padx=8, pady=4)
             self.entries[key] = entry
-        # Hint label on its own row below time_slots
-        hint_row = len(fields)
+            row += 1
+
+        # Effort hours field
+        ttk.Label(self.top, text=t_func("effort_hours")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
+        hours_entry = ttk.Entry(self.top, width=30)
+        hours_entry.grid(row=row, column=1, padx=8, pady=4)
+        self.entries["effort_hours"] = hours_entry
+        row += 1
+        ttk.Label(self.top, text=t_func("effort_hours_hint"), foreground="gray", font=("", 8)).grid(
+            row=row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
+        row += 1
+
+        # Time slots field
+        ttk.Label(self.top, text=t_func("time_slots")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
+        ts_entry = ttk.Entry(self.top, width=30)
+        ts_entry.grid(row=row, column=1, padx=8, pady=4)
+        self.entries["time_slots"] = ts_entry
+        row += 1
         ttk.Label(self.top, text=t_func("time_slots_hint"), foreground="gray", font=("", 8)).grid(
-            row=hint_row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
-        # Tag field after the hint
-        tag_row = hint_row + 1
-        ttk.Label(self.top, text=t_func("tag")).grid(row=tag_row, column=0, padx=8, pady=4, sticky=tk.W)
+            row=row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
+        row += 1
+
+        # Mutual exclusion hint
+        ttk.Label(self.top, text=t_func("time_slots_or_hours_hint"), foreground="orange", font=("", 8)).grid(
+            row=row, column=0, columnspan=2, padx=8, pady=(0, 2), sticky=tk.W)
+        row += 1
+
+        # Tag field
+        ttk.Label(self.top, text=t_func("tag")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
         tag_entry = ttk.Entry(self.top, width=30)
-        tag_entry.grid(row=tag_row, column=1, padx=8, pady=4)
+        tag_entry.grid(row=row, column=1, padx=8, pady=4)
         self.entries["tag"] = tag_entry
+        row += 1
         ttk.Button(self.top, text="OK", command=self._ok).grid(
-            row=tag_row + 1, column=0, columnspan=2, pady=12)
+            row=row, column=0, columnspan=2, pady=12)
 
     def _ok(self):
         executor = self.entries["executor"].get().strip()
         date = self.entries["date"].get().strip()
         content = self.entries["content"].get().strip()
+        effort_hours_str = self.entries["effort_hours"].get().strip()
         time_slots = self.entries["time_slots"].get().strip()
         tag = self.entries["tag"].get().strip()
+        # Mutual exclusion: cannot fill both
+        if effort_hours_str and time_slots:
+            messagebox.showwarning("", self.t_func("hours_conflict"))
+            return
+        # Validate effort_hours if provided
+        if effort_hours_str:
+            try:
+                hours = float(effort_hours_str)
+            except ValueError:
+                messagebox.showwarning("", self.t_func("invalid_hours"))
+                return
+            if hours < 0:
+                messagebox.showwarning("", self.t_func("hours_non_negative"))
+                return
+        else:
+            hours = 0.0
         # Validate time_slots if provided
         if time_slots:
             try:
@@ -2464,8 +2522,6 @@ class ActivityDialog:
             except ValueError:
                 messagebox.showwarning("", self.t_func("invalid_time_slots"))
                 return
-        hours = 0.0
-        if time_slots:
             hours = calculate_hours_from_slots(time_slots)
         if executor and date and content:
             self.result = {"executor": executor, "date": date, "hours": hours,
@@ -2619,41 +2675,72 @@ class ActivityEditDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_activity"))
-        self.top.geometry("400x300")
+        self.top.geometry("420x380")
         self.top.transient(parent)
         self.top.grab_set()
 
+        row = 0
         fields = [
             ("executor", t_func("executor"), activity.get("executor", "")),
             ("date", t_func("date") + " (YYYYMMDD)", activity.get("date", "")),
             ("content", t_func("content"), activity.get("content", "")),
-            ("time_slots", t_func("time_slots"), activity.get("time_slots", "")),
         ]
         self.entries = {}
-        for i, (key, label, val) in enumerate(fields):
-            ttk.Label(self.top, text=label).grid(row=i, column=0, padx=8, pady=4, sticky=tk.W)
+        for key, label, val in fields:
+            ttk.Label(self.top, text=label).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
             entry = ttk.Entry(self.top, width=30)
             entry.insert(0, val)
-            entry.grid(row=i, column=1, padx=8, pady=4)
+            entry.grid(row=row, column=1, padx=8, pady=4)
             self.entries[key] = entry
-        # Hint label on its own row below time_slots
-        hint_row = len(fields)
+            row += 1
+
+        # Determine if existing activity used direct hours (no time_slots)
+        existing_ts = activity.get("time_slots", "")
+        existing_hours = activity.get("hours", 0.0)
+
+        # Effort hours field
+        ttk.Label(self.top, text=t_func("effort_hours")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
+        hours_entry = ttk.Entry(self.top, width=30)
+        if not existing_ts and existing_hours:
+            hours_entry.insert(0, str(existing_hours))
+        hours_entry.grid(row=row, column=1, padx=8, pady=4)
+        self.entries["effort_hours"] = hours_entry
+        row += 1
+        ttk.Label(self.top, text=t_func("effort_hours_hint"), foreground="gray", font=("", 8)).grid(
+            row=row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
+        row += 1
+
+        # Time slots field
+        ttk.Label(self.top, text=t_func("time_slots")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
+        ts_entry = ttk.Entry(self.top, width=30)
+        ts_entry.insert(0, existing_ts)
+        ts_entry.grid(row=row, column=1, padx=8, pady=4)
+        self.entries["time_slots"] = ts_entry
+        row += 1
         ttk.Label(self.top, text=t_func("time_slots_hint"), foreground="gray", font=("", 8)).grid(
-            row=hint_row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
-        # Tag field after the hint
-        tag_row = hint_row + 1
-        ttk.Label(self.top, text=t_func("tag")).grid(row=tag_row, column=0, padx=8, pady=4, sticky=tk.W)
+            row=row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
+        row += 1
+
+        # Mutual exclusion hint
+        ttk.Label(self.top, text=t_func("time_slots_or_hours_hint"), foreground="orange", font=("", 8)).grid(
+            row=row, column=0, columnspan=2, padx=8, pady=(0, 2), sticky=tk.W)
+        row += 1
+
+        # Tag field
+        ttk.Label(self.top, text=t_func("tag")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
         tag_entry = ttk.Entry(self.top, width=30)
         tag_entry.insert(0, activity.get("tag", ""))
-        tag_entry.grid(row=tag_row, column=1, padx=8, pady=4)
+        tag_entry.grid(row=row, column=1, padx=8, pady=4)
         self.entries["tag"] = tag_entry
+        row += 1
         ttk.Button(self.top, text="OK", command=self._ok).grid(
-            row=tag_row + 1, column=0, columnspan=2, pady=12)
+            row=row, column=0, columnspan=2, pady=12)
 
     def _ok(self):
         executor = self.entries["executor"].get().strip()
         date = self.entries["date"].get().strip()
         content = self.entries["content"].get().strip()
+        effort_hours_str = self.entries["effort_hours"].get().strip()
         time_slots = self.entries["time_slots"].get().strip()
         tag = self.entries["tag"].get().strip()
         if not executor or not date or not content:
@@ -2662,6 +2749,22 @@ class ActivityEditDialog:
         if len(date) != 8 or not date.isdigit():
             messagebox.showwarning("", self.t_func("invalid_date"))
             return
+        # Mutual exclusion: cannot fill both
+        if effort_hours_str and time_slots:
+            messagebox.showwarning("", self.t_func("hours_conflict"))
+            return
+        # Validate effort_hours if provided
+        if effort_hours_str:
+            try:
+                hours = float(effort_hours_str)
+            except ValueError:
+                messagebox.showwarning("", self.t_func("invalid_hours"))
+                return
+            if hours < 0:
+                messagebox.showwarning("", self.t_func("hours_non_negative"))
+                return
+        else:
+            hours = 0.0
         # Validate time_slots if provided
         if time_slots:
             try:
@@ -2669,8 +2772,6 @@ class ActivityEditDialog:
             except ValueError:
                 messagebox.showwarning("", self.t_func("invalid_time_slots"))
                 return
-        hours = 0.0
-        if time_slots:
             hours = calculate_hours_from_slots(time_slots)
         self.result = {"executor": executor, "date": date, "hours": hours,
                        "content": content, "time_slots": time_slots, "tag": tag}
