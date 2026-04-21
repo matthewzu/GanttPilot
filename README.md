@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.8.1-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -21,7 +21,7 @@
 
 GanttPilot is a collaborative project manager that visualizes project status with Gantt charts. Each project is an independent Git repository, enabling multi-user collaboration through Git sync. Manage projects, milestones, plans, and activities — all from a clean right-click menu interface.
 
-Version: 0.8.0
+Version: 0.8.1
 
 ### 🚀 Quick Start
 
@@ -85,6 +85,8 @@ python main.py --version
 - 🏷️ **Remote Branch Labels** - Remote branches in the branch selector show `[Remote]` prefix for clear identification
 - ↔️ **Resizable Panels** - Draggable splitter between Gantt chart/history and time report areas
 - 📊 **Report View Modes** - Time report supports 4 view modes: by project, by milestone, by plan, by tag; Markdown reports include all 4 dimensions
+- 🪟 **Window State Persistence** - Maximized window state saved and restored correctly on relaunch
+- 📝 **Milestone Multiline Description** - Milestone description uses resizable multiline editor in create/edit dialogs
 
 ### 🖱️ Usage
 
@@ -93,7 +95,7 @@ All operations via toolbar buttons and right-click context menus:
 | Node / Area | Toolbar | Right-click |
 | --- | --- | --- |
 | Empty area | — | Add project, Load example, Sync, Refresh |
-| Project | — | Add milestone, Edit, Git config, Report, Sync, Delete |
+| Project | Edit | Add milestone, Edit, Git config, Report, Sync, Delete |
 | Requirement Analysis | Add (requirement) | Add requirement |
 | Requirement | Add (task), Edit, Delete, Move Up/Down | Add task, Edit, Delete |
 | Task | Edit, Delete, Move Up/Down | Edit, Delete |
@@ -167,7 +169,7 @@ GPL-3.0
 
 GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作为独立 Git 仓库，通过 Git 同步实现多人协作。
 
-版本：0.8.0
+版本：0.8.1
 
 ### 🚀 快速开始
 
@@ -229,6 +231,8 @@ python main.py --version
 - 🏷️ **远端分支标识** - 分支选择器中远端分支显示 `[远端]` 前缀，便于区分
 - ↔️ **可调整面板** - 甘特图/历史记录与工时报告之间的分隔栏可拖拽调整
 - 📊 **报告查看模式** - 工时报告支持按项目、按里程碑、按计划、按标签四种查看模式；Markdown 报告同时包含四种维度统计
+- 🪟 **窗口状态记忆** - 最大化状态正确保存和恢复，重启后不再偏移
+- 📝 **里程碑多行描述** - 里程碑创建/编辑对话框中描述字段改为可调整大小的多行编辑框
 
 ### 🖱️ 操作方式
 
@@ -237,7 +241,7 @@ python main.py --version
 | 节点 / 区域 | 工具栏 | 右键菜单 |
 | --- | --- | --- |
 | 空白处 | — | 添加项目、加载示例、同步、刷新 |
-| 项目 | — | 添加里程碑、编辑项目、Git 配置、生成报告、同步、删除 |
+| 项目 | 编辑 | 添加里程碑、编辑项目、Git 配置、生成报告、同步、删除 |
 | 需求分析 | 添加（需求） | 添加需求 |
 | 需求 | 添加（任务）、编辑、删除、上移/下移 | 添加任务、编辑、删除 |
 | 任务 | 编辑、删除、上移/下移 | 编辑、删除 |

@@ -31,7 +31,7 @@ GITHUB_REPO = "matthewzu/GanttPilot"
 # ── Toolbar button state mapping ─────────────────────────────
 TOOLBAR_STATE = {
     None:                  {"add": False, "edit": False, "delete": False, "up": False, "down": False},
-    "project":             {"add": False, "edit": False, "delete": False, "up": False, "down": False},
+    "project":             {"add": False, "edit": True,  "delete": False, "up": False, "down": False},
     "req_analysis":        {"add": True,  "edit": False, "delete": False, "up": False, "down": False},
     "requirement":         {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True},
     "task":                {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True},
@@ -249,11 +249,14 @@ class GanttPilotGUI:
     def _apply_saved_geometry(self):
         geo = self.config.get("window_geometry", "1200x700")
         pos = self.config.get("window_position", "100,100")
+        maximized = self.config.get("window_maximized", False)
         try:
             x, y = pos.split(",")
             self.root.geometry(f"{geo}+{x}+{y}")
         except Exception:
             self.root.geometry(geo)
+        if maximized:
+            self.root.state("zoomed")
 
     def _set_icon(self):
         """Set window icon from ganttpilot.ico"""
@@ -1668,7 +1671,9 @@ class GanttPilotGUI:
         if not values:
             return
         kind = values[0]
-        if kind == "requirement":
+        if kind == "project":
+            self.edit_project()
+        elif kind == "requirement":
             self.edit_requirement()
         elif kind == "task":
             self.edit_task()
@@ -1977,13 +1982,16 @@ class GanttPilotGUI:
             self.status_var.set(self._t("sync_fail", str(e)))
 
     def on_close(self):
-        geo = self.root.geometry()
-        try:
-            size_part, x, y = geo.replace("+", " ").split()
-            self.config.set("window_geometry", size_part)
-            self.config.set("window_position", f"{x},{y}")
-        except Exception:
-            pass
+        is_maximized = self.root.state() == "zoomed"
+        self.config.set("window_maximized", is_maximized)
+        if not is_maximized:
+            geo = self.root.geometry()
+            try:
+                size_part, x, y = geo.replace("+", " ").split()
+                self.config.set("window_geometry", size_part)
+                self.config.set("window_position", f"{x},{y}")
+            except Exception:
+                pass
         self.config.save()
         # Background sync current project (non-blocking)
         if self.current_project:
@@ -2373,26 +2381,29 @@ class MilestoneEditDialog:
         self.result = None
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_milestone"))
-        self.top.geometry("400x200")
+        self.top.geometry("400x250")
         self.top.transient(parent)
         self.top.grab_set()
+
+        self.top.columnconfigure(1, weight=1)
+        self.top.rowconfigure(2, weight=1)
 
         ttk.Label(self.top, text=t_func("milestone_name")).grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
         self.name_entry = ttk.Entry(self.top, width=30)
         self.name_entry.insert(0, milestone.get("name", ""))
-        self.name_entry.grid(row=0, column=1, padx=8, pady=5)
+        self.name_entry.grid(row=0, column=1, padx=8, pady=5, sticky=tk.EW)
 
-        ttk.Label(self.top, text=t_func("description")).grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
-        self.desc_entry = ttk.Entry(self.top, width=30)
-        self.desc_entry.insert(0, milestone.get("description", ""))
-        self.desc_entry.grid(row=1, column=1, padx=8, pady=5)
-
-        ttk.Label(self.top, text=t_func("end_date") + " (YYYYMMDD)").grid(row=2, column=0, padx=8, pady=5, sticky=tk.W)
+        ttk.Label(self.top, text=t_func("end_date") + " (YYYYMMDD)").grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
         self.deadline_entry = ttk.Entry(self.top, width=30)
         self.deadline_entry.insert(0, milestone.get("deadline", ""))
-        self.deadline_entry.grid(row=2, column=1, padx=8, pady=5)
+        self.deadline_entry.grid(row=1, column=1, padx=8, pady=5, sticky=tk.EW)
 
-        ttk.Button(self.top, text="OK", command=self._ok).grid(row=3, column=0, columnspan=2, pady=10)
+        ttk.Label(self.top, text=t_func("description")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.NW)
+        self.desc_text = tk.Text(self.top, width=30, height=4, wrap=tk.WORD)
+        self.desc_text.insert("1.0", milestone.get("description", ""))
+        self.desc_text.grid(row=2, column=1, padx=8, pady=5, sticky=tk.NSEW)
+
+        ttk.Button(self.top, text="OK", command=self._ok).grid(row=3, column=0, columnspan=2, pady=(5, 8))
 
     def _ok(self):
         name = self.name_entry.get().strip()
@@ -2401,7 +2412,7 @@ class MilestoneEditDialog:
             return
         self.result = {
             "name": name,
-            "description": self.desc_entry.get().strip(),
+            "description": self.desc_text.get("1.0", tk.END).strip(),
             "deadline": self.deadline_entry.get().strip(),
         }
         self.top.destroy()
@@ -2616,27 +2627,30 @@ class MilestoneCreateDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("milestone"))
-        self.top.geometry("450x250")
+        self.top.geometry("450x280")
         self.top.transient(parent)
         self.top.grab_set()
 
+        self.top.columnconfigure(1, weight=1)
+        self.top.rowconfigure(3, weight=1)
+
         ttk.Label(self.top, text=t_func("milestone_name") + " *").grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
         self.name_entry = ttk.Entry(self.top, width=30)
-        self.name_entry.grid(row=0, column=1, padx=8, pady=5)
+        self.name_entry.grid(row=0, column=1, padx=8, pady=5, sticky=tk.EW)
 
-        ttk.Label(self.top, text=t_func("description")).grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
-        self.desc_entry = ttk.Entry(self.top, width=30)
-        self.desc_entry.grid(row=1, column=1, padx=8, pady=5)
-
-        ttk.Label(self.top, text=t_func("end_date") + " (YYYYMMDD)").grid(row=2, column=0, padx=8, pady=5, sticky=tk.W)
+        ttk.Label(self.top, text=t_func("end_date") + " (YYYYMMDD)").grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
         self.deadline_entry = ttk.Entry(self.top, width=30)
-        self.deadline_entry.grid(row=2, column=1, padx=8, pady=5)
+        self.deadline_entry.grid(row=1, column=1, padx=8, pady=5, sticky=tk.EW)
 
-        ttk.Label(self.top, text="🎨 " + t_func("color")).grid(row=3, column=0, padx=8, pady=5, sticky=tk.W)
+        ttk.Label(self.top, text="🎨 " + t_func("color")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.W)
         self.color_entry = ttk.Entry(self.top, width=30)
-        self.color_entry.grid(row=3, column=1, padx=8, pady=5)
+        self.color_entry.grid(row=2, column=1, padx=8, pady=5, sticky=tk.EW)
 
-        ttk.Button(self.top, text="OK", command=self._ok).grid(row=4, column=0, columnspan=2, pady=10)
+        ttk.Label(self.top, text=t_func("description")).grid(row=3, column=0, padx=8, pady=5, sticky=tk.NW)
+        self.desc_text = tk.Text(self.top, width=30, height=4, wrap=tk.WORD)
+        self.desc_text.grid(row=3, column=1, padx=8, pady=5, sticky=tk.NSEW)
+
+        ttk.Button(self.top, text="OK", command=self._ok).grid(row=4, column=0, columnspan=2, pady=(5, 8))
 
     def _ok(self):
         name = self.name_entry.get().strip()
@@ -2645,7 +2659,7 @@ class MilestoneCreateDialog:
             return
         self.result = {
             "name": name,
-            "description": self.desc_entry.get().strip(),
+            "description": self.desc_text.get("1.0", tk.END).strip(),
             "deadline": self.deadline_entry.get().strip(),
             "color": self.color_entry.get().strip(),
         }

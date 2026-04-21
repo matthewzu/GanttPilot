@@ -21,7 +21,7 @@ from ganttpilot_gui import TOOLBAR_STATE
 # Expected state mapping from the design document
 EXPECTED_STATES = {
     None:             {"add": False, "edit": False, "delete": False, "up": False, "down": False},
-    "project":        {"add": False, "edit": False, "delete": False, "up": False, "down": False},
+    "project":        {"add": False, "edit": True,  "delete": False, "up": False, "down": False},
     "req_analysis":   {"add": True,  "edit": False, "delete": False, "up": False, "down": False},
     "requirement":    {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True},
     "task":           {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True},
