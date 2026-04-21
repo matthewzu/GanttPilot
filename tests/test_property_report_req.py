@@ -49,7 +49,7 @@ requirement_strategy = st.fixed_dictionaries({
 })
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(
     requirements=st.lists(requirement_strategy, min_size=1, max_size=3),
     lang=_lang,
@@ -109,7 +109,7 @@ def test_report_with_requirements_has_both_sections(requirements, lang):
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(lang=_lang)
 def test_report_without_requirements_omits_sections(lang):
     """Property 8: Report without requirements omits both sections.

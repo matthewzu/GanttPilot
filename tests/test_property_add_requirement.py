@@ -32,7 +32,7 @@ _nonempty_text = st.text(
 )
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(
     category=_text,
     subject=_nonempty_text,

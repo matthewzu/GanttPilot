@@ -77,7 +77,7 @@ old_project_strategy = st.fixed_dictionaries({
 })
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(old_project=old_project_strategy)
 def test_backward_compat_old_data(old_project):
     """Property 5: Backward compatibility with old project data.

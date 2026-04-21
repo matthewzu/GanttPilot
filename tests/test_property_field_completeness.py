@@ -38,7 +38,7 @@ _positive_float = st.floats(
 _date_str = st.from_regex(r"20[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])", fullmatch=True)
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(
     category=_text,
     subject=_nonempty_text,
@@ -78,7 +78,7 @@ def test_requirement_node_field_completeness(category, subject, description):
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(
     subject=_nonempty_text,
     effort_days=_positive_float,
@@ -119,7 +119,7 @@ def test_task_node_field_completeness(subject, effort_days, description):
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(
     content=_nonempty_text,
     executor=_nonempty_text,

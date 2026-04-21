@@ -8,6 +8,7 @@ Data is stored as JSON files in the data directory:
       project.json   — single project object with milestones, plans, activities
 """
 
+import copy
 import json
 import os
 import re
@@ -129,6 +130,7 @@ class DataStore:
     def __init__(self, data_dir):
         self.data_dir = data_dir
         self.data = {"projects": []}
+        self._clipboard = None  # {"type": str, "data": dict}
         self.load()
 
     def load(self):
@@ -740,3 +742,220 @@ class DataStore:
             for ex in report[tag]:
                 report[tag][ex]["days"] = round(report[tag][ex]["hours"] / 8.0, 2)
         return report
+
+    # ── Deep-copy helper ──────────────────────────────────────────
+    @staticmethod
+    def _deep_copy_with_new_ids(node):
+        """Deep-copy a dict tree, replacing every 'id' field with a new UUID."""
+        cloned = copy.deepcopy(node)
+        def _regen(obj):
+            if isinstance(obj, dict):
+                if "id" in obj:
+                    obj["id"] = _new_id()
+                for v in obj.values():
+                    _regen(v)
+            elif isinstance(obj, list):
+                for item in obj:
+                    _regen(item)
+        _regen(cloned)
+        return cloned
+
+    # ── Duplicate (clone in-place) ────────────────────────────────
+    def duplicate_project(self, project_name):
+        proj = self.get_project(project_name)
+        if not proj:
+            return None
+        cloned = self._deep_copy_with_new_ids(proj)
+        base = project_name + " (Copy)"
+        name = base
+        i = 2
+        while self.get_project(name):
+            name = f"{base} {i}"
+            i += 1
+        cloned["name"] = name
+        self.data["projects"].append(cloned)
+        proj_dir = os.path.join(self.data_dir, name)
+        os.makedirs(proj_dir, exist_ok=True)
+        proj_file = os.path.join(proj_dir, "project.json")
+        with open(proj_file, "w", encoding="utf-8") as f:
+            json.dump(cloned, f, ensure_ascii=False, indent=2)
+        return cloned
+
+    def duplicate_requirement(self, project_name, req_id):
+        proj = self.get_project(project_name)
+        if not proj:
+            return None
+        req = self.get_requirement(project_name, req_id)
+        if not req:
+            return None
+        cloned = self._deep_copy_with_new_ids(req)
+        cloned["subject"] = req["subject"] + " (Copy)"
+        proj.setdefault("requirements", []).append(cloned)
+        self.save()
+        return cloned
+
+    def duplicate_task(self, project_name, req_id, task_id):
+        req = self.get_requirement(project_name, req_id)
+        if not req:
+            return None
+        for t in req.get("tasks", []):
+            if t["id"] == task_id:
+                cloned = self._deep_copy_with_new_ids(t)
+                cloned["subject"] = t["subject"] + " (Copy)"
+                req["tasks"].append(cloned)
+                self.save()
+                return cloned
+        return None
+
+    def duplicate_milestone(self, project_name, ms_name):
+        proj = self.get_project(project_name)
+        if not proj:
+            return None
+        ms = self._find_milestone(project_name, ms_name)
+        if not ms:
+            return None
+        cloned = self._deep_copy_with_new_ids(ms)
+        base = ms_name + " (Copy)"
+        name = base
+        i = 2
+        while any(m["name"] == name for m in proj["milestones"]):
+            name = f"{base} {i}"
+            i += 1
+        cloned["name"] = name
+        proj["milestones"].append(cloned)
+        self.save()
+        return cloned
+
+    def duplicate_plan(self, project_name, ms_name, plan_id):
+        ms = self._find_milestone(project_name, ms_name)
+        if not ms:
+            return None
+        for p in ms.get("plans", []):
+            if p["id"] == plan_id:
+                cloned = self._deep_copy_with_new_ids(p)
+                cloned["content"] = p["content"] + " (Copy)"
+                ms["plans"].append(cloned)
+                self.save()
+                return cloned
+        return None
+
+    def duplicate_activity(self, project_name, ms_name, plan_id, activity_id):
+        plan = self._find_plan(project_name, ms_name, plan_id)
+        if not plan:
+            return None
+        for a in plan.get("activities", []):
+            if a["id"] == activity_id:
+                cloned = self._deep_copy_with_new_ids(a)
+                plan["activities"].append(cloned)
+                self.save()
+                return cloned
+        return None
+
+    # ── Copy / Paste (clipboard) ──────────────────────────────────
+    # Paste-target compatibility: which node types can be pasted under which parent types
+    _PASTE_TARGETS = {
+        "project":     None,          # project pastes at root level
+        "requirement": "req_analysis", # requirement pastes under req_analysis
+        "task":        "requirement",  # task pastes under requirement
+        "milestone":   "plan_execution",
+        "plan":        "milestone",
+        "activity":    "plan",
+    }
+
+    def clipboard_copy(self, node_type, project_name, *ids):
+        """Copy a node (with children) to the internal clipboard."""
+        data = None
+        if node_type == "project":
+            data = self.get_project(project_name)
+        elif node_type == "requirement":
+            data = self.get_requirement(project_name, ids[0])
+        elif node_type == "task":
+            req = self.get_requirement(project_name, ids[0])
+            if req:
+                data = next((t for t in req.get("tasks", []) if t["id"] == ids[1]), None)
+        elif node_type == "milestone":
+            data = self._find_milestone(project_name, ids[0])
+        elif node_type == "plan":
+            data = self._find_plan(project_name, ids[0], ids[1])
+        elif node_type == "activity":
+            plan = self._find_plan(project_name, ids[0], ids[1])
+            if plan:
+                data = next((a for a in plan.get("activities", []) if a["id"] == ids[2]), None)
+        if data is None:
+            return False
+        self._clipboard = {"type": node_type, "data": copy.deepcopy(data)}
+        return True
+
+    def clipboard_get(self):
+        """Return clipboard content or None."""
+        return self._clipboard
+
+    def clipboard_paste(self, target_project_name, target_parent_ids=None):
+        """Paste clipboard content into the target location.
+        target_parent_ids varies by type:
+          project     → None
+          requirement → None (appends to project requirements)
+          task        → (req_id,)
+          milestone   → None (appends to project milestones)
+          plan        → (ms_name,)
+          activity    → (ms_name, plan_id)
+        Returns the pasted node or None.
+        """
+        if not self._clipboard:
+            return None
+        node_type = self._clipboard["type"]
+        cloned = self._deep_copy_with_new_ids(self._clipboard["data"])
+        target_parent_ids = target_parent_ids or ()
+
+        if node_type == "project":
+            base = cloned["name"] + " (Copy)"
+            name = base
+            i = 2
+            while self.get_project(name):
+                name = f"{base} {i}"
+                i += 1
+            cloned["name"] = name
+            self.data["projects"].append(cloned)
+            proj_dir = os.path.join(self.data_dir, name)
+            os.makedirs(proj_dir, exist_ok=True)
+            with open(os.path.join(proj_dir, "project.json"), "w", encoding="utf-8") as f:
+                json.dump(cloned, f, ensure_ascii=False, indent=2)
+            return cloned
+
+        proj = self.get_project(target_project_name)
+        if not proj:
+            return None
+
+        if node_type == "requirement":
+            cloned["subject"] = cloned.get("subject", "") + " (Copy)"
+            proj.setdefault("requirements", []).append(cloned)
+        elif node_type == "task":
+            req = self.get_requirement(target_project_name, target_parent_ids[0])
+            if not req:
+                return None
+            cloned["subject"] = cloned.get("subject", "") + " (Copy)"
+            req.setdefault("tasks", []).append(cloned)
+        elif node_type == "milestone":
+            base = cloned["name"] + " (Copy)"
+            name = base
+            i = 2
+            while any(m["name"] == name for m in proj.get("milestones", [])):
+                name = f"{base} {i}"
+                i += 1
+            cloned["name"] = name
+            proj.setdefault("milestones", []).append(cloned)
+        elif node_type == "plan":
+            ms = self._find_milestone(target_project_name, target_parent_ids[0])
+            if not ms:
+                return None
+            cloned["content"] = cloned.get("content", "") + " (Copy)"
+            ms.setdefault("plans", []).append(cloned)
+        elif node_type == "activity":
+            plan = self._find_plan(target_project_name, target_parent_ids[0], target_parent_ids[1])
+            if not plan:
+                return None
+            plan.setdefault("activities", []).append(cloned)
+        else:
+            return None
+        self.save()
+        return cloned

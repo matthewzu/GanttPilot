@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.8.1-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -21,7 +21,7 @@
 
 GanttPilot is a collaborative project manager that visualizes project status with Gantt charts. Each project is an independent Git repository, enabling multi-user collaboration through Git sync. Manage projects, milestones, plans, and activities — all from a clean right-click menu interface.
 
-Version: 0.8.1
+Version: 0.9.0
 
 ### 🚀 Quick Start
 
@@ -62,7 +62,9 @@ python main.py --version
 - 🏷️ **Milestone Management** - Deadline, description, custom color
 - 📋 **Plan Management** - Executor, date range, linked task, skip non-workdays, skip dates with `-YYYYMMDD` support, color, finish/reopen, set progress
 - ⏱ **Activity Tracking** - Per-executor time logging
-- 🛠️ **Unified Toolbar** - Add, Edit, Delete, Move Up, Move Down buttons with context-sensitive enable/disable
+- 🛠️ **Unified Toolbar** - Add, Edit, Delete, Copy, Paste, Duplicate, Move Up, Move Down buttons with context-sensitive enable/disable
+- ⧉ **Duplicate Node** - Clone any node (project, requirement, task, milestone, plan, activity) with all children via toolbar or right-click
+- 📋 **Copy & Paste** - Copy nodes to clipboard and paste across projects/milestones/requirements (Ctrl+C / Ctrl+V)
 - 🔗 **Per-project Git Repos** - Independent repos with configurable remote, private branch per user, PR workflow
 - 🔄 **Smart Sync** - Background sync on startup/switch/exit
 - ↩️ **Undo/Redo** - Ctrl+Z / Ctrl+Y
@@ -95,14 +97,14 @@ All operations via toolbar buttons and right-click context menus:
 | Node / Area | Toolbar | Right-click |
 | --- | --- | --- |
 | Empty area | — | Add project, Load example, Sync, Refresh |
-| Project | Edit | Add milestone, Edit, Git config, Report, Sync, Delete |
-| Requirement Analysis | Add (requirement) | Add requirement |
-| Requirement | Add (task), Edit, Delete, Move Up/Down | Add task, Edit, Delete |
-| Task | Edit, Delete, Move Up/Down | Edit, Delete |
-| Plan Execution | Add (milestone) | Add milestone |
-| Milestone | Add (plan), Edit, Delete, Move Up/Down | Add plan, Edit, Color, Delete |
-| Plan | Add (activity), Edit, Delete, Move Up/Down | Add activity, Edit, Color, Set progress, Finish, Reopen, Delete |
-| Activity | Edit, Delete | Edit, Delete |
+| Project | Edit, Copy, Duplicate | Edit, Git config, Copy, Duplicate, Report, Sync, Refresh, Delete |
+| Requirement Analysis | Add (requirement), Paste | Add requirement, Paste |
+| Requirement | Add (task), Edit, Delete, Copy, Paste, Duplicate, Move Up/Down | Add task, Edit, Copy, Paste, Duplicate, Delete |
+| Task | Edit, Delete, Copy, Duplicate, Move Up/Down | Edit, Copy, Duplicate, Delete |
+| Plan Execution | Add (milestone), Paste | Add milestone, Paste |
+| Milestone | Add (plan), Edit, Delete, Copy, Paste, Duplicate, Move Up/Down | Add plan, Edit, Color, Copy, Paste, Duplicate, Delete |
+| Plan | Add (activity), Edit, Delete, Copy, Paste, Duplicate, Move Up/Down | Add activity, Edit, Color, Copy, Paste, Duplicate, Finish, Reopen, Set progress, Delete |
+| Activity | Edit, Delete, Copy, Duplicate | Edit, Copy, Duplicate, Delete |
 
 ### 📐 Data Structure
 
@@ -169,7 +171,7 @@ GPL-3.0
 
 GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作为独立 Git 仓库，通过 Git 同步实现多人协作。
 
-版本：0.8.1
+版本：0.9.0
 
 ### 🚀 快速开始
 
@@ -208,7 +210,9 @@ python main.py --version
 - 🏷️ **里程碑管理** - 截止日期、描述、自定义颜色
 - 📋 **计划管理** - 执行者、日期范围、关联任务、跳过非工作日、跳过日期（支持 `-YYYYMMDD` 格式）、颜色、完结/重开、设置进度
 - ⏱ **活动跟踪** - 按执行者记录工时
-- 🛠️ **统一工具栏** - 添加、编辑、删除、上移、下移按钮，根据选中节点类型自动启用/禁用
+- 🛠️ **统一工具栏** - 添加、编辑、删除、复制、粘贴、克隆、上移、下移按钮，根据选中节点类型自动启用/禁用
+- ⧉ **节点克隆** - 通过工具栏或右键菜单克隆任意节点（项目、需求、任务、里程碑、计划、活动）及其所有子节点
+- 📋 **复制粘贴** - 复制节点到剪贴板，支持跨项目/跨里程碑/跨需求粘贴（Ctrl+C / Ctrl+V）
 - 🔗 **项目级独立 Git 仓库** - 可配置远端，每用户私有分支，PR 工作流
 - 🔄 **智能同步** - 启动/切换/退出时后台同步
 - ↩️ **撤销/恢复** - Ctrl+Z / Ctrl+Y
@@ -241,14 +245,14 @@ python main.py --version
 | 节点 / 区域 | 工具栏 | 右键菜单 |
 | --- | --- | --- |
 | 空白处 | — | 添加项目、加载示例、同步、刷新 |
-| 项目 | 编辑 | 添加里程碑、编辑项目、Git 配置、生成报告、同步、删除 |
-| 需求分析 | 添加（需求） | 添加需求 |
-| 需求 | 添加（任务）、编辑、删除、上移/下移 | 添加任务、编辑、删除 |
-| 任务 | 编辑、删除、上移/下移 | 编辑、删除 |
-| 计划执行 | 添加（里程碑） | 添加里程碑 |
-| 里程碑 | 添加（计划）、编辑、删除、上移/下移 | 添加计划、编辑里程碑、设置颜色、删除 |
-| 计划 | 添加（活动）、编辑、删除、上移/下移 | 添加活动、编辑属性、设置颜色、设置进度、完结、重开、删除 |
-| 活动 | 编辑、删除 | 编辑活动、删除 |
+| 项目 | 编辑、复制、克隆 | 编辑项目、Git 配置、复制、克隆、生成报告、同步、刷新、删除 |
+| 需求分析 | 添加（需求）、粘贴 | 添加需求、粘贴 |
+| 需求 | 添加（任务）、编辑、删除、复制、粘贴、克隆、上移/下移 | 添加任务、编辑、复制、粘贴、克隆、删除 |
+| 任务 | 编辑、删除、复制、克隆、上移/下移 | 编辑、复制、克隆、删除 |
+| 计划执行 | 添加（里程碑）、粘贴 | 添加里程碑、粘贴 |
+| 里程碑 | 添加（计划）、编辑、删除、复制、粘贴、克隆、上移/下移 | 添加计划、编辑里程碑、设置颜色、复制、粘贴、克隆、删除 |
+| 计划 | 添加（活动）、编辑、删除、复制、粘贴、克隆、上移/下移 | 添加活动、编辑属性、设置颜色、复制、粘贴、克隆、完结、重开、设置进度、删除 |
+| 活动 | 编辑、删除、复制、克隆 | 编辑活动、复制、克隆、删除 |
 
 ### 📐 数据结构
 

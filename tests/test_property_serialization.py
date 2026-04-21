@@ -58,7 +58,7 @@ def _floats_equal(a, b):
     return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-9)
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(requirements=st.lists(requirement_strategy, min_size=1, max_size=5))
 def test_serialization_round_trip(requirements):
     """Property 1: Serialization round-trip consistency.

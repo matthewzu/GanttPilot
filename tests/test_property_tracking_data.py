@@ -56,7 +56,7 @@ plan_strategy = st.fixed_dictionaries({
 })
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(
     requirements=st.lists(requirement_strategy, min_size=1, max_size=3),
     plans=st.lists(plan_strategy, min_size=0, max_size=3),

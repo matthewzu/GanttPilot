@@ -192,6 +192,17 @@ TEXTS = {
         "report_req_analysis": "需求分析",
         "report_req_tracking": "需求跟踪",
         "task_count": "任务数",
+        "duplicate": "克隆",
+        "copy": "复制",
+        "paste": "粘贴",
+        "duplicate_tooltip": "克隆选中节点",
+        "copy_tooltip": "复制 (Ctrl+C)",
+        "paste_tooltip": "粘贴 (Ctrl+V)",
+        "nothing_to_paste": "剪贴板为空",
+        "paste_type_mismatch": "无法在此处粘贴该类型的节点",
+        "duplicated": "已克隆: {}",
+        "copied": "已复制: {}",
+        "pasted": "已粘贴: {}",
         "help_text": (
             "GanttPilot - 协作式项目管理器\n\n"
             "项目结构：\n"
@@ -199,7 +210,9 @@ TEXTS = {
             "• 📊 计划执行 → 管理里程碑、计划和活动\n\n"
             "工具栏操作：\n"
             "• 添加/编辑/删除 → 根据选中节点类型操作\n"
-            "• 上移/下移 → 调整同级节点顺序\n\n"
+            "• 上移/下移 → 调整同级节点顺序\n"
+            "• 克隆 → 原地复制选中节点及子节点\n"
+            "• 复制/粘贴 → 跨位置复制节点 (Ctrl+C/V)\n\n"
             "需求跟踪：\n"
             "• 在需求分析下创建需求和任务\n"
             "• 在计划中关联任务，建立跟踪链条\n"
@@ -395,6 +408,17 @@ TEXTS = {
         "report_req_analysis": "Requirement Analysis",
         "report_req_tracking": "Requirement Tracking",
         "task_count": "Tasks",
+        "duplicate": "Duplicate",
+        "copy": "Copy",
+        "paste": "Paste",
+        "duplicate_tooltip": "Duplicate selected node",
+        "copy_tooltip": "Copy (Ctrl+C)",
+        "paste_tooltip": "Paste (Ctrl+V)",
+        "nothing_to_paste": "Nothing to paste",
+        "paste_type_mismatch": "Cannot paste this type of node here",
+        "duplicated": "Duplicated: {}",
+        "copied": "Copied: {}",
+        "pasted": "Pasted: {}",
         "help_text": (
             "GanttPilot - Collaborative Project Manager\n\n"
             "Project Structure:\n"
@@ -402,7 +426,9 @@ TEXTS = {
             "• 📊 Plan Execution → Manage milestones, plans and activities\n\n"
             "Toolbar:\n"
             "• Add/Edit/Delete → Operate based on selected node type\n"
-            "• Move Up/Down → Reorder sibling nodes\n\n"
+            "• Move Up/Down → Reorder sibling nodes\n"
+            "• Duplicate → Clone selected node with children\n"
+            "• Copy/Paste → Copy nodes across locations (Ctrl+C/V)\n\n"
             "Requirement Tracking:\n"
             "• Create requirements and tasks under Requirement Analysis\n"
             "• Link tasks in plans to build tracking chains\n"

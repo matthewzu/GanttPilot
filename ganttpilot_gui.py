@@ -30,15 +30,15 @@ GITHUB_REPO = "matthewzu/GanttPilot"
 
 # ── Toolbar button state mapping ─────────────────────────────
 TOOLBAR_STATE = {
-    None:                  {"add": False, "edit": False, "delete": False, "up": False, "down": False},
-    "project":             {"add": False, "edit": True,  "delete": False, "up": False, "down": False},
-    "req_analysis":        {"add": True,  "edit": False, "delete": False, "up": False, "down": False},
-    "requirement":         {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True},
-    "task":                {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True},
-    "plan_execution":      {"add": True,  "edit": False, "delete": False, "up": False, "down": False},
-    "milestone":           {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True},
-    "plan":                {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True},
-    "activity":            {"add": False, "edit": True,  "delete": True,  "up": False, "down": False},
+    None:                  {"add": False, "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "paste": False},
+    "project":             {"add": False, "edit": True,  "delete": False, "up": False, "down": False, "dup": True,  "copy": True,  "paste": False},
+    "req_analysis":        {"add": True,  "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "paste": True},
+    "requirement":         {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": True},
+    "task":                {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": False},
+    "plan_execution":      {"add": True,  "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "paste": True},
+    "milestone":           {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": True},
+    "plan":                {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": True},
+    "activity":            {"add": False, "edit": True,  "delete": True,  "up": False, "down": False, "dup": True,  "copy": True,  "paste": False},
 }
 
 
@@ -227,6 +227,8 @@ class GanttPilotGUI:
         # Keyboard shortcuts for undo/redo
         self.root.bind("<Control-z>", self.do_undo)
         self.root.bind("<Control-y>", self.do_redo)
+        self.root.bind("<Control-c>", self.toolbar_copy)
+        self.root.bind("<Control-v>", self.toolbar_paste)
 
         # Tooltips for undo/redo buttons
         self._show_tooltip(self.undo_btn, self._t("undo_tooltip"))
@@ -236,6 +238,9 @@ class GanttPilotGUI:
         self._show_tooltip(self.tb_add_btn, self._t("add"))
         self._show_tooltip(self.tb_edit_btn, self._t("edit"))
         self._show_tooltip(self.tb_delete_btn, self._t("delete"))
+        self._show_tooltip(self.tb_copy_btn, self._t("copy_tooltip"))
+        self._show_tooltip(self.tb_paste_btn, self._t("paste_tooltip"))
+        self._show_tooltip(self.tb_dup_btn, self._t("duplicate_tooltip"))
         self._show_tooltip(self.tb_up_btn, self._t("move_up"))
         self._show_tooltip(self.tb_down_btn, self._t("move_down"))
 
@@ -439,13 +444,19 @@ class GanttPilotGUI:
         ttk.Button(toolbar, text="A+", command=self.increase_font, width=3).pack(side=tk.LEFT, padx=1)
         ttk.Button(toolbar, text="A-", command=self.decrease_font, width=3).pack(side=tk.LEFT, padx=1)
 
-        # Unified toolbar buttons: Add, Edit, Delete, Move Up, Move Down
+        # Unified toolbar buttons: Add, Edit, Delete | Copy, Paste, Duplicate | Move Up, Move Down
         self.tb_add_btn = ttk.Button(toolbar, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED)
         self.tb_add_btn.pack(side=tk.LEFT, padx=1)
         self.tb_edit_btn = ttk.Button(toolbar, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED)
         self.tb_edit_btn.pack(side=tk.LEFT, padx=1)
         self.tb_delete_btn = ttk.Button(toolbar, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED)
         self.tb_delete_btn.pack(side=tk.LEFT, padx=1)
+        self.tb_copy_btn = ttk.Button(toolbar, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED)
+        self.tb_copy_btn.pack(side=tk.LEFT, padx=1)
+        self.tb_paste_btn = ttk.Button(toolbar, text="📌", command=self.toolbar_paste, width=4, state=tk.DISABLED)
+        self.tb_paste_btn.pack(side=tk.LEFT, padx=1)
+        self.tb_dup_btn = ttk.Button(toolbar, text="⧉", command=self.toolbar_duplicate, width=4, state=tk.DISABLED)
+        self.tb_dup_btn.pack(side=tk.LEFT, padx=1)
         self.tb_up_btn = ttk.Button(toolbar, text="↑", command=self.toolbar_move_up, width=4, state=tk.DISABLED)
         self.tb_up_btn.pack(side=tk.LEFT, padx=1)
         self.tb_down_btn = ttk.Button(toolbar, text="↓", command=self.toolbar_move_down, width=4, state=tk.DISABLED)
@@ -639,37 +650,60 @@ class GanttPilotGUI:
 
             if kind == "project":
                 proj_name = values[1]
-                menu.add_separator()
-                menu.add_command(label=self._t("report"), command=self.generate_report)
                 menu.add_command(label=f"✏ {self._t('edit_project')}", command=self.edit_project)
                 menu.add_command(label=f"🔗 {self._t('git_config')}", command=self.config_project_git)
                 menu.add_separator()
-                menu.add_command(label=self._t("refresh"), command=self._full_refresh)
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
+                menu.add_separator()
+                menu.add_command(label=self._t("report"), command=self.generate_report)
                 menu.add_command(label=self._t("sync"), command=self.do_sync)
+                menu.add_command(label=self._t("refresh"), command=self._full_refresh)
                 menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected)
 
             elif kind == "req_analysis":
                 menu.add_command(label=f"+ {self._t('add_requirement')}", command=self.add_requirement)
+                if self._can_paste_here(kind):
+                    menu.add_separator()
+                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste)
 
             elif kind == "requirement":
                 menu.add_command(label=f"+ {self._t('add_task')}", command=self.add_task)
                 menu.add_separator()
                 menu.add_command(label=f"✏ {self._t('edit_requirement')}", command=self.edit_requirement)
+                menu.add_separator()
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
+                if self._can_paste_here(kind):
+                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste)
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
+                menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected)
 
             elif kind == "task":
                 menu.add_command(label=f"✏ {self._t('edit_task')}", command=self.edit_task)
+                menu.add_separator()
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
+                menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected)
 
             elif kind == "plan_execution":
                 menu.add_command(label=f"+ {self._t('milestone')}", command=self.add_milestone)
+                if self._can_paste_here(kind):
+                    menu.add_separator()
+                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste)
 
             elif kind == "milestone":
                 menu.add_command(label=f"+ {self._t('plan')}", command=self.add_plan)
                 menu.add_separator()
                 menu.add_command(label=f"✏ {self._t('edit_milestone')}", command=self.edit_milestone)
                 menu.add_command(label="🎨 " + self._t("color"), command=self.pick_color_milestone)
+                menu.add_separator()
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
+                if self._can_paste_here(kind):
+                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste)
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
                 menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected)
 
@@ -678,6 +712,12 @@ class GanttPilotGUI:
                 menu.add_separator()
                 menu.add_command(label=f"✏ {self._t('content')}", command=self.edit_plan)
                 menu.add_command(label="🎨 " + self._t("color"), command=self.pick_color_plan)
+                menu.add_separator()
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
+                if self._can_paste_here(kind):
+                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste)
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
+                menu.add_separator()
                 menu.add_command(label=self._t("finish"), command=self.finish_selected_plan)
                 menu.add_command(label=self._t("reopen"), command=self.reopen_selected_plan)
                 menu.add_command(label=self._t("set_progress"), command=self.set_progress)
@@ -686,6 +726,10 @@ class GanttPilotGUI:
 
             elif kind == "activity":
                 menu.add_command(label=f"✏ {self._t('edit_activity')}", command=self.edit_activity)
+                menu.add_separator()
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
+                menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected)
 
         menu.tk_popup(event.x_root, event.y_root)
@@ -812,6 +856,13 @@ class GanttPilotGUI:
                     down_enabled = False
         self.tb_up_btn.configure(state=tk.NORMAL if up_enabled else tk.DISABLED)
         self.tb_down_btn.configure(state=tk.NORMAL if down_enabled else tk.DISABLED)
+
+        # Duplicate / Copy / Paste
+        self.tb_dup_btn.configure(state=tk.NORMAL if state["dup"] else tk.DISABLED)
+        self.tb_copy_btn.configure(state=tk.NORMAL if state["copy"] else tk.DISABLED)
+        # Paste enabled only if clipboard type is compatible with current selection
+        paste_enabled = state["paste"] and self._can_paste_here(kind)
+        self.tb_paste_btn.configure(state=tk.NORMAL if paste_enabled else tk.DISABLED)
 
     def _full_refresh(self):
         self.store.load()
@@ -1734,6 +1785,149 @@ class GanttPilotGUI:
         if moved:
             self._commit(f"Move down: {kind}")
             self.refresh_project_list()
+            self._update_undo_redo_buttons()
+
+    # ── Duplicate / Copy / Paste ──────────────────────────────────
+
+    def _can_paste_here(self, kind):
+        """Check if clipboard content can be pasted at the current selection."""
+        cb = self.store.clipboard_get()
+        if not cb:
+            return False
+        cb_type = cb["type"]
+        # Mapping: clipboard type → valid parent node types for paste
+        valid_parents = {
+            "project":     (None,),
+            "requirement": ("req_analysis", "requirement"),
+            "task":        ("requirement",),
+            "milestone":   ("plan_execution", "milestone"),
+            "plan":        ("milestone", "plan"),
+            "activity":    ("plan", "activity"),
+        }
+        return kind in valid_parents.get(cb_type, ())
+
+    def toolbar_duplicate(self):
+        """Duplicate the selected node (with all children) in-place."""
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values:
+            return
+        kind = values[0]
+        self.undo_manager.save_snapshot()
+        result = None
+        label = ""
+        if kind == "project":
+            result = self.store.duplicate_project(values[1])
+            label = result["name"] if result else ""
+        elif kind == "requirement":
+            result = self.store.duplicate_requirement(values[1], values[2])
+            label = result["subject"] if result else ""
+        elif kind == "task":
+            result = self.store.duplicate_task(values[1], values[2], values[3])
+            label = result["subject"] if result else ""
+        elif kind == "milestone":
+            result = self.store.duplicate_milestone(values[1], values[2])
+            label = result["name"] if result else ""
+        elif kind == "plan":
+            result = self.store.duplicate_plan(values[1], values[2], values[3])
+            label = result.get("content", "") if result else ""
+        elif kind == "activity":
+            result = self.store.duplicate_activity(values[1], values[2], values[3], values[4])
+            label = "activity" if result else ""
+        if result:
+            self._commit(f"Duplicate {kind}: {label}")
+            self.refresh_project_list()
+            self.refresh_gantt()
+            self.refresh_time_report()
+            self.status_var.set(self._t("duplicated", label))
+            self._update_undo_redo_buttons()
+
+    def toolbar_copy(self, event=None):
+        """Copy the selected node to clipboard."""
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values:
+            return
+        kind = values[0]
+        label = ""
+        if kind == "project":
+            self.store.clipboard_copy("project", values[1])
+            label = values[1]
+        elif kind == "requirement":
+            self.store.clipboard_copy("requirement", values[1], values[2])
+            label = values[2]
+        elif kind == "task":
+            self.store.clipboard_copy("task", values[1], values[2], values[3])
+            label = values[3]
+        elif kind == "milestone":
+            self.store.clipboard_copy("milestone", values[1], values[2])
+            label = values[2]
+        elif kind == "plan":
+            self.store.clipboard_copy("plan", values[1], values[2], values[3])
+            label = values[3]
+        elif kind == "activity":
+            self.store.clipboard_copy("activity", values[1], values[2], values[3], values[4])
+            label = values[4]
+        else:
+            return
+        self.status_var.set(self._t("copied", label))
+        # Refresh toolbar state so paste button updates
+        self._update_toolbar_state(kind, sel[0])
+
+    def toolbar_paste(self, event=None):
+        """Paste clipboard content at the selected location."""
+        cb = self.store.clipboard_get()
+        if not cb:
+            self.status_var.set(self._t("nothing_to_paste"))
+            return
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values:
+            return
+        kind = values[0]
+        if not self._can_paste_here(kind):
+            self.status_var.set(self._t("paste_type_mismatch"))
+            return
+        cb_type = cb["type"]
+        proj_name = values[1] if len(values) >= 2 else None
+        self.undo_manager.save_snapshot()
+        result = None
+        # Determine target parent IDs based on current selection and clipboard type
+        if cb_type == "project":
+            result = self.store.clipboard_paste(None)
+        elif cb_type == "requirement":
+            result = self.store.clipboard_paste(proj_name)
+        elif cb_type == "task":
+            # Pasting task: target must be a requirement node
+            if kind == "requirement":
+                result = self.store.clipboard_paste(proj_name, (values[2],))
+        elif cb_type == "milestone":
+            result = self.store.clipboard_paste(proj_name)
+        elif cb_type == "plan":
+            # Pasting plan: target must be a milestone node
+            if kind == "milestone":
+                result = self.store.clipboard_paste(proj_name, (values[2],))
+            elif kind == "plan":
+                result = self.store.clipboard_paste(proj_name, (values[2],))
+        elif cb_type == "activity":
+            # Pasting activity: target must be a plan node
+            if kind == "plan":
+                result = self.store.clipboard_paste(proj_name, (values[2], values[3]))
+            elif kind == "activity":
+                result = self.store.clipboard_paste(proj_name, (values[2], values[3]))
+        if result:
+            label = result.get("name", result.get("subject", result.get("content", "item")))
+            self._commit(f"Paste {cb_type}: {label}")
+            self.refresh_project_list()
+            self.refresh_gantt()
+            self.refresh_time_report()
+            self.status_var.set(self._t("pasted", label))
             self._update_undo_redo_buttons()
 
     # ── Requirement / Task CRUD ──────────────────────────────

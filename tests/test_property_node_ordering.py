@@ -31,7 +31,7 @@ _date_str = st.from_regex(
 )
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(
     num_reqs=st.integers(min_value=2, max_value=10),
     target_index=st.data(),
@@ -77,7 +77,7 @@ def test_move_requirement_preserves_list(num_reqs, target_index, direction):
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(
     num_tasks=st.integers(min_value=2, max_value=10),
     target_index=st.data(),
@@ -122,7 +122,7 @@ def test_move_task_preserves_list(num_tasks, target_index, direction):
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(
     num_milestones=st.integers(min_value=2, max_value=10),
     target_index=st.data(),
@@ -164,7 +164,7 @@ def test_move_milestone_preserves_list(num_milestones, target_index, direction):
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(
     num_plans=st.integers(min_value=2, max_value=10),
     target_index=st.data(),

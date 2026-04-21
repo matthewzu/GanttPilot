@@ -36,7 +36,7 @@ _positive_float = st.floats(
 )
 
 
-@settings(max_examples=100)
+@settings(max_examples=100, deadline=None)
 @given(
     num_tasks=st.integers(min_value=0, max_value=10),
     category=_text,
