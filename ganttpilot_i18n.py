@@ -226,6 +226,24 @@ TEXTS = {
             "• 在计划中关联任务，建立跟踪链条\n"
             "• 需求跟踪标签页查看完整跟踪关系\n"
         ),
+        # ── Keyboard shortcuts / 键盘快捷键 ──
+        "shortcut_add": "添加",
+        "shortcut_edit": "编辑",
+        "shortcut_delete": "删除",
+        "shortcut_move_up": "上移",
+        "shortcut_move_down": "下移",
+        "shortcut_duplicate": "克隆",
+        "shortcut_copy": "复制",
+        "shortcut_paste": "粘贴",
+        "shortcut_undo": "撤销",
+        "shortcut_redo": "恢复",
+        "shortcut_sync": "同步",
+        "shortcut_refresh": "刷新",
+        "shortcut_config": "快捷键配置",
+        "shortcut_conflict": "快捷键 \"{}\" 已绑定到 \"{}\"",
+        "shortcut_reset": "恢复默认",
+        "shortcut_press_key": "请按下新的快捷键...",
+        "optional": "可选",
     },
     "en": {
         "app_title": "GanttPilot - Collaborative Project Manager",
@@ -450,6 +468,24 @@ TEXTS = {
             "• Link tasks in plans to build tracking chains\n"
             "• View full tracking in the Requirement Tracking tab\n"
         ),
+        # ── Keyboard shortcuts ──
+        "shortcut_add": "Add",
+        "shortcut_edit": "Edit",
+        "shortcut_delete": "Delete",
+        "shortcut_move_up": "Move Up",
+        "shortcut_move_down": "Move Down",
+        "shortcut_duplicate": "Duplicate",
+        "shortcut_copy": "Copy",
+        "shortcut_paste": "Paste",
+        "shortcut_undo": "Undo",
+        "shortcut_redo": "Redo",
+        "shortcut_sync": "Sync",
+        "shortcut_refresh": "Refresh",
+        "shortcut_config": "Shortcut Config",
+        "shortcut_conflict": "Shortcut \"{}\" is already bound to \"{}\"",
+        "shortcut_reset": "Reset to Defaults",
+        "shortcut_press_key": "Press new shortcut key...",
+        "optional": "optional",
     },
 }
 

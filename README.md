@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.9.1-blue.svg)
+![Version](https://img.shields.io/badge/version-0.10.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -21,7 +21,7 @@
 
 GanttPilot is a collaborative project manager that visualizes project status with Gantt charts. Each project is an independent Git repository, enabling multi-user collaboration through Git sync. Manage projects, milestones, plans, and activities — all from a clean right-click menu interface.
 
-Version: 0.9.1
+Version: 0.10.0
 
 ### 🚀 Quick Start
 
@@ -92,6 +92,9 @@ python main.py --version
 - 📊 **Report View Modes** - Time report supports 4 view modes: by project, by milestone, by plan, by tag; Markdown reports include all 4 dimensions
 - 🪟 **Window State Persistence** - Maximized window state saved and restored correctly on relaunch
 - 📝 **Milestone Multiline Description** - Milestone description uses resizable multiline editor in create/edit dialogs
+- ⌨️ **Keyboard Shortcuts** - Centralized shortcut system: Ctrl+N add, F2 edit, Delete delete, Alt+Up/Down move, Ctrl+D duplicate, Ctrl+S sync, F5 refresh; customizable in config dialog with conflict detection
+- ⎋ **ESC Close Dialogs** - All dialogs can be closed with ESC key
+- 📅 **Optional Activity Date** - Activity date field is now optional
 
 ### 🖱️ Usage
 
@@ -174,7 +177,7 @@ GPL-3.0
 
 GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作为独立 Git 仓库，通过 Git 同步实现多人协作。
 
-版本：0.9.1
+版本：0.10.0
 
 ### 🚀 快速开始
 
@@ -243,6 +246,9 @@ python main.py --version
 - 📊 **报告查看模式** - 工时报告支持按项目、按里程碑、按计划、按标签四种查看模式；Markdown 报告同时包含四种维度统计
 - 🪟 **窗口状态记忆** - 最大化状态正确保存和恢复，重启后不再偏移
 - 📝 **里程碑多行描述** - 里程碑创建/编辑对话框中描述字段改为可调整大小的多行编辑框
+- ⌨️ **键盘快捷键** - 集中式快捷键管理：Ctrl+N 添加、F2 编辑、Delete 删除、Alt+Up/Down 上移/下移、Ctrl+D 克隆、Ctrl+S 同步、F5 刷新；可在配置对话框中自定义，支持冲突检测
+- ⎋ **ESC 关闭对话框** - 所有对话框支持 ESC 键快速关闭
+- 📅 **活动日期可选** - 活动对话框中日期字段改为可选项
 
 ### 🖱️ 操作方式
 

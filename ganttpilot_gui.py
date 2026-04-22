@@ -21,6 +21,7 @@ from ganttpilot_config import Config
 from ganttpilot_core import DataStore, parse_time_slots, calculate_hours_from_slots
 from ganttpilot_git import GitSync
 from ganttpilot_gantt import GanttRenderer, CanvasBackend, generate_gantt_markdown
+from ganttpilot_shortcuts import ShortcutManager, tk_event_to_display
 from version import VERSION
 
 import shutil
@@ -215,6 +216,8 @@ class GanttPilotGUI:
         self.undo_manager = UndoManager(self.store)
         self.current_project = None
         self.gantt_zoom = 10  # independent gantt zoom level (font size for gantt)
+        self._active_dialog = None
+        self._focus_restore_id = None
 
         self.root.title(self._t("app_title") + f" v{VERSION}")
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -224,25 +227,53 @@ class GanttPilotGUI:
         self.create_widgets()
         self.refresh_project_list()
 
-        # Keyboard shortcuts for undo/redo
+        # ── ShortcutManager setup ────────────────────────────
+        self.shortcut_manager = ShortcutManager(self.root, self.config)
+        self.shortcut_manager._gui = self
+
+        # Register all action handlers
+        self.shortcut_manager.set_action_handler("add", self.toolbar_add)
+        self.shortcut_manager.set_action_handler("edit", self.toolbar_edit)
+        self.shortcut_manager.set_action_handler("delete", self.toolbar_delete)
+        self.shortcut_manager.set_action_handler("move_up", self.toolbar_move_up)
+        self.shortcut_manager.set_action_handler("move_down", self.toolbar_move_down)
+        self.shortcut_manager.set_action_handler("duplicate", self.toolbar_duplicate)
+        self.shortcut_manager.set_action_handler("copy", self.toolbar_copy)
+        self.shortcut_manager.set_action_handler("paste", self.toolbar_paste)
+        self.shortcut_manager.set_action_handler("undo", self.do_undo)
+        self.shortcut_manager.set_action_handler("redo", self.do_redo)
+        self.shortcut_manager.set_action_handler("sync", self.do_sync)
+        self.shortcut_manager.set_action_handler("refresh", self._full_refresh)
+
+        # Bind new shortcuts via ShortcutManager (add, edit, delete, move_up,
+        # move_down, duplicate, sync, refresh).  Then re-bind undo/redo/copy/paste
+        # directly so their special focus-aware handlers take precedence.
+        self.shortcut_manager.register_all()
+
+        # Direct bindings for undo/redo/copy/paste — these override
+        # ShortcutManager's bindings because do_undo/do_redo have their own
+        # focus detection (they handle tk.Text edit_undo/edit_redo specially).
         self.root.bind("<Control-z>", self.do_undo)
         self.root.bind("<Control-y>", self.do_redo)
         self.root.bind("<Control-c>", self.toolbar_copy)
         self.root.bind("<Control-v>", self.toolbar_paste)
 
+        # Focus restoration: bring modal dialog back to front when main window gets focus
+        self.root.bind("<FocusIn>", self._on_main_focus)
+
         # Tooltips for undo/redo buttons
-        self._show_tooltip(self.undo_btn, self._t("undo_tooltip"))
-        self._show_tooltip(self.redo_btn, self._t("redo_tooltip"))
+        self._show_tooltip(self.undo_btn, self._tooltip_with_shortcut(self._t("undo"), "undo"))
+        self._show_tooltip(self.redo_btn, self._tooltip_with_shortcut(self._t("redo"), "redo"))
 
         # Tooltips for unified toolbar buttons
-        self._show_tooltip(self.tb_add_btn, self._t("add"))
-        self._show_tooltip(self.tb_edit_btn, self._t("edit"))
-        self._show_tooltip(self.tb_delete_btn, self._t("delete"))
-        self._show_tooltip(self.tb_copy_btn, self._t("copy_tooltip"))
-        self._show_tooltip(self.tb_paste_btn, self._t("paste_tooltip"))
-        self._show_tooltip(self.tb_dup_btn, self._t("duplicate_tooltip"))
-        self._show_tooltip(self.tb_up_btn, self._t("move_up"))
-        self._show_tooltip(self.tb_down_btn, self._t("move_down"))
+        self._show_tooltip(self.tb_add_btn, self._tooltip_with_shortcut(self._t("add"), "add"))
+        self._show_tooltip(self.tb_edit_btn, self._tooltip_with_shortcut(self._t("edit"), "edit"))
+        self._show_tooltip(self.tb_delete_btn, self._tooltip_with_shortcut(self._t("delete"), "delete"))
+        self._show_tooltip(self.tb_copy_btn, self._tooltip_with_shortcut(self._t("copy"), "copy"))
+        self._show_tooltip(self.tb_paste_btn, self._tooltip_with_shortcut(self._t("paste"), "paste"))
+        self._show_tooltip(self.tb_dup_btn, self._tooltip_with_shortcut(self._t("duplicate"), "duplicate"))
+        self._show_tooltip(self.tb_up_btn, self._tooltip_with_shortcut(self._t("move_up"), "move_up"))
+        self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
 
         # Start background sync for all projects with remote_url
         threading.Thread(target=self._startup_sync, daemon=True).start()
@@ -250,6 +281,24 @@ class GanttPilotGUI:
 
     def _t(self, key, *args):
         return t(key, self.lang, *args)
+
+    def _on_main_focus(self, event=None):
+        """Handle <FocusIn> on main window — debounce and restore dialog focus."""
+        if self._focus_restore_id is not None:
+            self.root.after_cancel(self._focus_restore_id)
+        self._focus_restore_id = self.root.after(50, self._restore_dialog_focus)
+
+    def _restore_dialog_focus(self):
+        """Bring active modal dialog to front if it still exists."""
+        self._focus_restore_id = None
+        dlg = self._active_dialog
+        if dlg is not None:
+            try:
+                if dlg.winfo_exists():
+                    dlg.lift()
+                    dlg.focus_set()
+            except Exception:
+                pass
 
     def _apply_saved_geometry(self):
         geo = self.config.get("window_geometry", "1200x700")
@@ -641,8 +690,8 @@ class GanttPilotGUI:
             menu.add_separator()
             menu.add_command(label=self._t("load_example"), command=self.load_example)
             menu.add_separator()
-            menu.add_command(label=self._t("sync"), command=self.do_sync)
-            menu.add_command(label=self._t("refresh"), command=self._full_refresh)
+            menu.add_command(label=self._t("sync"), command=self.do_sync, accelerator=self._accel("sync"))
+            menu.add_command(label=self._t("refresh"), command=self._full_refresh, accelerator=self._accel("refresh"))
         else:
             self.tree.selection_set(item)
             values = self.tree.item(item, "values")
@@ -652,87 +701,87 @@ class GanttPilotGUI:
 
             if kind == "project":
                 proj_name = values[1]
-                menu.add_command(label=f"✏ {self._t('edit_project')}", command=self.edit_project)
+                menu.add_command(label=f"✏ {self._t('edit_project')}", command=self.edit_project, accelerator=self._accel("edit"))
                 menu.add_command(label=f"🔗 {self._t('git_config')}", command=self.config_project_git)
                 menu.add_separator()
-                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
-                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
                 menu.add_separator()
                 menu.add_command(label=self._t("report"), command=self.generate_report)
-                menu.add_command(label=self._t("sync"), command=self.do_sync)
-                menu.add_command(label=self._t("refresh"), command=self._full_refresh)
+                menu.add_command(label=self._t("sync"), command=self.do_sync, accelerator=self._accel("sync"))
+                menu.add_command(label=self._t("refresh"), command=self._full_refresh, accelerator=self._accel("refresh"))
                 menu.add_separator()
-                menu.add_command(label=self._t("delete"), command=self.delete_selected)
+                menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
 
             elif kind == "req_analysis":
-                menu.add_command(label=f"+ {self._t('add_requirement')}", command=self.add_requirement)
+                menu.add_command(label=f"+ {self._t('add_requirement')}", command=self.add_requirement, accelerator=self._accel("add"))
                 if self._can_paste_here(kind):
                     menu.add_separator()
-                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste)
+                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste, accelerator=self._accel("paste"))
 
             elif kind == "requirement":
-                menu.add_command(label=f"+ {self._t('add_task')}", command=self.add_task)
+                menu.add_command(label=f"+ {self._t('add_task')}", command=self.add_task, accelerator=self._accel("add"))
                 menu.add_separator()
-                menu.add_command(label=f"✏ {self._t('edit_requirement')}", command=self.edit_requirement)
+                menu.add_command(label=f"✏ {self._t('edit_requirement')}", command=self.edit_requirement, accelerator=self._accel("edit"))
                 menu.add_separator()
-                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
                 if self._can_paste_here(kind):
-                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste)
-                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
+                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste, accelerator=self._accel("paste"))
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
                 menu.add_separator()
-                menu.add_command(label=self._t("delete"), command=self.delete_selected)
+                menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
 
             elif kind == "task":
-                menu.add_command(label=f"✏ {self._t('edit_task')}", command=self.edit_task)
+                menu.add_command(label=f"✏ {self._t('edit_task')}", command=self.edit_task, accelerator=self._accel("edit"))
                 menu.add_separator()
-                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
-                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
                 menu.add_separator()
-                menu.add_command(label=self._t("delete"), command=self.delete_selected)
+                menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
 
             elif kind == "plan_execution":
-                menu.add_command(label=f"+ {self._t('milestone')}", command=self.add_milestone)
+                menu.add_command(label=f"+ {self._t('milestone')}", command=self.add_milestone, accelerator=self._accel("add"))
                 if self._can_paste_here(kind):
                     menu.add_separator()
-                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste)
+                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste, accelerator=self._accel("paste"))
 
             elif kind == "milestone":
-                menu.add_command(label=f"+ {self._t('plan')}", command=self.add_plan)
+                menu.add_command(label=f"+ {self._t('plan')}", command=self.add_plan, accelerator=self._accel("add"))
                 menu.add_separator()
-                menu.add_command(label=f"✏ {self._t('edit_milestone')}", command=self.edit_milestone)
+                menu.add_command(label=f"✏ {self._t('edit_milestone')}", command=self.edit_milestone, accelerator=self._accel("edit"))
                 menu.add_command(label="🎨 " + self._t("color"), command=self.pick_color_milestone)
                 menu.add_separator()
-                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
                 if self._can_paste_here(kind):
-                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste)
-                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
+                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste, accelerator=self._accel("paste"))
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
                 menu.add_separator()
-                menu.add_command(label=self._t("delete"), command=self.delete_selected)
+                menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
 
             elif kind == "plan":
-                menu.add_command(label=f"+ {self._t('activity')}", command=self.add_activity)
+                menu.add_command(label=f"+ {self._t('activity')}", command=self.add_activity, accelerator=self._accel("add"))
                 menu.add_separator()
-                menu.add_command(label=f"✏ {self._t('content')}", command=self.edit_plan)
+                menu.add_command(label=f"✏ {self._t('content')}", command=self.edit_plan, accelerator=self._accel("edit"))
                 menu.add_command(label="🎨 " + self._t("color"), command=self.pick_color_plan)
                 menu.add_separator()
-                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
                 if self._can_paste_here(kind):
-                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste)
-                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
+                    menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste, accelerator=self._accel("paste"))
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
                 menu.add_separator()
                 menu.add_command(label=self._t("finish"), command=self.finish_selected_plan)
                 menu.add_command(label=self._t("reopen"), command=self.reopen_selected_plan)
                 menu.add_command(label=self._t("set_progress"), command=self.set_progress)
                 menu.add_separator()
-                menu.add_command(label=self._t("delete"), command=self.delete_selected)
+                menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
 
             elif kind == "activity":
-                menu.add_command(label=f"✏ {self._t('edit_activity')}", command=self.edit_activity)
+                menu.add_command(label=f"✏ {self._t('edit_activity')}", command=self.edit_activity, accelerator=self._accel("edit"))
                 menu.add_separator()
-                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy)
-                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate)
+                menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
+                menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
                 menu.add_separator()
-                menu.add_command(label=self._t("delete"), command=self.delete_selected)
+                menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
 
         menu.tk_popup(event.x_root, event.y_root)
 
@@ -1240,7 +1289,9 @@ class GanttPilotGUI:
     # ── CRUD via context menu ────────────────────────────────
     def add_project(self):
         dlg = ProjectCreateDialog(self.root, self._t, self.lang)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if not dlg.result:
             return
         name = dlg.result["name"]
@@ -1321,7 +1372,9 @@ class GanttPilotGUI:
         if not proj:
             return
         dlg = MilestoneCreateDialog(self.root, self._t, self.lang)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if not dlg.result:
             return
         name = dlg.result["name"]
@@ -1341,7 +1394,9 @@ class GanttPilotGUI:
         if not proj or not ms:
             return
         dlg = PlanDialog(self.root, self._t, self.lang, project_name=proj, store=self.store)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result:
             r = dlg.result
             self.undo_manager.save_snapshot()
@@ -1361,7 +1416,9 @@ class GanttPilotGUI:
         if not plan_id:
             return
         dlg = ActivityDialog(self.root, self._t, self.lang)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result:
             r = dlg.result
             self.undo_manager.save_snapshot()
@@ -1444,7 +1501,9 @@ class GanttPilotGUI:
         if not plan_id:
             return
         dlg = ProgressDialog(self.root, self._t, self.lang)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result is not None:
             self.undo_manager.save_snapshot()
             self.store.set_plan_progress(proj, ms, plan_id, dlg.result)
@@ -1491,7 +1550,9 @@ class GanttPilotGUI:
         if not ms:
             return
         dlg = MilestoneEditDialog(self.root, self._t, self.lang, ms)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result:
             new_name = dlg.result["name"]
             new_desc = dlg.result["description"]
@@ -1513,7 +1574,9 @@ class GanttPilotGUI:
         if not proj:
             return
         dlg = ProjectEditDialog(self.root, self._t, self.lang, proj)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result:
             new_name = dlg.result["name"]
             new_desc = dlg.result.get("description", "")
@@ -1551,7 +1614,9 @@ class GanttPilotGUI:
         if not activity:
             return
         dlg = ActivityEditDialog(self.root, self._t, self.lang, activity)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result:
             r = dlg.result
             self.undo_manager.save_snapshot()
@@ -1571,7 +1636,9 @@ class GanttPilotGUI:
         if not proj:
             return
         dlg = ProjectGitConfigDialog(self.root, self._t, self.lang, proj)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result:
             self.undo_manager.save_snapshot()
             proj["remote_url"] = dlg.result["remote_url"]
@@ -1593,7 +1660,9 @@ class GanttPilotGUI:
         if not plan:
             return
         dlg = PlanEditDialog(self.root, self._t, self.lang, plan, project_name=proj, store=self.store)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result:
             self.undo_manager.save_snapshot()
             for k, v in dlg.result.items():
@@ -1778,6 +1847,10 @@ class GanttPilotGUI:
         if moved:
             self._commit(f"Move up: {kind}")
             self.refresh_project_list()
+            sel = self.tree.selection()
+            if sel:
+                vals = self.tree.item(sel[0], "values")
+                self._update_toolbar_state(vals[0] if vals else None, sel[0])
             self._update_undo_redo_buttons()
 
     def toolbar_move_down(self):
@@ -1802,6 +1875,10 @@ class GanttPilotGUI:
         if moved:
             self._commit(f"Move down: {kind}")
             self.refresh_project_list()
+            sel = self.tree.selection()
+            if sel:
+                vals = self.tree.item(sel[0], "values")
+                self._update_toolbar_state(vals[0] if vals else None, sel[0])
             self._update_undo_redo_buttons()
 
     # ── Duplicate / Copy / Paste ──────────────────────────────────
@@ -1953,7 +2030,9 @@ class GanttPilotGUI:
         if not proj_name:
             return
         dlg = RequirementDialog(self.root, self._t, self.lang)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result:
             r = dlg.result
             self.undo_manager.save_snapshot()
@@ -1976,7 +2055,9 @@ class GanttPilotGUI:
         if not req:
             return
         dlg = RequirementEditDialog(self.root, self._t, self.lang, req)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result:
             r = dlg.result
             self.undo_manager.save_snapshot()
@@ -1994,7 +2075,9 @@ class GanttPilotGUI:
             return
         proj_name, req_id = values[1], values[2]
         dlg = TaskDialog(self.root, self._t, self.lang)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result:
             r = dlg.result
             self.undo_manager.save_snapshot()
@@ -2024,7 +2107,9 @@ class GanttPilotGUI:
         if not task:
             return
         dlg = TaskEditDialog(self.root, self._t, self.lang, task)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.result:
             r = dlg.result
             self.undo_manager.save_snapshot()
@@ -2088,16 +2173,36 @@ class GanttPilotGUI:
         style = ttk.Style()
         style.configure("Treeview", font=("", size), rowheight=int(size * 2.2))
         style.configure("Treeview.Heading", font=("", size, "bold"))
+        # Update the default font used by new widgets (dialogs will pick this up)
+        import tkinter.font as tkfont
+        default_font = tkfont.nametofont("TkDefaultFont")
+        default_font.configure(size=size)
+        text_font = tkfont.nametofont("TkTextFont")
+        text_font.configure(size=size)
         if self.current_project:
             self.refresh_gantt()
 
     def open_config_dialog(self):
-        dlg = ConfigDialog(self.root, self.config, self._t, self.lang)
+        dlg = ConfigDialog(self.root, self.config, self._t, self.lang,
+                           shortcut_manager=self.shortcut_manager)
+        self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
+        self._active_dialog = None
         if dlg.saved:
             self.store = DataStore(self.config.data_dir)
             self.undo_manager = UndoManager(self.store)
             self.refresh_project_list()
+            # Update tooltips with potentially changed shortcuts
+            self._show_tooltip(self.undo_btn, self._tooltip_with_shortcut(self._t("undo"), "undo"))
+            self._show_tooltip(self.redo_btn, self._tooltip_with_shortcut(self._t("redo"), "redo"))
+            self._show_tooltip(self.tb_add_btn, self._tooltip_with_shortcut(self._t("add"), "add"))
+            self._show_tooltip(self.tb_edit_btn, self._tooltip_with_shortcut(self._t("edit"), "edit"))
+            self._show_tooltip(self.tb_delete_btn, self._tooltip_with_shortcut(self._t("delete"), "delete"))
+            self._show_tooltip(self.tb_copy_btn, self._tooltip_with_shortcut(self._t("copy"), "copy"))
+            self._show_tooltip(self.tb_paste_btn, self._tooltip_with_shortcut(self._t("paste"), "paste"))
+            self._show_tooltip(self.tb_dup_btn, self._tooltip_with_shortcut(self._t("duplicate"), "duplicate"))
+            self._show_tooltip(self.tb_up_btn, self._tooltip_with_shortcut(self._t("move_up"), "move_up"))
+            self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
 
     def show_help(self):
         txt = {
@@ -2232,6 +2337,15 @@ class GanttPilotGUI:
         self.redo_btn.configure(state=tk.NORMAL if self.undo_manager.can_redo() else tk.DISABLED)
 
     def do_undo(self, event=None):
+        focus_widget = self.root.focus_get()
+        if isinstance(focus_widget, tk.Text):
+            try:
+                focus_widget.edit_undo()
+            except tk.TclError:
+                pass
+            return "break"
+        if isinstance(focus_widget, (ttk.Entry, tk.Entry)):
+            return  # Let Entry handle Ctrl+Z natively (don't block with "break")
         if self.undo_manager.undo():
             self.store.save()
             self.refresh_project_list()
@@ -2243,6 +2357,15 @@ class GanttPilotGUI:
             self.status_var.set(self._t("no_undo"))
 
     def do_redo(self, event=None):
+        focus_widget = self.root.focus_get()
+        if isinstance(focus_widget, tk.Text):
+            try:
+                focus_widget.edit_redo()
+            except tk.TclError:
+                pass
+            return "break"
+        if isinstance(focus_widget, (ttk.Entry, tk.Entry)):
+            return  # Let Entry handle Ctrl+Y natively (don't block with "break")
         if self.undo_manager.redo():
             self.store.save()
             self.refresh_project_list()
@@ -2252,6 +2375,20 @@ class GanttPilotGUI:
             self.status_var.set(self._t("redo_done"))
         else:
             self.status_var.set(self._t("no_redo"))
+
+    def _tooltip_with_shortcut(self, text, action_id):
+        """Return tooltip text with shortcut info appended if available.
+
+        Format: "操作名称 (快捷键)" when shortcut exists, otherwise just "操作名称".
+        """
+        display = self.shortcut_manager.get_display_string(action_id)
+        if display:
+            return f"{text} ({display})"
+        return text
+
+    def _accel(self, action_id):
+        """Return accelerator display string for a menu item, or empty string if unbound."""
+        return self.shortcut_manager.get_display_string(action_id)
 
     def _show_tooltip(self, widget, text):
         def on_enter(event):
@@ -2281,6 +2418,9 @@ class PlanDialog:
         self.top.geometry("420x400")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
+        self.top.columnconfigure(1, weight=1)
 
         fields = [
             ("content", t_func("content")),
@@ -2294,7 +2434,7 @@ class PlanDialog:
         for i, (key, label) in enumerate(fields):
             ttk.Label(self.top, text=label).grid(row=i, column=0, padx=8, pady=3, sticky=tk.W)
             entry = ttk.Entry(self.top, width=30)
-            entry.grid(row=i, column=1, padx=8, pady=3)
+            entry.grid(row=i, column=1, padx=8, pady=3, sticky=tk.EW)
             self.entries[key] = entry
 
         # Linked task dropdown
@@ -2310,7 +2450,7 @@ class PlanDialog:
                 self._task_display_list.append(display)
         self.linked_task_combo = ttk.Combobox(self.top, values=self._task_display_list, state="readonly", width=28)
         self.linked_task_combo.current(0)
-        self.linked_task_combo.grid(row=row_lt, column=1, padx=8, pady=3)
+        self.linked_task_combo.grid(row=row_lt, column=1, padx=8, pady=3, sticky=tk.EW)
 
         self.skip_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(self.top, text=t_func("skip_non_workdays"), variable=self.skip_var).grid(
@@ -2359,6 +2499,9 @@ class PlanEditDialog:
         self.top.geometry("420x400")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
+        self.top.columnconfigure(1, weight=1)
 
         fields = [
             ("content", t_func("content"), plan.get("content", "")),
@@ -2373,7 +2516,7 @@ class PlanEditDialog:
             ttk.Label(self.top, text=label).grid(row=i, column=0, padx=8, pady=3, sticky=tk.W)
             entry = ttk.Entry(self.top, width=30)
             entry.insert(0, val)
-            entry.grid(row=i, column=1, padx=8, pady=3)
+            entry.grid(row=i, column=1, padx=8, pady=3, sticky=tk.EW)
             self.entries[key] = entry
 
         # Linked task dropdown
@@ -2397,7 +2540,7 @@ class PlanEditDialog:
                     selected_idx = i + 1  # +1 because index 0 is empty
                     break
         self.linked_task_combo.current(selected_idx)
-        self.linked_task_combo.grid(row=row_lt, column=1, padx=8, pady=3)
+        self.linked_task_combo.grid(row=row_lt, column=1, padx=8, pady=3, sticky=tk.EW)
 
         self.skip_var = tk.BooleanVar(value=plan.get("skip_non_workdays", True))
         ttk.Checkbutton(self.top, text=t_func("skip_non_workdays"), variable=self.skip_var).grid(
@@ -2443,25 +2586,28 @@ class ActivityDialog:
         self.top.geometry("420x360")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
+        self.top.columnconfigure(1, weight=1)
 
         row = 0
         fields = [
             ("executor", t_func("executor")),
-            ("date", t_func("date") + " (YYYYMMDD)"),
+            ("date", t_func("date") + " (YYYYMMDD, " + t_func("optional") + ")"),
             ("content", t_func("content")),
         ]
         self.entries = {}
         for key, label in fields:
             ttk.Label(self.top, text=label).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
             entry = ttk.Entry(self.top, width=30)
-            entry.grid(row=row, column=1, padx=8, pady=4)
+            entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
             self.entries[key] = entry
             row += 1
 
         # Effort hours field
         ttk.Label(self.top, text=t_func("effort_hours")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
         hours_entry = ttk.Entry(self.top, width=30)
-        hours_entry.grid(row=row, column=1, padx=8, pady=4)
+        hours_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
         self.entries["effort_hours"] = hours_entry
         row += 1
         ttk.Label(self.top, text=t_func("effort_hours_hint"), foreground="gray", font=("", 8)).grid(
@@ -2471,7 +2617,7 @@ class ActivityDialog:
         # Time slots field
         ttk.Label(self.top, text=t_func("time_slots")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
         ts_entry = ttk.Entry(self.top, width=30)
-        ts_entry.grid(row=row, column=1, padx=8, pady=4)
+        ts_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
         self.entries["time_slots"] = ts_entry
         row += 1
         ttk.Label(self.top, text=t_func("time_slots_hint"), foreground="gray", font=("", 8)).grid(
@@ -2486,7 +2632,7 @@ class ActivityDialog:
         # Tag field
         ttk.Label(self.top, text=t_func("tag")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
         tag_entry = ttk.Entry(self.top, width=30)
-        tag_entry.grid(row=row, column=1, padx=8, pady=4)
+        tag_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
         self.entries["tag"] = tag_entry
         row += 1
         ttk.Button(self.top, text="OK", command=self._ok).grid(
@@ -2523,7 +2669,7 @@ class ActivityDialog:
                 messagebox.showwarning("", self.t_func("invalid_time_slots"))
                 return
             hours = calculate_hours_from_slots(time_slots)
-        if executor and date and content:
+        if executor and content:
             self.result = {"executor": executor, "date": date, "hours": hours,
                            "content": content, "time_slots": time_slots, "tag": tag}
             self.top.destroy()
@@ -2531,20 +2677,40 @@ class ActivityDialog:
 
 class ConfigDialog:
     """Dialog for editing global configuration"""
-    def __init__(self, parent, config, t_func, lang):
+
+    # i18n key mapping for action display names
+    _ACTION_I18N_KEYS = {
+        "add": "shortcut_add",
+        "edit": "shortcut_edit",
+        "delete": "shortcut_delete",
+        "move_up": "shortcut_move_up",
+        "move_down": "shortcut_move_down",
+        "duplicate": "shortcut_duplicate",
+        "copy": "shortcut_copy",
+        "paste": "shortcut_paste",
+        "undo": "shortcut_undo",
+        "redo": "shortcut_redo",
+        "sync": "shortcut_sync",
+        "refresh": "shortcut_refresh",
+    }
+
+    def __init__(self, parent, config, t_func, lang, shortcut_manager=None):
         self.config = config
         self.saved = False
+        self.t_func = t_func
+        self.lang = lang
+        self.shortcut_manager = shortcut_manager
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("config"))
-        self.top.geometry("580x380")
+        self.top.geometry("620x520")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
+        self.top.columnconfigure(1, weight=1)
 
         fields = [
             ("data_dir", t_func("data_dir"), config.data_dir),
-            ("remote_url", t_func("remote_url"), config.remote_url),
-            ("remote_username", t_func("username"), config.remote_username),
-            ("remote_password", t_func("password"), config.remote_password),
             ("config_dir", t_func("config_dir"), config.config_dir),
             ("compress_threshold", t_func("compress_threshold") if lang == "en" else "报告图片压缩阈值(天)", str(config.get("compress_threshold", 300))),
             ("max_chart_width", t_func("max_chart_width") if lang == "en" else "报告图片最大宽度(px)", str(config.get("max_chart_width", 4000))),
@@ -2555,15 +2721,136 @@ class ConfigDialog:
             ttk.Label(self.top, text=label).grid(row=i, column=0, padx=8, pady=4, sticky=tk.W)
             entry = ttk.Entry(self.top, width=35)
             entry.insert(0, val or "")
-            if key == "remote_password":
-                entry.configure(show="*")
-            entry.grid(row=i, column=1, padx=4, pady=4)
+            entry.grid(row=i, column=1, padx=4, pady=4, sticky=tk.EW)
             self.entries[key] = entry
             if key in path_fields:
                 ttk.Button(self.top, text="📂", width=3,
                            command=lambda e=entry: self._browse_dir(e)).grid(row=i, column=2, padx=2, pady=4)
+
+        next_row = len(fields)
+
+        # ── Shortcut configuration section ───────────────────
+        if self.shortcut_manager is not None:
+            self._pending_bindings = dict(self.shortcut_manager.get_all_bindings())
+            self._build_shortcut_section(next_row)
+            next_row = next_row + 1  # LabelFrame occupies one row
+
         ttk.Button(self.top, text=t_func("save_config"), command=self._save).grid(
-            row=len(fields), column=0, columnspan=3, pady=12)
+            row=next_row, column=0, columnspan=3, pady=12)
+
+    def _build_shortcut_section(self, start_row):
+        """Build the shortcut configuration LabelFrame with Treeview."""
+        frame = ttk.LabelFrame(self.top, text=self.t_func("shortcut_config"))
+        frame.grid(row=start_row, column=0, columnspan=3, padx=8, pady=6, sticky=tk.NSEW)
+        self.top.rowconfigure(start_row, weight=1)
+
+        # Treeview for action -> shortcut display
+        cols = ("action", "shortcut")
+        self.shortcut_tree = ttk.Treeview(frame, columns=cols, show="headings", height=8, selectmode="browse")
+        action_header = "Action" if self.lang == "en" else "操作"
+        shortcut_header = "Shortcut" if self.lang == "en" else "快捷键"
+        self.shortcut_tree.heading("action", text=action_header)
+        self.shortcut_tree.heading("shortcut", text=shortcut_header)
+        self.shortcut_tree.column("action", width=160, anchor="w")
+        self.shortcut_tree.column("shortcut", width=160, anchor="center")
+
+        sb = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=self.shortcut_tree.yview)
+        self.shortcut_tree.configure(yscrollcommand=sb.set)
+        self.shortcut_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(4, 0), pady=4)
+        sb.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 2), pady=4)
+
+        # Populate rows
+        self._populate_shortcut_tree()
+
+        # Bind key capture on the Treeview
+        self.shortcut_tree.bind("<Key>", self._on_shortcut_key)
+
+        # Buttons frame on the right
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(side=tk.LEFT, fill=tk.Y, padx=4, pady=4)
+        ttk.Button(btn_frame, text=self.t_func("shortcut_reset"),
+                   command=self._reset_shortcuts).pack(pady=4)
+
+    def _populate_shortcut_tree(self):
+        """Fill the shortcut Treeview with current pending bindings."""
+        for item in self.shortcut_tree.get_children():
+            self.shortcut_tree.delete(item)
+        for action_id in self._ACTION_I18N_KEYS:
+            i18n_key = self._ACTION_I18N_KEYS[action_id]
+            display_name = self.t_func(i18n_key)
+            key_event = self._pending_bindings.get(action_id, "")
+            display_shortcut = tk_event_to_display(key_event)
+            self.shortcut_tree.insert("", tk.END, iid=action_id,
+                                      values=(display_name, display_shortcut))
+
+    def _on_shortcut_key(self, event):
+        """Capture key press on the shortcut Treeview to update binding."""
+        selection = self.shortcut_tree.selection()
+        if not selection:
+            return
+        action_id = selection[0]
+
+        # Delete/BackSpace clears the shortcut
+        if event.keysym in ("Delete", "BackSpace"):
+            self._pending_bindings[action_id] = ""
+            self._refresh_shortcut_row(action_id)
+            return "break"
+
+        # Ignore bare modifier keys
+        if event.keysym in ("Control_L", "Control_R", "Alt_L", "Alt_R",
+                            "Shift_L", "Shift_R", "Caps_Lock", "Num_Lock",
+                            "Meta_L", "Meta_R"):
+            return "break"
+
+        # Ignore Tab/Escape to allow normal dialog navigation
+        if event.keysym in ("Tab", "Escape"):
+            return
+
+        # Build tkinter event string from the event
+        parts = []
+        if event.state & 0x4:  # Control
+            parts.append("Control")
+        if event.state & 0x20000 or event.state & 0x8:  # Alt
+            parts.append("Alt")
+        if event.state & 0x1:  # Shift
+            parts.append("Shift")
+
+        keysym = event.keysym
+        # Normalize single-char keysyms to lowercase for tkinter format
+        if len(keysym) == 1:
+            keysym = keysym.lower()
+
+        parts.append(keysym)
+        new_event = "<" + "-".join(parts) + ">"
+
+        # Check for conflicts
+        for aid, evt in self._pending_bindings.items():
+            if aid != action_id and evt and evt.lower() == new_event.lower():
+                conflict_name = self.t_func(self._ACTION_I18N_KEYS.get(aid, aid))
+                display_key = tk_event_to_display(new_event)
+                messagebox.showwarning(
+                    self.t_func("warning"),
+                    self.t_func("shortcut_conflict", display_key, conflict_name),
+                    parent=self.top,
+                )
+                return "break"
+
+        self._pending_bindings[action_id] = new_event
+        self._refresh_shortcut_row(action_id)
+        return "break"
+
+    def _refresh_shortcut_row(self, action_id):
+        """Update a single row in the shortcut Treeview."""
+        i18n_key = self._ACTION_I18N_KEYS.get(action_id, action_id)
+        display_name = self.t_func(i18n_key)
+        key_event = self._pending_bindings.get(action_id, "")
+        display_shortcut = tk_event_to_display(key_event)
+        self.shortcut_tree.item(action_id, values=(display_name, display_shortcut))
+
+    def _reset_shortcuts(self):
+        """Reset all pending shortcut bindings to defaults."""
+        self._pending_bindings = dict(ShortcutManager.DEFAULT_SHORTCUTS)
+        self._populate_shortcut_tree()
 
     def _browse_dir(self, entry):
         current = entry.get().strip()
@@ -2581,6 +2868,15 @@ class ConfigDialog:
                 except ValueError:
                     continue
             self.config.set(key, val)
+
+        # Save shortcut bindings if shortcut_manager is available
+        if self.shortcut_manager is not None:
+            self.shortcut_manager.unregister_all()
+            for action_id, key_event in self._pending_bindings.items():
+                self.shortcut_manager.bindings[action_id] = key_event
+            self.shortcut_manager.save_to_config(self.config)
+            self.shortcut_manager.register_all()
+
         self.config.save()
         self.saved = True
         self.top.destroy()
@@ -2596,18 +2892,20 @@ class ProjectEditDialog:
         self.top.geometry("400x230")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(1, weight=1)
 
         ttk.Label(self.top, text=t_func("project_name")).grid(row=0, column=0, padx=8, pady=6, sticky=tk.W)
         self.name_entry = ttk.Entry(self.top, width=30)
         self.name_entry.insert(0, project.get("name", ""))
-        self.name_entry.grid(row=0, column=1, padx=8, pady=6)
+        self.name_entry.grid(row=0, column=1, padx=8, pady=6, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("description")).grid(row=1, column=0, padx=8, pady=6, sticky=tk.NW)
         desc_frame = ttk.Frame(self.top)
         desc_frame.grid(row=1, column=1, padx=8, pady=6, sticky=tk.NSEW)
-        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD)
+        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD, undo=True)
         desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
         self.desc_text.configure(yscrollcommand=desc_sb.set)
         self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -2634,6 +2932,8 @@ class MilestoneEditDialog:
         self.top.geometry("400x250")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
 
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(2, weight=1)
@@ -2649,7 +2949,7 @@ class MilestoneEditDialog:
         self.deadline_entry.grid(row=1, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("description")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.NW)
-        self.desc_text = tk.Text(self.top, width=30, height=4, wrap=tk.WORD)
+        self.desc_text = tk.Text(self.top, width=30, height=4, wrap=tk.WORD, undo=True)
         self.desc_text.insert("1.0", milestone.get("description", ""))
         self.desc_text.grid(row=2, column=1, padx=8, pady=5, sticky=tk.NSEW)
 
@@ -2678,11 +2978,14 @@ class ActivityEditDialog:
         self.top.geometry("420x380")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
+        self.top.columnconfigure(1, weight=1)
 
         row = 0
         fields = [
             ("executor", t_func("executor"), activity.get("executor", "")),
-            ("date", t_func("date") + " (YYYYMMDD)", activity.get("date", "")),
+            ("date", t_func("date") + " (YYYYMMDD, " + t_func("optional") + ")", activity.get("date", "")),
             ("content", t_func("content"), activity.get("content", "")),
         ]
         self.entries = {}
@@ -2690,7 +2993,7 @@ class ActivityEditDialog:
             ttk.Label(self.top, text=label).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
             entry = ttk.Entry(self.top, width=30)
             entry.insert(0, val)
-            entry.grid(row=row, column=1, padx=8, pady=4)
+            entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
             self.entries[key] = entry
             row += 1
 
@@ -2703,7 +3006,7 @@ class ActivityEditDialog:
         hours_entry = ttk.Entry(self.top, width=30)
         if not existing_ts and existing_hours:
             hours_entry.insert(0, str(existing_hours))
-        hours_entry.grid(row=row, column=1, padx=8, pady=4)
+        hours_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
         self.entries["effort_hours"] = hours_entry
         row += 1
         ttk.Label(self.top, text=t_func("effort_hours_hint"), foreground="gray", font=("", 8)).grid(
@@ -2714,7 +3017,7 @@ class ActivityEditDialog:
         ttk.Label(self.top, text=t_func("time_slots")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
         ts_entry = ttk.Entry(self.top, width=30)
         ts_entry.insert(0, existing_ts)
-        ts_entry.grid(row=row, column=1, padx=8, pady=4)
+        ts_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
         self.entries["time_slots"] = ts_entry
         row += 1
         ttk.Label(self.top, text=t_func("time_slots_hint"), foreground="gray", font=("", 8)).grid(
@@ -2730,7 +3033,7 @@ class ActivityEditDialog:
         ttk.Label(self.top, text=t_func("tag")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
         tag_entry = ttk.Entry(self.top, width=30)
         tag_entry.insert(0, activity.get("tag", ""))
-        tag_entry.grid(row=row, column=1, padx=8, pady=4)
+        tag_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
         self.entries["tag"] = tag_entry
         row += 1
         ttk.Button(self.top, text="OK", command=self._ok).grid(
@@ -2743,10 +3046,10 @@ class ActivityEditDialog:
         effort_hours_str = self.entries["effort_hours"].get().strip()
         time_slots = self.entries["time_slots"].get().strip()
         tag = self.entries["tag"].get().strip()
-        if not executor or not date or not content:
+        if not executor or not content:
             return
-        # Validate date format
-        if len(date) != 8 or not date.isdigit():
+        # Validate date format (only if date is provided)
+        if date and (len(date) != 8 or not date.isdigit()):
             messagebox.showwarning("", self.t_func("invalid_date"))
             return
         # Mutual exclusion: cannot fill both
@@ -2789,6 +3092,9 @@ class ProjectGitConfigDialog:
         self.top.geometry("500x380")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
+        self.top.columnconfigure(1, weight=1)
 
         fields = [
             ("remote_url", t_func("remote_url"), project.get("remote_url", "")),
@@ -2806,7 +3112,7 @@ class ProjectGitConfigDialog:
             entry.insert(0, val)
             if key == "remote_password":
                 entry.configure(show="*")
-            entry.grid(row=i, column=1, padx=8, pady=5)
+            entry.grid(row=i, column=1, padx=8, pady=5, sticky=tk.EW)
             self.entries[key] = entry
 
         ttk.Button(self.top, text="OK", command=self._ok).grid(
@@ -2872,23 +3178,26 @@ class ProjectCreateDialog:
         self.top.geometry("450x260")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
+        self.top.columnconfigure(1, weight=1)
 
         ttk.Label(self.top, text=t_func("project_name")).grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
         self.name_entry = ttk.Entry(self.top, width=35)
-        self.name_entry.grid(row=0, column=1, padx=8, pady=5)
+        self.name_entry.grid(row=0, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("description")).grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
         self.desc_entry = ttk.Entry(self.top, width=35)
-        self.desc_entry.grid(row=1, column=1, padx=8, pady=5)
+        self.desc_entry.grid(row=1, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("remote_url")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.W)
         self.url_entry = ttk.Entry(self.top, width=35)
-        self.url_entry.grid(row=2, column=1, padx=8, pady=5)
+        self.url_entry.grid(row=2, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("remote_branch")).grid(row=3, column=0, padx=8, pady=5, sticky=tk.W)
         self.branch_entry = ttk.Entry(self.top, width=35)
         self.branch_entry.insert(0, "main")
-        self.branch_entry.grid(row=3, column=1, padx=8, pady=5)
+        self.branch_entry.grid(row=3, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Button(self.top, text="OK", command=self._ok).grid(row=4, column=0, columnspan=2, pady=10)
 
@@ -2925,6 +3234,8 @@ class MilestoneCreateDialog:
         self.top.geometry("450x280")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
 
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(3, weight=1)
@@ -2971,21 +3282,23 @@ class RequirementDialog:
         self.top.geometry("420x280")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(2, weight=1)
 
         ttk.Label(self.top, text=t_func("category")).grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
         self.category_entry = ttk.Entry(self.top, width=30)
-        self.category_entry.grid(row=0, column=1, padx=8, pady=5)
+        self.category_entry.grid(row=0, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("subject") + " *").grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
         self.subject_entry = ttk.Entry(self.top, width=30)
-        self.subject_entry.grid(row=1, column=1, padx=8, pady=5)
+        self.subject_entry.grid(row=1, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("description")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.NW)
         desc_frame = ttk.Frame(self.top)
         desc_frame.grid(row=2, column=1, padx=8, pady=5, sticky=tk.NSEW)
-        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD)
+        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD, undo=True)
         desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
         self.desc_text.configure(yscrollcommand=desc_sb.set)
         self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -3016,23 +3329,25 @@ class RequirementEditDialog:
         self.top.geometry("420x280")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(2, weight=1)
 
         ttk.Label(self.top, text=t_func("category")).grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
         self.category_entry = ttk.Entry(self.top, width=30)
         self.category_entry.insert(0, requirement.get("category", ""))
-        self.category_entry.grid(row=0, column=1, padx=8, pady=5)
+        self.category_entry.grid(row=0, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("subject") + " *").grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
         self.subject_entry = ttk.Entry(self.top, width=30)
         self.subject_entry.insert(0, requirement.get("subject", ""))
-        self.subject_entry.grid(row=1, column=1, padx=8, pady=5)
+        self.subject_entry.grid(row=1, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("description")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.NW)
         desc_frame = ttk.Frame(self.top)
         desc_frame.grid(row=2, column=1, padx=8, pady=5, sticky=tk.NSEW)
-        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD)
+        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD, undo=True)
         desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
         self.desc_text.configure(yscrollcommand=desc_sb.set)
         self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -3064,22 +3379,24 @@ class TaskDialog:
         self.top.geometry("420x280")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(2, weight=1)
 
         ttk.Label(self.top, text=t_func("subject") + " *").grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
         self.subject_entry = ttk.Entry(self.top, width=30)
-        self.subject_entry.grid(row=0, column=1, padx=8, pady=5)
+        self.subject_entry.grid(row=0, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("effort_days")).grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
         self.effort_entry = ttk.Entry(self.top, width=30)
         self.effort_entry.insert(0, "0")
-        self.effort_entry.grid(row=1, column=1, padx=8, pady=5)
+        self.effort_entry.grid(row=1, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("description")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.NW)
         desc_frame = ttk.Frame(self.top)
         desc_frame.grid(row=2, column=1, padx=8, pady=5, sticky=tk.NSEW)
-        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD)
+        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD, undo=True)
         desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
         self.desc_text.configure(yscrollcommand=desc_sb.set)
         self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -3118,23 +3435,25 @@ class TaskEditDialog:
         self.top.geometry("420x280")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(2, weight=1)
 
         ttk.Label(self.top, text=t_func("subject") + " *").grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
         self.subject_entry = ttk.Entry(self.top, width=30)
         self.subject_entry.insert(0, task.get("subject", ""))
-        self.subject_entry.grid(row=0, column=1, padx=8, pady=5)
+        self.subject_entry.grid(row=0, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("effort_days")).grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
         self.effort_entry = ttk.Entry(self.top, width=30)
         self.effort_entry.insert(0, str(task.get("effort_days", 0)))
-        self.effort_entry.grid(row=1, column=1, padx=8, pady=5)
+        self.effort_entry.grid(row=1, column=1, padx=8, pady=5, sticky=tk.EW)
 
         ttk.Label(self.top, text=t_func("description")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.NW)
         desc_frame = ttk.Frame(self.top)
         desc_frame.grid(row=2, column=1, padx=8, pady=5, sticky=tk.NSEW)
-        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD)
+        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD, undo=True)
         desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
         self.desc_text.configure(yscrollcommand=desc_sb.set)
         self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -3174,10 +3493,13 @@ class ProgressDialog:
         self.top.geometry("350x130")
         self.top.transient(parent)
         self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
+        self.top.columnconfigure(1, weight=1)
 
         ttk.Label(self.top, text=t_func("progress_input")).grid(row=0, column=0, padx=8, pady=10, sticky=tk.W)
         self.progress_entry = ttk.Entry(self.top, width=10)
-        self.progress_entry.grid(row=0, column=1, padx=8, pady=10)
+        self.progress_entry.grid(row=0, column=1, padx=8, pady=10, sticky=tk.EW)
 
         ttk.Button(self.top, text="OK", command=self._ok).grid(row=1, column=0, columnspan=2, pady=10)
 
