@@ -72,13 +72,14 @@ def build_tracking_data(project):
     if not project:
         return rows
 
-    # Build a lookup: task_id -> (plan_content, plan_progress)
-    task_plan_map = {}  # task_id -> (plan_content, progress)
+    # Build a lookup: task_id -> (plan_content, plan_progress, actual_hours)
+    task_plan_map = {}  # task_id -> (plan_content, progress, actual_hours)
     for ms in project.get("milestones", []):
         for plan in ms.get("plans", []):
             linked = plan.get("linked_task_id", "")
             if linked:
-                task_plan_map[linked] = (plan.get("content", ""), plan.get("progress", 0))
+                actual_h = sum(a.get("hours", 0) for a in plan.get("activities", []))
+                task_plan_map[linked] = (plan.get("content", ""), plan.get("progress", 0), actual_h)
 
     for req in project.get("requirements", []):
         # Requirement group header row
@@ -90,20 +91,25 @@ def build_tracking_data(project):
             "effort_days": "",
             "linked_plan": "",
             "plan_progress": "",
+            "actual_hours": "",
         })
         for task in req.get("tasks", []):
             task_id = task.get("id", "")
             plan_info = task_plan_map.get(task_id)
             linked_plan = plan_info[0] if plan_info else ""
             plan_progress = f"{plan_info[1]}%" if plan_info else ""
+            actual_hours = f"{plan_info[2]:.1f}h" if plan_info else ""
+            effort_d = task.get("effort_days", 0) or 0
+            effort_h_str = f"{effort_d * 8:.1f}h" if effort_d else ""
             rows.append({
                 "kind": "task",
                 "req_category": "",
                 "req_subject": "",
                 "task_subject": task.get("subject", ""),
-                "effort_days": task.get("effort_days", ""),
+                "effort_days": effort_h_str,
                 "linked_plan": linked_plan,
                 "plan_progress": plan_progress,
+                "actual_hours": actual_hours,
             })
     return rows
 
@@ -578,20 +584,22 @@ class GanttPilotGUI:
         tracking_tab_frame = ttk.Frame(self.right_notebook)
         self.right_notebook.add(tracking_tab_frame, text=self._t("tracking_tab"))
 
-        tracking_cols = ("req_category", "req_subject", "task_subject", "effort_days", "linked_plan", "plan_progress")
+        tracking_cols = ("req_category", "req_subject", "task_subject", "effort_days", "linked_plan", "plan_progress", "actual_hours")
         self.tracking_tree = ttk.Treeview(tracking_tab_frame, columns=tracking_cols, show="headings")
         self.tracking_tree.heading("req_category", text=self._t("req_category"))
         self.tracking_tree.heading("req_subject", text=self._t("req_subject"))
         self.tracking_tree.heading("task_subject", text=self._t("task_subject"))
-        self.tracking_tree.heading("effort_days", text=self._t("effort_days"))
+        self.tracking_tree.heading("effort_days", text=self._t("planned_hours"))
         self.tracking_tree.heading("linked_plan", text=self._t("linked_plan"))
         self.tracking_tree.heading("plan_progress", text=self._t("plan_progress"))
+        self.tracking_tree.heading("actual_hours", text=self._t("actual_hours"))
         self.tracking_tree.column("req_category", width=100, anchor="center")
         self.tracking_tree.column("req_subject", width=150, anchor="center")
         self.tracking_tree.column("task_subject", width=150, anchor="center")
         self.tracking_tree.column("effort_days", width=100, anchor="center")
         self.tracking_tree.column("linked_plan", width=150, anchor="center")
         self.tracking_tree.column("plan_progress", width=100, anchor="center")
+        self.tracking_tree.column("actual_hours", width=100, anchor="center")
         tracking_sb = ttk.Scrollbar(tracking_tab_frame, orient=tk.VERTICAL, command=self.tracking_tree.yview)
         self.tracking_tree.configure(yscrollcommand=tracking_sb.set)
         tracking_sb.pack(side=tk.RIGHT, fill=tk.Y)
@@ -1010,14 +1018,15 @@ class GanttPilotGUI:
             if row["kind"] == "requirement":
                 self.tracking_tree.insert(
                     "", tk.END,
-                    values=(row["req_category"], row["req_subject"], "", "", "", ""),
+                    values=(row["req_category"], row["req_subject"], "", "", "", "", ""),
                     tags=("req_header",),
                 )
             else:
                 self.tracking_tree.insert(
                     "", tk.END,
                     values=("", "", row["task_subject"], row["effort_days"],
-                            row["linked_plan"], row["plan_progress"]),
+                            row["linked_plan"], row["plan_progress"],
+                            row["actual_hours"]),
                 )
 
     # ── History tab ─────────────────────────────────────────

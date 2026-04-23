@@ -121,6 +121,15 @@ class GitSync:
         except RuntimeError:
             self._run("remote", "set-url", "origin", auth_url)
 
+    def _restore_plain_remote(self):
+        """Reset origin to the plain (no-auth) URL so credential helpers work."""
+        if not self.remote_url:
+            return
+        try:
+            self._run("remote", "set-url", "origin", self.remote_url)
+        except RuntimeError:
+            pass
+
     def _branch_exists(self, branch):
         """Check if a local branch exists"""
         result = self._run("branch", "--list", branch, check=False)
@@ -231,8 +240,14 @@ class GitSync:
         self._ensure_remote()
         self._run("fetch", "origin", check=False)
 
-        # 3. Push priv_branch to origin
-        self._run("push", "-u", "origin", wb)
+        # 3. Push priv_branch to origin (fallback to credential helper on auth failure)
+        try:
+            self._run("push", "-u", "origin", wb)
+        except RuntimeError:
+            # Auth with embedded credentials failed; retry with plain URL
+            # so that system credential helpers (e.g. Windows Credential Manager) can work.
+            self._restore_plain_remote()
+            self._run("push", "-u", "origin", wb)
         return True
 
     def fetch_remote(self):
@@ -244,7 +259,11 @@ class GitSync:
         if not self.remote_url or not self.is_repo():
             return False
         self._ensure_remote()
-        self._run("fetch", "origin", check=False)
+        result = self._run("fetch", "origin", check=False)
+        if result.returncode != 0 and self.username and self.password:
+            # Embedded credentials may be stale; retry with plain URL
+            self._restore_plain_remote()
+            self._run("fetch", "origin", check=False)
         return True
 
     def get_log(self, branch=None, max_count=50):

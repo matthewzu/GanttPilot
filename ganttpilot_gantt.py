@@ -695,9 +695,9 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
         lines.append(f"| {'类别' if zh else 'Category'} | {'主题' if zh else 'Subject'} | {'描述' if zh else 'Description'} | {task_count_label} |")
         lines.append("|---|---|---|---|")
         for req in project.get("requirements", []):
-            cat = req.get("category", "") or "-"
-            subj = req.get("subject", "") or "-"
-            desc = req.get("description", "") or "-"
+            cat = (req.get("category", "") or "-").replace("\n", "<br>").replace("|", "\\|")
+            subj = (req.get("subject", "") or "-").replace("\n", "<br>").replace("|", "\\|")
+            desc = (req.get("description", "") or "-").replace("\n", "<br>").replace("|", "\\|")
             tc = len(req.get("tasks", []))
             lines.append(f"| {cat} | {subj} | {desc} | {tc} |")
         lines.append("")
@@ -710,7 +710,7 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
     lines.append("|---|---|---|---|---|")
     for ms in project.get("milestones", []):
         dl = ms.get("deadline", "") or "-"
-        desc = ms.get("description", "") or "-"
+        desc = (ms.get("description", "") or "-").replace("\n", "<br>").replace("|", "\\|")
         plans = ms.get("plans", [])
         plan_count = len(plans)
         if plan_count > 0:
@@ -730,16 +730,31 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
 
     has_plans = any(ms.get("plans") for ms in project.get("milestones", []))
     if has_plans:
+        actual_hours_label = "实际工时" if zh else "Actual Hours"
         lines.append(h2("计划进度详情" if zh else "Plan Progress Details"))
         lines.append("")
-        lines.append(f"| {'里程碑' if zh else 'Milestone'} | {'计划' if zh else 'Plan'} | {'执行者' if zh else 'Executor'} | {'计划工时' if zh else 'Planned Hours'} | {progress_label} | {'结束日期' if zh else 'End Date'} | {actual_end_label} | {status_label} |")
-        lines.append("|---|---|---|---|---|---|---|---|")
+        lines.append(f"| {'里程碑' if zh else 'Milestone'} | {'计划' if zh else 'Plan'} | {'执行者' if zh else 'Executor'} | {'计划工时' if zh else 'Planned Hours'} | {actual_hours_label} | {progress_label} | {'结束日期' if zh else 'End Date'} | {actual_end_label} | {status_label} |")
+        lines.append("|---|---|---|---|---|---|---|---|---|")
+        # Build task_id -> effort_days lookup for fallback planned hours
+        task_effort_map = {}
+        for req in project.get("requirements", []):
+            for task in req.get("tasks", []):
+                task_effort_map[task.get("id", "")] = task.get("effort_days", 0)
+        total_planned_h = 0.0
+        total_actual_h = 0.0
         for ms in project.get("milestones", []):
             for plan in ms.get("plans", []):
                 p_progress = plan.get("progress", 0)
                 p_actual = plan.get("actual_end_date", "")
                 p_end = plan.get("end_date", "")
                 p_hours = plan.get("planned_hours", 0)
+                if not p_hours:
+                    linked_tid = plan.get("linked_task_id", "")
+                    if linked_tid:
+                        p_hours = task_effort_map.get(linked_tid, 0) * 8
+                a_hours = sum(a.get("hours", 0) for a in plan.get("activities", []))
+                total_planned_h += p_hours
+                total_actual_h += a_hours
                 schedule_note = ""
                 if p_actual and p_end:
                     if p_actual < p_end:
@@ -749,29 +764,37 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
                     else:
                         schedule_note = on_time_label
                 hours_str = f"{p_hours:.1f}h" if p_hours else "-"
-                lines.append(f"| {ms['name']} | {plan.get('content', '')} | {plan.get('executor', '')} | {hours_str} | {p_progress}% | {p_end} | {p_actual or '-'} | {schedule_note} |")
+                actual_str = f"{a_hours:.1f}h" if a_hours else "-"
+                lines.append(f"| {ms['name']} | {plan.get('content', '')} | {plan.get('executor', '')} | {hours_str} | {actual_str} | {p_progress}% | {p_end} | {p_actual or '-'} | {schedule_note} |")
+        # Summary row
+        total_planned_label = "总计划工时" if zh else "Total Planned Hours"
+        total_actual_label = "总实际工时" if zh else "Total Actual Hours"
+        lines.append("")
+        lines.append(f"{total_planned_label}: **{total_planned_h:.1f}h** / {total_actual_label}: **{total_actual_h:.1f}h**")
         lines.append("")
 
     # Requirement Tracking section (after plan progress details, skip if no requirements)
     if has_requirements:
         req_tracking_label = "需求跟踪" if zh else "Requirement Tracking"
+        actual_hours_label = "实际工时" if zh else "Actual Hours"
         lines.append(h2(req_tracking_label))
         lines.append("")
-        lines.append(f"| {'需求类别' if zh else 'Category'} | {'需求主题' if zh else 'Requirement'} | {'任务主题' if zh else 'Task'} | {'工作量(人日)' if zh else 'Effort(days)'} | {'关联计划' if zh else 'Linked Plan'} | {'计划进度' if zh else 'Progress'} |")
-        lines.append("|---|---|---|---|---|---|")
+        lines.append(f"| {'需求类别' if zh else 'Category'} | {'需求主题' if zh else 'Requirement'} | {'任务主题' if zh else 'Task'} | {'工作量(人日)' if zh else 'Effort(days)'} | {'关联计划' if zh else 'Linked Plan'} | {'计划进度' if zh else 'Progress'} | {actual_hours_label} |")
+        lines.append("|---|---|---|---|---|---|---|")
         # Build task_id -> plan mapping
         task_plan_map = {}
         for ms in project.get("milestones", []):
             for plan in ms.get("plans", []):
                 linked = plan.get("linked_task_id", "")
                 if linked:
-                    task_plan_map[linked] = (plan.get("content", ""), plan.get("progress", 0))
+                    actual_h = sum(a.get("hours", 0) for a in plan.get("activities", []))
+                    task_plan_map[linked] = (plan.get("content", ""), plan.get("progress", 0), actual_h)
         for req in project.get("requirements", []):
             cat = req.get("category", "")
             subj = req.get("subject", "")
             tasks = req.get("tasks", [])
             if not tasks:
-                lines.append(f"| {cat} | {subj} | - | - | - | - |")
+                lines.append(f"| {cat} | {subj} | - | - | - | - | - |")
             else:
                 for i, task in enumerate(tasks):
                     r_cat = cat if i == 0 else ""
@@ -782,7 +805,8 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
                     plan_info = task_plan_map.get(task.get("id", ""))
                     linked_plan = plan_info[0] if plan_info else "-"
                     plan_progress = f"{plan_info[1]}%" if plan_info else "-"
-                    lines.append(f"| {r_cat} | {r_subj} | {t_subj} | {effort_str} | {linked_plan} | {plan_progress} |")
+                    actual_hours = f"{plan_info[2]:.1f}h" if plan_info else "-"
+                    lines.append(f"| {r_cat} | {r_subj} | {t_subj} | {effort_str} | {linked_plan} | {plan_progress} | {actual_hours} |")
         lines.append("")
 
     # Collect all activities grouped by executor
