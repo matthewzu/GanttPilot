@@ -285,6 +285,11 @@ class GanttPilotGUI:
         threading.Thread(target=self._startup_sync, daemon=True).start()
         UpdateChecker(VERSION, self.lang, self._show_update_notification).check()
 
+        # Start periodic background check for main branch updates
+        pull_interval = max(1, self.config.get("pull_interval", 5))
+        self._bg_check_interval_ms = pull_interval * 60 * 1000
+        self.root.after(self._bg_check_interval_ms, self._periodic_remote_check)
+
     def _t(self, key, *args):
         return t(key, self.lang, *args)
 
@@ -345,6 +350,26 @@ class GanttPilotGUI:
             self.root.after(0, self.check_remote_updates)
         except Exception:
             pass
+
+    def _periodic_remote_check(self):
+        """Periodically fetch remote and check for main branch updates in background."""
+        def _do():
+            try:
+                for proj in self.store.list_projects():
+                    if proj.get("remote_url"):
+                        try:
+                            gs = self._get_project_git(proj)
+                            if not gs.is_repo():
+                                continue
+                            gs.fetch_remote()
+                        except Exception:
+                            pass
+                self.root.after(0, self.check_remote_updates)
+            except Exception:
+                pass
+        threading.Thread(target=_do, daemon=True).start()
+        # Schedule next check
+        self.root.after(self._bg_check_interval_ms, self._periodic_remote_check)
 
     def _show_update_notification(self, new_version, download_url, asset_url=None, asset_size=0):
         def show():
@@ -699,7 +724,8 @@ class GanttPilotGUI:
             menu.add_separator()
             menu.add_command(label=self._t("load_example"), command=self.load_example)
             menu.add_separator()
-            menu.add_command(label=self._t("sync"), command=self.do_sync, accelerator=self._accel("sync"))
+            menu.add_command(label=self._t("push"), command=self.do_sync, accelerator=self._accel("sync"))
+            menu.add_command(label=self._t("pull"), command=self.do_pull)
             menu.add_command(label=self._t("refresh"), command=self._full_refresh, accelerator=self._accel("refresh"))
         else:
             self.tree.selection_set(item)
@@ -717,7 +743,8 @@ class GanttPilotGUI:
                 menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
                 menu.add_separator()
                 menu.add_command(label=self._t("report"), command=self.generate_report)
-                menu.add_command(label=self._t("sync"), command=self.do_sync, accelerator=self._accel("sync"))
+                menu.add_command(label=self._t("push"), command=self.do_sync, accelerator=self._accel("sync"))
+                menu.add_command(label=self._t("pull"), command=self.do_pull)
                 menu.add_command(label=self._t("refresh"), command=self._full_refresh, accelerator=self._accel("refresh"))
                 menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
@@ -1490,7 +1517,10 @@ class GanttPilotGUI:
         proj, ms, plan_id = self._get_selected_plan()
         if not plan_id:
             return
-        dlg = ActivityDialog(self.root, self._t, self.lang)
+        # Get project tags for tag selection
+        proj_data = self.store.get_project(proj)
+        project_tags = proj_data.get("tags", []) if proj_data else []
+        dlg = ActivityDialog(self.root, self._t, self.lang, project_tags=project_tags)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
         self._active_dialog = None
@@ -1655,9 +1685,11 @@ class GanttPilotGUI:
         if dlg.result:
             new_name = dlg.result["name"]
             new_desc = dlg.result.get("description", "")
+            new_tags = dlg.result.get("tags", [])
             self.undo_manager.save_snapshot()
-            # Update description
+            # Update description and tags
             proj["description"] = new_desc
+            proj["tags"] = new_tags
             # Rename if needed
             if new_name != proj_name:
                 if not self.store.rename_project(proj_name, new_name):
@@ -1688,7 +1720,10 @@ class GanttPilotGUI:
                 break
         if not activity:
             return
-        dlg = ActivityEditDialog(self.root, self._t, self.lang, activity)
+        # Get project tags for tag selection
+        proj_data = self.store.get_project(proj_name)
+        project_tags = proj_data.get("tags", []) if proj_data else []
+        dlg = ActivityEditDialog(self.root, self._t, self.lang, activity, project_tags=project_tags)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
         self._active_dialog = None
@@ -2278,6 +2313,9 @@ class GanttPilotGUI:
             self._show_tooltip(self.tb_dup_btn, self._tooltip_with_shortcut(self._t("duplicate"), "duplicate"))
             self._show_tooltip(self.tb_up_btn, self._tooltip_with_shortcut(self._t("move_up"), "move_up"))
             self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
+            # Update pull interval from config
+            pull_interval = max(1, self.config.get("pull_interval", 5))
+            self._bg_check_interval_ms = pull_interval * 60 * 1000
 
     def show_help(self):
         txt = {
@@ -2346,7 +2384,7 @@ class GanttPilotGUI:
             messagebox.showwarning(self._t("warning"), self._t("committer_not_configured"))
             return
 
-        self.status_var.set(self._t("syncing"))
+        self.status_var.set(self._t("pushing"))
         self.root.update()
         try:
             gs = self._get_project_git(proj)
@@ -2367,7 +2405,42 @@ class GanttPilotGUI:
             main = proj.get("remote_branch", "main")
             self.status_var.set(self._t("sync_pr_hint", priv, priv, main))
         except Exception as e:
-            self.status_var.set(self._t("sync_fail", str(e)))
+            self.status_var.set(self._t("push_fail", str(e)))
+
+    def do_pull(self):
+        """Pull (fetch + reload) from remote without pushing."""
+        if not self.current_project:
+            self.status_var.set(self._t("select_project"))
+            return
+        proj = self.store.get_project(self.current_project)
+        if not proj or not proj.get("remote_url"):
+            self.status_var.set(self._t("no_remote"))
+            return
+
+        installed, _ = GitSync.check_git_installed()
+        if not installed:
+            messagebox.showwarning(self._t("warning"), self._t("git_not_installed"))
+            return
+
+        self.status_var.set(self._t("pulling"))
+        self.root.update()
+        try:
+            gs = self._get_project_git(proj)
+            if not gs.is_repo():
+                # Clone if repo doesn't exist locally
+                remote_url = proj.get("remote_url", "")
+                remote_branch = proj.get("remote_branch", "main")
+                proj_dir = os.path.join(self.config.data_dir, proj["name"])
+                if os.path.exists(proj_dir):
+                    _force_rmtree(proj_dir)
+                gs.clone_repo(remote_url, proj_dir, remote_branch)
+                gs = self._get_project_git(proj)
+            gs.init_repo()
+            gs.fetch_remote()
+            self._full_refresh()
+            self.status_var.set(self._t("pull_done"))
+        except Exception as e:
+            self.status_var.set(self._t("pull_fail", str(e)))
 
     def on_close(self):
         is_maximized = self.root.state() == "zoomed"
@@ -2499,14 +2572,20 @@ class PlanDialog:
             ("color", "🎨 Color (#hex)"),
         ]
         self.entries = {}
-        for i, (key, label) in enumerate(fields):
-            ttk.Label(self.top, text=label).grid(row=i, column=0, padx=8, pady=3, sticky=tk.W)
+        row = 0
+        for key, label in fields:
+            ttk.Label(self.top, text=label).grid(row=row, column=0, padx=8, pady=3, sticky=tk.W)
             entry = ttk.Entry(self.top, width=30)
-            entry.grid(row=i, column=1, padx=8, pady=3, sticky=tk.EW)
+            entry.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
             self.entries[key] = entry
+            row += 1
+            if key == "skip_dates":
+                ttk.Label(self.top, text=t_func("skip_dates_hint"), foreground="gray", font=("", 8)).grid(
+                    row=row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
+                row += 1
 
         # Linked task dropdown
-        row_lt = len(fields)
+        row_lt = row
         ttk.Label(self.top, text=t_func("linked_task")).grid(row=row_lt, column=0, padx=8, pady=3, sticky=tk.W)
         self._task_options = []  # list of (task_id, display_text)
         self._task_display_list = [""]  # first item is empty (no linked task)
@@ -2538,7 +2617,7 @@ class PlanDialog:
         end = self.entries["end_date"].get().strip()
         skip_str = self.entries["skip_dates"].get().strip()
         color = self.entries["color"].get().strip()
-        skip_dates = [d.strip() for d in skip_str.split(",") if d.strip()] if skip_str else []
+        skip_dates = [d.strip() for d in skip_str.replace("\uff0c", ",").split(",") if d.strip()] if skip_str else []
         # Resolve linked task ID from dropdown selection
         linked_task_id = ""
         selected = self.linked_task_combo.get()
@@ -2580,15 +2659,21 @@ class PlanEditDialog:
             ("color", "🎨 Color", plan.get("color", "")),
         ]
         self.entries = {}
-        for i, (key, label, val) in enumerate(fields):
-            ttk.Label(self.top, text=label).grid(row=i, column=0, padx=8, pady=3, sticky=tk.W)
+        row = 0
+        for key, label, val in fields:
+            ttk.Label(self.top, text=label).grid(row=row, column=0, padx=8, pady=3, sticky=tk.W)
             entry = ttk.Entry(self.top, width=30)
             entry.insert(0, val)
-            entry.grid(row=i, column=1, padx=8, pady=3, sticky=tk.EW)
+            entry.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
             self.entries[key] = entry
+            row += 1
+            if key == "skip_dates":
+                ttk.Label(self.top, text=t_func("skip_dates_hint"), foreground="gray", font=("", 8)).grid(
+                    row=row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
+                row += 1
 
         # Linked task dropdown
-        row_lt = len(fields)
+        row_lt = row
         ttk.Label(self.top, text=t_func("linked_task")).grid(row=row_lt, column=0, padx=8, pady=3, sticky=tk.W)
         self._task_options = []  # list of (task_id, display_text)
         self._task_display_list = [""]  # first item is empty (no linked task)
@@ -2636,7 +2721,7 @@ class PlanEditDialog:
             "executor": self.entries["executor"].get().strip(),
             "start_date": self.entries["start_date"].get().strip(),
             "end_date": self.entries["end_date"].get().strip(),
-            "skip_dates": [d.strip() for d in skip_str.split(",") if d.strip()] if skip_str else [],
+            "skip_dates": [d.strip() for d in skip_str.replace("\uff0c", ",").split(",") if d.strip()] if skip_str else [],
             "skip_non_workdays": self.skip_var.get(),
             "color": self.entries["color"].get().strip(),
             "linked_task_id": linked_task_id,
@@ -2646,9 +2731,10 @@ class PlanEditDialog:
 
 class ActivityDialog:
     """Dialog for adding an activity"""
-    def __init__(self, parent, t_func, lang):
+    def __init__(self, parent, t_func, lang, project_tags=None):
         self.result = None
         self.t_func = t_func
+        self.project_tags = project_tags or []
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("activity"))
         self.top.geometry("420x360")
@@ -2697,11 +2783,16 @@ class ActivityDialog:
             row=row, column=0, columnspan=2, padx=8, pady=(0, 2), sticky=tk.W)
         row += 1
 
-        # Tag field
+        # Tag field — Combobox if project has tags, otherwise Entry
         ttk.Label(self.top, text=t_func("tag")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
-        tag_entry = ttk.Entry(self.top, width=30)
-        tag_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
-        self.entries["tag"] = tag_entry
+        if self.project_tags:
+            tag_combo = ttk.Combobox(self.top, width=28, values=[""] + self.project_tags)
+            tag_combo.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
+            self.entries["tag"] = tag_combo
+        else:
+            tag_entry = ttk.Entry(self.top, width=30)
+            tag_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
+            self.entries["tag"] = tag_entry
         row += 1
         ttk.Button(self.top, text="OK", command=self._ok).grid(
             row=row, column=0, columnspan=2, pady=12)
@@ -2782,6 +2873,7 @@ class ConfigDialog:
             ("config_dir", t_func("config_dir"), config.config_dir),
             ("compress_threshold", t_func("compress_threshold") if lang == "en" else "报告图片压缩阈值(天)", str(config.get("compress_threshold", 300))),
             ("max_chart_width", t_func("max_chart_width") if lang == "en" else "报告图片最大宽度(px)", str(config.get("max_chart_width", 4000))),
+            ("pull_interval", t_func("pull_interval"), str(config.get("pull_interval", 5))),
         ]
         path_fields = {"data_dir", "config_dir"}
         self.entries = {}
@@ -2930,7 +3022,7 @@ class ConfigDialog:
     def _save(self):
         for key, entry in self.entries.items():
             val = entry.get().strip()
-            if key in ("compress_threshold", "max_chart_width"):
+            if key in ("compress_threshold", "max_chart_width", "pull_interval"):
                 try:
                     val = int(val)
                 except ValueError:
@@ -2951,13 +3043,13 @@ class ConfigDialog:
 
 
 class ProjectEditDialog:
-    """Dialog for editing a project name and description"""
+    """Dialog for editing a project name, description and tags"""
     def __init__(self, parent, t_func, lang, project):
         self.result = None
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_project"))
-        self.top.geometry("400x230")
+        self.top.geometry("400x300")
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -2980,14 +3072,26 @@ class ProjectEditDialog:
         desc_sb.pack(side=tk.RIGHT, fill=tk.Y)
         self.desc_text.insert("1.0", project.get("description", ""))
 
-        ttk.Button(self.top, text="OK", command=self._ok).grid(row=2, column=0, columnspan=2, pady=10)
+        # Project tags
+        ttk.Label(self.top, text=t_func("project_tags")).grid(row=2, column=0, padx=8, pady=6, sticky=tk.W)
+        self.tags_entry = ttk.Entry(self.top, width=30)
+        existing_tags = project.get("tags", [])
+        self.tags_entry.insert(0, ",".join(existing_tags) if existing_tags else "")
+        self.tags_entry.grid(row=2, column=1, padx=8, pady=6, sticky=tk.EW)
+        ttk.Label(self.top, text=t_func("project_tags_hint"), foreground="gray", font=("", 8)).grid(
+            row=3, column=1, padx=8, pady=(0, 2), sticky=tk.W)
+
+        ttk.Button(self.top, text="OK", command=self._ok).grid(row=4, column=0, columnspan=2, pady=10)
 
     def _ok(self):
         name = self.name_entry.get().strip()
         if not name:
             messagebox.showwarning("", self.t_func("name_required"))
             return
-        self.result = {"name": name, "description": self.desc_text.get("1.0", tk.END).strip()}
+        tags_str = self.tags_entry.get().strip()
+        tags_str = tags_str.replace("\uff0c", ",")  # Chinese comma → ASCII comma
+        tags = [t.strip() for t in tags_str.split(",") if t.strip()] if tags_str else []
+        self.result = {"name": name, "description": self.desc_text.get("1.0", tk.END).strip(), "tags": tags}
         self.top.destroy()
 
 
@@ -3038,9 +3142,10 @@ class MilestoneEditDialog:
 
 class ActivityEditDialog:
     """Dialog for editing an existing activity"""
-    def __init__(self, parent, t_func, lang, activity):
+    def __init__(self, parent, t_func, lang, activity, project_tags=None):
         self.result = None
         self.t_func = t_func
+        self.project_tags = project_tags or []
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_activity"))
         self.top.geometry("420x380")
@@ -3097,12 +3202,18 @@ class ActivityEditDialog:
             row=row, column=0, columnspan=2, padx=8, pady=(0, 2), sticky=tk.W)
         row += 1
 
-        # Tag field
+        # Tag field — Combobox if project has tags, otherwise Entry
         ttk.Label(self.top, text=t_func("tag")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
-        tag_entry = ttk.Entry(self.top, width=30)
-        tag_entry.insert(0, activity.get("tag", ""))
-        tag_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
-        self.entries["tag"] = tag_entry
+        if self.project_tags:
+            tag_combo = ttk.Combobox(self.top, width=28, values=[""] + self.project_tags)
+            tag_combo.set(activity.get("tag", ""))
+            tag_combo.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
+            self.entries["tag"] = tag_combo
+        else:
+            tag_entry = ttk.Entry(self.top, width=30)
+            tag_entry.insert(0, activity.get("tag", ""))
+            tag_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
+            self.entries["tag"] = tag_entry
         row += 1
         ttk.Button(self.top, text="OK", command=self._ok).grid(
             row=row, column=0, columnspan=2, pady=12)

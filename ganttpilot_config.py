@@ -18,6 +18,7 @@ DEFAULT_CONFIG = {
     "remote_password": "",
     "compress_threshold": 300,
     "max_chart_width": 4000,
+    "pull_interval": 5,
 }
 
 

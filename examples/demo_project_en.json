@@ -5,6 +5,7 @@
   "remote_url": "",
   "remote_username": "",
   "remote_password": "",
+  "tags": ["frontend", "backend", "testing", "ops", "design"],
   "requirements": [
     {
       "id": "req00001",

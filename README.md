@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.11.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.13.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -21,7 +21,7 @@
 
 GanttPilot is a collaborative project manager that visualizes project status with Gantt charts. Each project is an independent Git repository, enabling multi-user collaboration through Git sync. Manage projects, milestones, plans, and activities — all from a clean right-click menu interface.
 
-Version: 0.11.0
+Version: 0.13.0
 
 ### 🚀 Quick Start
 
@@ -66,7 +66,10 @@ python main.py --version
 - ⧉ **Duplicate Node** - Clone any node (project, requirement, task, milestone, plan, activity) with all children via toolbar or right-click
 - 📋 **Copy & Paste** - Copy nodes to clipboard and paste across projects/milestones/requirements (Ctrl+C / Ctrl+V)
 - 🔗 **Per-project Git Repos** - Independent repos with configurable remote, private branch per user, PR workflow
-- 🔄 **Manual Sync** - Push to remote only via manual sync (right-click / Ctrl+S); startup auto-fetches remote updates without pushing
+- 🔄 **Manual Sync** - Push to remote only via manual push (right-click / Ctrl+S); startup auto-fetches remote updates without pushing
+- 🔽 **Pull from Remote** - Dedicated pull menu to fetch latest data from remote without pushing
+- 🔄 **Background Update Check** - Periodically fetches remote and shows banner when main branch has updates (configurable interval, default 5 min)
+- 🏷️ **Project Tags** - Define project-level tags; activity tag selection is restricted to project-defined tags
 - ⏪ **Reset to Commit** - Right-click any commit in History tab to reset branch to that point (git reset --hard)
 - ↩️ **Revert Commit** - Right-click any commit in History tab to create an inverse commit (git revert)
 - ↩️ **Undo/Redo** - Ctrl+Z / Ctrl+Y
@@ -104,8 +107,8 @@ All operations via toolbar buttons and right-click context menus:
 
 | Node / Area | Toolbar | Right-click |
 | --- | --- | --- |
-| Empty area | — | Add project, Load example, Sync, Refresh |
-| Project | Edit, Copy, Duplicate | Edit, Git config, Copy, Duplicate, Report, Sync, Refresh, Delete |
+| Empty area | — | Add project, Load example, Push, Pull, Refresh |
+| Project | Edit, Copy, Duplicate | Edit, Git config, Copy, Duplicate, Report, Push, Pull, Refresh, Delete |
 | Requirement Analysis | Add (requirement), Paste | Add requirement, Paste |
 | Requirement | Add (task), Edit, Delete, Copy, Paste, Duplicate, Move Up/Down | Add task, Edit, Copy, Paste, Duplicate, Delete |
 | Task | Edit, Delete, Copy, Duplicate, Move Up/Down | Edit, Copy, Duplicate, Delete |
@@ -117,7 +120,7 @@ All operations via toolbar buttons and right-click context menus:
 ### 📐 Data Structure
 
 ```
-Project (independent Git repo, with description)
+Project (independent Git repo, with description, tags)
   ├── Requirement Analysis
   │     └── Requirement (category, subject, description)
   │           └── Task (subject, effort_days, description)
@@ -130,7 +133,7 @@ Project (independent Git repo, with description)
 - `linked_task_id`: References a task ID from requirements, linking plan to requirement tracking
 - `time_slots`: Start/end time slot list, format `HHMM/HHMM` comma-separated (e.g. `0900/1200,1430/1500`)
 - `hours`: Auto-calculated from `time_slots` when provided; or entered directly as a number when `time_slots` is empty. The two input modes are mutually exclusive
-- `tag`: Single string tag for activity classification, default empty
+- `tag`: Single string tag for activity classification, selected from project-defined tags
 
 ### � Creating a Project
 
@@ -165,7 +168,9 @@ Leave the "Remote URL" field empty to create a purely local project.
 - Changes are merged to main via Pull Request on the remote platform
 - Project-level committer identity (name + email), auto-detected from git config
 - Automatic background fetch on startup (all projects, pull-only, no push)
-- Manual sync (push): right-click project → Sync, or Ctrl+S
+- Periodic background update check (configurable interval, default 5 minutes)
+- Manual push: right-click project → Push, or Ctrl+S
+- Manual pull: right-click project → Pull
 - History tab: right-click a commit to "Reset to Here" (hard reset) or "Revert This Commit" (inverse commit)
 
 ### 📄 License
@@ -180,7 +185,7 @@ GPL-3.0
 
 GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作为独立 Git 仓库，通过 Git 同步实现多人协作。
 
-版本：0.11.0
+版本：0.13.0
 
 ### 🚀 快速开始
 
@@ -223,7 +228,10 @@ python main.py --version
 - ⧉ **节点克隆** - 通过工具栏或右键菜单克隆任意节点（项目、需求、任务、里程碑、计划、活动）及其所有子节点
 - 📋 **复制粘贴** - 复制节点到剪贴板，支持跨项目/跨里程碑/跨需求粘贴（Ctrl+C / Ctrl+V）
 - 🔗 **项目级独立 Git 仓库** - 可配置远端，每用户私有分支，PR 工作流
-- 🔄 **手动同步** - 推送仅通过手动同步（右键菜单/Ctrl+S）触发；启动时自动拉取远端更新但不推送
+- 🔄 **手动推送** - 推送仅通过手动操作（右键菜单/Ctrl+S）触发；启动时自动拉取远端更新但不推送
+- 🔽 **拉取远端** - 独立的拉取菜单，从远端获取最新数据而不推送
+- 🔄 **后台自动检测更新** - 定期后台 fetch 远端并在主线有更新时显示提示横幅（可配置间隔，默认 5 分钟）
+- 🏷️ **项目标签管理** - 项目级定义标签列表，活动标签只能从项目标签中选择
 - ⏪ **回退到此处** - 在历史记录标签页右键提交记录，回退分支到该提交（git reset --hard）
 - ↩️ **撤销此提交** - 在历史记录标签页右键提交记录，生成反向提交撤销该操作（git revert）
 - ↩️ **撤销/恢复** - Ctrl+Z / Ctrl+Y
@@ -261,8 +269,8 @@ python main.py --version
 
 | 节点 / 区域 | 工具栏 | 右键菜单 |
 | --- | --- | --- |
-| 空白处 | — | 添加项目、加载示例、同步、刷新 |
-| 项目 | 编辑、复制、克隆 | 编辑项目、Git 配置、复制、克隆、生成报告、同步、刷新、删除 |
+| 空白处 | — | 添加项目、加载示例、推送、拉取、刷新 |
+| 项目 | 编辑、复制、克隆 | 编辑项目、Git 配置、复制、克隆、生成报告、推送、拉取、刷新、删除 |
 | 需求分析 | 添加（需求）、粘贴 | 添加需求、粘贴 |
 | 需求 | 添加（任务）、编辑、删除、复制、粘贴、克隆、上移/下移 | 添加任务、编辑、复制、粘贴、克隆、删除 |
 | 任务 | 编辑、删除、复制、克隆、上移/下移 | 编辑、复制、克隆、删除 |
@@ -274,7 +282,7 @@ python main.py --version
 ### 📐 数据结构
 
 ```
-项目 (独立 Git 仓库，含描述)
+项目 (独立 Git 仓库，含描述、标签)
   ├── 需求分析
   │     └── 需求 (类别、主题、描述)
   │           └── 任务 (主题、工作量/人日、描述)
@@ -287,7 +295,7 @@ python main.py --version
 - `linked_task_id`：引用需求中的任务 ID，将计划与需求跟踪链条关联
 - `time_slots`：起止时间段列表，格式 `HHMM/HHMM` 逗号分隔（如 `0900/1200,1430/1500`）
 - `hours`：填写 `time_slots` 时自动计算；也可直接输入小时数（两种方式二选一）
-- `tag`：单个字符串标签，用于活动分类，默认为空
+- `tag`：单个字符串标签，用于活动分类，从项目定义的标签中选择
 
 ### � 创建项目
 
@@ -322,7 +330,9 @@ python main.py --version
 - 通过远端平台的 Pull Request 合并到主分支
 - 项目级提交者身份（名称 + 邮箱），可自动检测 git 配置
 - 启动时自动后台 fetch（仅拉取远端更新，不推送）
-- 手动同步（推送）：项目右键 → 同步，或 Ctrl+S
+- 定期后台检测远端更新（可配置间隔，默认 5 分钟）
+- 手动推送：项目右键 → 推送，或 Ctrl+S
+- 手动拉取：项目右键 → 拉取
 - 历史记录标签页：右键提交记录可"回退到此处"（hard reset）或"撤销此提交"（反向提交）
 
 ### 📄 许可证

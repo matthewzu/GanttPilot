@@ -232,7 +232,7 @@ class CLI:
                 if extra.startswith("skip_weekends="):
                     skip_weekends = extra.split("=")[1] in ("1", "true", "yes")
                 elif extra.startswith("skip_dates="):
-                    skip_dates = extra.split("=")[1].split(",")
+                    skip_dates = extra.split("=")[1].replace("\uff0c", ",").split(",")
             result = self.store.add_plan(proj, ms, content, executor, start, end, skip_weekends, skip_dates)
             if result:
                 print(self._t("plan_added", content) + f" [ID: {result['id']}]")

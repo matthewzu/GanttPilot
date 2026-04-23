@@ -67,6 +67,9 @@ def parse_time_slots(time_slots_str):
     if not time_slots_str or not time_slots_str.strip():
         return []
 
+    # Support Chinese comma as separator
+    time_slots_str = time_slots_str.replace("\uff0c", ",")
+
     slots = []
     for part in time_slots_str.split(","):
         part = part.strip()
@@ -220,7 +223,7 @@ class DataStore:
                 return p
         return None
 
-    def add_project(self, name, remote_url="", remote_username="", remote_password="", description=""):
+    def add_project(self, name, remote_url="", remote_username="", remote_password="", description="", tags=None):
         if self.get_project(name):
             return None
         proj = {
@@ -230,6 +233,7 @@ class DataStore:
             "remote_url": remote_url,
             "remote_username": remote_username,
             "remote_password": remote_password,
+            "tags": tags or [],
             "requirements": [],
             "milestones": [],
         }
