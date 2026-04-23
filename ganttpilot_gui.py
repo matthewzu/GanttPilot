@@ -924,9 +924,14 @@ class GanttPilotGUI:
         self.refresh_project_list()
         self.refresh_branch_selector()
         self.check_remote_updates()
-        self.refresh_gantt()
-        self.refresh_time_report()
-        self.refresh_history()
+        # Re-apply the selected branch view (handles both current and non-current branches)
+        selected = self.branch_selector.get()
+        if selected and self.current_project:
+            self.on_branch_changed()
+        else:
+            self.refresh_gantt()
+            self.refresh_time_report()
+            self.refresh_history()
 
     def refresh_gantt(self):
         if not self.current_project:
@@ -1167,11 +1172,7 @@ class GanttPilotGUI:
             gs.manual_rebase()
             # Success — hide banner, refresh views
             self.update_banner.pack_forget()
-            self.store.load()
-            self.refresh_project_list()
-            self.refresh_gantt()
-            self.refresh_time_report()
-            self.refresh_history()
+            self._full_refresh()
             self.status_var.set(self._t("rebase_success"))
         except RuntimeError:
             messagebox.showerror(self._t("error"), self._t("rebase_conflict"))
@@ -1204,7 +1205,16 @@ class GanttPilotGUI:
                 return
 
             # Different branch — read project.json from that branch
-            content = gs.read_file_from_branch(selected, "project.json")
+            # For local branches, prefer origin/ version if available (local main
+            # is rarely updated directly; origin/main is fetched and up-to-date).
+            read_branch = selected
+            if not selected.startswith("origin/"):
+                remote_ref = f"origin/{selected}"
+                remote_content = gs.read_file_from_branch(remote_ref, "project.json")
+                if remote_content is not None:
+                    read_branch = remote_ref
+
+            content = gs.read_file_from_branch(read_branch, "project.json")
             if content is None:
                 self.status_var.set(f"Cannot load project.json from branch: {selected}")
                 return
@@ -2351,11 +2361,7 @@ class GanttPilotGUI:
                 gs = self._get_project_git(proj)
             gs.init_repo()
             gs.sync()
-            self.store.load()
-            self.refresh_project_list()
-            self.refresh_gantt()
-            self.refresh_time_report()
-            self.check_remote_updates()
+            self._full_refresh()
             # Show PR hint in status bar
             priv = proj.get("priv_branch") or f"priv_{proj['committer_name']}"
             main = proj.get("remote_branch", "main")
