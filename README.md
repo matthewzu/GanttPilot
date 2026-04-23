@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.10.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.11.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -21,7 +21,7 @@
 
 GanttPilot is a collaborative project manager that visualizes project status with Gantt charts. Each project is an independent Git repository, enabling multi-user collaboration through Git sync. Manage projects, milestones, plans, and activities — all from a clean right-click menu interface.
 
-Version: 0.10.0
+Version: 0.11.0
 
 ### 🚀 Quick Start
 
@@ -66,7 +66,9 @@ python main.py --version
 - ⧉ **Duplicate Node** - Clone any node (project, requirement, task, milestone, plan, activity) with all children via toolbar or right-click
 - 📋 **Copy & Paste** - Copy nodes to clipboard and paste across projects/milestones/requirements (Ctrl+C / Ctrl+V)
 - 🔗 **Per-project Git Repos** - Independent repos with configurable remote, private branch per user, PR workflow
-- 🔄 **Smart Sync** - Background sync on startup/switch/exit
+- 🔄 **Manual Sync** - Push to remote only via manual sync (right-click / Ctrl+S); startup auto-fetches remote updates without pushing
+- ⏪ **Reset to Commit** - Right-click any commit in History tab to reset branch to that point (git reset --hard)
+- ↩️ **Revert Commit** - Right-click any commit in History tab to create an inverse commit (git revert)
 - ↩️ **Undo/Redo** - Ctrl+Z / Ctrl+Y
 - 📝 **Rich Reports** - Markdown with milestone completion rates, plan progress details, executor activity logs
 - 🖥️ **GUI + CLI** - Single executable, both modes
@@ -150,7 +152,7 @@ Leave the "Remote URL" field empty to create a purely local project.
 - Only "Project Name" is required
 - Data is stored locally at `~/.ganttpilot/data/{project_name}/`
 - You can configure a remote repository later via right-click → Git Config on the project
-- Once a remote is configured, the project will sync automatically on project switch and program exit
+- Once a remote is configured, use manual sync (right-click → Sync) to push changes
 
 ### 🔗 Git Sync
 
@@ -162,8 +164,9 @@ Leave the "Remote URL" field empty to create a purely local project.
 - Manual rebase: banner prompts when main has updates, click "Sync Main" to rebase
 - Changes are merged to main via Pull Request on the remote platform
 - Project-level committer identity (name + email), auto-detected from git config
-- Automatic background sync: on startup (all projects), on project switch (previous project), on exit (current project)
-- Manual sync: right-click project → Sync
+- Automatic background fetch on startup (all projects, pull-only, no push)
+- Manual sync (push): right-click project → Sync, or Ctrl+S
+- History tab: right-click a commit to "Reset to Here" (hard reset) or "Revert This Commit" (inverse commit)
 
 ### 📄 License
 
@@ -177,7 +180,7 @@ GPL-3.0
 
 GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作为独立 Git 仓库，通过 Git 同步实现多人协作。
 
-版本：0.10.0
+版本：0.11.0
 
 ### 🚀 快速开始
 
@@ -220,7 +223,9 @@ python main.py --version
 - ⧉ **节点克隆** - 通过工具栏或右键菜单克隆任意节点（项目、需求、任务、里程碑、计划、活动）及其所有子节点
 - 📋 **复制粘贴** - 复制节点到剪贴板，支持跨项目/跨里程碑/跨需求粘贴（Ctrl+C / Ctrl+V）
 - 🔗 **项目级独立 Git 仓库** - 可配置远端，每用户私有分支，PR 工作流
-- 🔄 **智能同步** - 启动/切换/退出时后台同步
+- 🔄 **手动同步** - 推送仅通过手动同步（右键菜单/Ctrl+S）触发；启动时自动拉取远端更新但不推送
+- ⏪ **回退到此处** - 在历史记录标签页右键提交记录，回退分支到该提交（git reset --hard）
+- ↩️ **撤销此提交** - 在历史记录标签页右键提交记录，生成反向提交撤销该操作（git revert）
 - ↩️ **撤销/恢复** - Ctrl+Z / Ctrl+Y
 - 📝 **丰富报告** - 里程碑完成率、计划进度详情、执行者工时明细
 - 🖥️ **GUI + CLI 双模式**
@@ -304,7 +309,7 @@ python main.py --version
 - 仅"项目名称"为必填项
 - 数据存储在 `~/.ganttpilot/data/{项目名}/`
 - 后续可通过项目右键菜单 → Git 配置 来添加远端仓库
-- 配置远端后，切换项目和退出程序时会自动后台同步
+- 配置远端后，通过手动同步（右键 → 同步）推送更改
 
 ### 🔗 Git 同步
 
@@ -316,8 +321,9 @@ python main.py --version
 - 手动 rebase：主线有更新时显示提示横幅，点击"同步主线"按钮执行 rebase
 - 通过远端平台的 Pull Request 合并到主分支
 - 项目级提交者身份（名称 + 邮箱），可自动检测 git 配置
-- 自动后台同步：启动时（所有项目）、切换项目时（上一个项目）、退出时（当前项目）
-- 手动同步：项目右键 → 同步
+- 启动时自动后台 fetch（仅拉取远端更新，不推送）
+- 手动同步（推送）：项目右键 → 同步，或 Ctrl+S
+- 历史记录标签页：右键提交记录可"回退到此处"（hard reset）或"撤销此提交"（反向提交）
 
 ### 📄 许可证
 

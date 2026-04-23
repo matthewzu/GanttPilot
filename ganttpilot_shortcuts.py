@@ -6,6 +6,8 @@ Centralized management of keyboard shortcuts: registration, lookup,
 conflict detection, and persistence via Config.
 """
 
+from __future__ import annotations
+
 import re
 import tkinter as tk
 from tkinter import ttk

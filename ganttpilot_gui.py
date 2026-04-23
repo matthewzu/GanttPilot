@@ -275,7 +275,7 @@ class GanttPilotGUI:
         self._show_tooltip(self.tb_up_btn, self._tooltip_with_shortcut(self._t("move_up"), "move_up"))
         self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
 
-        # Start background sync for all projects with remote_url
+        # Start background fetch for all projects with remote_url
         threading.Thread(target=self._startup_sync, daemon=True).start()
         UpdateChecker(VERSION, self.lang, self._show_update_notification).check()
 
@@ -322,16 +322,16 @@ class GanttPilotGUI:
             pass
 
     def _startup_sync(self):
-        """Sync all projects that have remote_url configured."""
+        """Fetch remote updates for all projects (pull-only, no push)."""
         try:
             for proj in self.store.list_projects():
                 if proj.get("remote_url"):
                     try:
                         gs = self._get_project_git(proj)
                         if not gs.is_repo():
-                            continue  # Skip startup sync if repo was deleted
+                            continue
                         gs.init_repo()
-                        gs.sync()
+                        gs.fetch_remote()
                     except Exception:
                         pass
             self.store.load()
@@ -622,6 +622,7 @@ class GanttPilotGUI:
         hy.pack(side=tk.RIGHT, fill=tk.Y)
         self.history_tree.pack(fill=tk.BOTH, expand=True)
         self.history_tree.bind("<<TreeviewSelect>>", self.on_history_select)
+        self.history_tree.bind("<Button-3>", self.on_history_right_click)
 
         # Diff detail area (bottom pane of history PanedWindow)
         history_bottom = ttk.Frame(history_paned)
@@ -874,10 +875,6 @@ class GanttPilotGUI:
         self._update_toolbar_state(kind, sel[0])
         proj_name = values[1] if len(values) >= 2 else None
         if proj_name and proj_name != self.current_project:
-            # Background sync the previous project before switching
-            prev = self.current_project
-            if prev:
-                self._bg_sync_project(prev)
             self.current_project = proj_name
             self.refresh_branch_selector()
             self.check_remote_updates()
@@ -1285,6 +1282,65 @@ class GanttPilotGUI:
         self.history_diff_text.delete("1.0", tk.END)
         self.history_diff_text.insert("1.0", diff_text)
         self.history_diff_text.configure(state=tk.DISABLED)
+
+    def on_history_right_click(self, event):
+        """Show context menu on history tree right-click."""
+        item = self.history_tree.identify_row(event.y)
+        if not item or not self.current_project:
+            return
+        self.history_tree.selection_set(item)
+        tags = self.history_tree.item(item, "tags")
+        commit_hash = tags[0] if tags else ""
+        if not commit_hash:
+            return
+        message = self.history_tree.item(item, "values")[2] if self.history_tree.item(item, "values") else ""
+
+        menu = tk.Menu(self.root, tearoff=0)
+        menu.add_command(
+            label=self._t("revert_commit"),
+            command=lambda: self._do_revert_commit(commit_hash, message))
+        menu.add_command(
+            label=self._t("reset_to_here"),
+            command=lambda: self._do_reset_to_commit(commit_hash, message))
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def _do_reset_to_commit(self, commit_hash, message):
+        """Reset current branch to the selected commit."""
+        if not messagebox.askyesno(self._t("warning"), self._t("confirm_reset", message)):
+            return
+        proj = self.store.get_project(self.current_project)
+        if not proj:
+            return
+        try:
+            gs = self._get_project_git(proj)
+            gs.reset_to_commit(commit_hash)
+            self.store.load()
+            self.refresh_project_list()
+            self.refresh_gantt()
+            self.refresh_time_report()
+            self.refresh_history()
+            self.status_var.set(self._t("reset_done", commit_hash[:7]))
+        except Exception as e:
+            messagebox.showerror(self._t("error"), self._t("reset_failed", str(e)))
+
+    def _do_revert_commit(self, commit_hash, message):
+        """Revert a specific commit (create inverse commit)."""
+        if not messagebox.askyesno(self._t("warning"), self._t("confirm_revert", message)):
+            return
+        proj = self.store.get_project(self.current_project)
+        if not proj:
+            return
+        try:
+            gs = self._get_project_git(proj)
+            gs.revert_commit(commit_hash)
+            self.store.load()
+            self.refresh_project_list()
+            self.refresh_gantt()
+            self.refresh_time_report()
+            self.refresh_history()
+            self.status_var.set(self._t("revert_done", commit_hash[:7]))
+        except Exception as e:
+            messagebox.showerror(self._t("error"), self._t("revert_failed", str(e)))
 
     # ── CRUD via context menu ────────────────────────────────
     def add_project(self):
@@ -2310,9 +2366,6 @@ class GanttPilotGUI:
             except Exception:
                 pass
         self.config.save()
-        # Background sync current project (non-blocking)
-        if self.current_project:
-            self._bg_sync_project(self.current_project)
         self.root.destroy()
 
     def _bg_sync_project(self, proj_name):

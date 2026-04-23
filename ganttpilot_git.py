@@ -235,6 +235,18 @@ class GitSync:
         self._run("push", "-u", "origin", wb)
         return True
 
+    def fetch_remote(self):
+        """Fetch from remote without pushing (pull-only sync).
+
+        Returns:
+            bool: True if fetch succeeded
+        """
+        if not self.remote_url or not self.is_repo():
+            return False
+        self._ensure_remote()
+        self._run("fetch", "origin", check=False)
+        return True
+
     def get_log(self, branch=None, max_count=50):
         """获取指定分支的 git log 记录列表。
 
@@ -412,6 +424,35 @@ class GitSync:
         if result.returncode != 0:
             self._run("rebase", "--abort", check=False)
             raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Rebase conflict, aborted")
+
+
+    def reset_to_commit(self, commit_hash):
+        """Reset current branch (hard) to the specified commit.
+
+        Args:
+            commit_hash: target commit hash
+
+        Raises:
+            RuntimeError: if reset fails
+        """
+        self._run("reset", "--hard", commit_hash)
+
+    def revert_commit(self, commit_hash):
+        """Revert a specific commit by creating a new inverse commit.
+
+        Args:
+            commit_hash: commit hash to revert
+
+        Raises:
+            RuntimeError: if revert fails (e.g. conflict)
+        """
+        result = self._run("revert", "--no-edit", commit_hash, check=False,
+                           extra_config=self._committer_config())
+        if result.returncode != 0:
+            # Abort on conflict
+            self._run("revert", "--abort", check=False)
+            raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Revert conflict")
+
 
 
 
