@@ -299,6 +299,20 @@ class GanttPilotGUI:
             self.root.after_cancel(self._focus_restore_id)
         self._focus_restore_id = self.root.after(50, self._restore_dialog_focus)
 
+    def _has_active_dialog(self):
+        """Return True if a modal dialog is already open (prevents duplicates)."""
+        dlg = self._active_dialog
+        if dlg is not None:
+            try:
+                if dlg.winfo_exists():
+                    dlg.lift()
+                    dlg.focus_force()
+                    return True
+            except Exception:
+                pass
+            self._active_dialog = None
+        return False
+
     def _restore_dialog_focus(self):
         """Bring active modal dialog to front if it still exists."""
         self._focus_restore_id = None
@@ -306,8 +320,13 @@ class GanttPilotGUI:
         if dlg is not None:
             try:
                 if dlg.winfo_exists():
+                    dlg.deiconify()
                     dlg.lift()
-                    dlg.focus_set()
+                    dlg.focus_force()
+                    try:
+                        dlg.grab_set()
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
@@ -1402,6 +1421,8 @@ class GanttPilotGUI:
 
     # ── CRUD via context menu ────────────────────────────────
     def add_project(self):
+        if self._has_active_dialog():
+            return
         dlg = ProjectCreateDialog(self.root, self._t, self.lang)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
@@ -1485,6 +1506,8 @@ class GanttPilotGUI:
         proj = self._get_selected_project()
         if not proj:
             return
+        if self._has_active_dialog():
+            return
         dlg = MilestoneCreateDialog(self.root, self._t, self.lang)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
@@ -1506,6 +1529,8 @@ class GanttPilotGUI:
     def add_plan(self):
         proj, ms = self._get_selected_project_milestone()
         if not proj or not ms:
+            return
+        if self._has_active_dialog():
             return
         dlg = PlanDialog(self.root, self._t, self.lang, project_name=proj, store=self.store)
         self._active_dialog = dlg.top
@@ -1532,6 +1557,8 @@ class GanttPilotGUI:
         # Get project tags for tag selection
         proj_data = self.store.get_project(proj)
         project_tags = proj_data.get("tags", []) if proj_data else []
+        if self._has_active_dialog():
+            return
         dlg = ActivityDialog(self.root, self._t, self.lang, project_tags=project_tags)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
@@ -1617,6 +1644,8 @@ class GanttPilotGUI:
         proj, ms, plan_id = self._get_selected_plan()
         if not plan_id:
             return
+        if self._has_active_dialog():
+            return
         dlg = ProgressDialog(self.root, self._t, self.lang)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
@@ -1669,6 +1698,8 @@ class GanttPilotGUI:
         ms = self.store._find_milestone(proj, ms_name)
         if not ms:
             return
+        if self._has_active_dialog():
+            return
         dlg = MilestoneEditDialog(self.root, self._t, self.lang, ms)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
@@ -1692,6 +1723,8 @@ class GanttPilotGUI:
             return
         proj = self.store.get_project(proj_name)
         if not proj:
+            return
+        if self._has_active_dialog():
             return
         dlg = ProjectEditDialog(self.root, self._t, self.lang, proj)
         self._active_dialog = dlg.top
@@ -1738,6 +1771,8 @@ class GanttPilotGUI:
         # Get project tags for tag selection
         proj_data = self.store.get_project(proj_name)
         project_tags = proj_data.get("tags", []) if proj_data else []
+        if self._has_active_dialog():
+            return
         dlg = ActivityEditDialog(self.root, self._t, self.lang, activity, project_tags=project_tags)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
@@ -1759,6 +1794,8 @@ class GanttPilotGUI:
             return
         proj = self.store.get_project(proj_name)
         if not proj:
+            return
+        if self._has_active_dialog():
             return
         dlg = ProjectGitConfigDialog(self.root, self._t, self.lang, proj)
         self._active_dialog = dlg.top
@@ -1783,6 +1820,8 @@ class GanttPilotGUI:
             return
         plan = self.store._find_plan(proj, ms, plan_id)
         if not plan:
+            return
+        if self._has_active_dialog():
             return
         dlg = PlanEditDialog(self.root, self._t, self.lang, plan, project_name=proj, store=self.store)
         self._active_dialog = dlg.top
@@ -2158,6 +2197,8 @@ class GanttPilotGUI:
         proj_name = self._get_selected_project()
         if not proj_name:
             return
+        if self._has_active_dialog():
+            return
         dlg = RequirementDialog(self.root, self._t, self.lang)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
@@ -2183,6 +2224,8 @@ class GanttPilotGUI:
         req = self.store.get_requirement(proj_name, req_id)
         if not req:
             return
+        if self._has_active_dialog():
+            return
         dlg = RequirementEditDialog(self.root, self._t, self.lang, req)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
@@ -2203,6 +2246,8 @@ class GanttPilotGUI:
         if not values or values[0] != "requirement":
             return
         proj_name, req_id = values[1], values[2]
+        if self._has_active_dialog():
+            return
         dlg = TaskDialog(self.root, self._t, self.lang)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
@@ -2234,6 +2279,8 @@ class GanttPilotGUI:
                 task = t
                 break
         if not task:
+            return
+        if self._has_active_dialog():
             return
         dlg = TaskEditDialog(self.root, self._t, self.lang, task)
         self._active_dialog = dlg.top
@@ -2312,6 +2359,8 @@ class GanttPilotGUI:
             self.refresh_gantt()
 
     def open_config_dialog(self):
+        if self._has_active_dialog():
+            return
         dlg = ConfigDialog(self.root, self.config, self._t, self.lang,
                            shortcut_manager=self.shortcut_manager)
         self._active_dialog = dlg.top
