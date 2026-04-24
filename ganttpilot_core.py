@@ -648,6 +648,18 @@ class DataStore:
             return True
         return False
 
+
+    def move_activity(self, project_name, ms_name, plan_id, activity_id, direction):
+        """Move an activity up or down within its plan's activities list."""
+        plan = self._find_plan(project_name, ms_name, plan_id)
+        if not plan:
+            return False
+        if self._swap_in_list(plan.get("activities", []), "id", activity_id, direction):
+            self.save()
+            return True
+        return False
+
+
     # ── Query helpers ────────────────────────────────────────
     def get_all_tasks_for_project(self, project_name):
         """Return [(req_dict, task_dict)] for all requirements and their tasks in the project."""

@@ -151,7 +151,8 @@ class GitSync:
             if not self._run("log", "--oneline", "-1", check=False).stdout.strip():
                 # No commits — create initial
                 self._run("add", "-A", check=False)
-                self._run("commit", "--allow-empty", "-m", "Initial commit")
+                self._run("commit", "--allow-empty", "-m", "Initial commit",
+                         extra_config=self._committer_config())
             try:
                 self._run("checkout", "-b", self.priv_branch)
             except RuntimeError:

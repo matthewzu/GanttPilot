@@ -39,7 +39,7 @@ TOOLBAR_STATE = {
     "plan_execution":      {"add": True,  "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "paste": True},
     "milestone":           {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": True},
     "plan":                {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": True},
-    "activity":            {"add": False, "edit": True,  "delete": True,  "up": False, "down": False, "dup": True,  "copy": True,  "paste": False},
+    "activity":            {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": False},
 }
 
 
@@ -487,6 +487,8 @@ class GanttPilotGUI:
         try:
             gs = self._get_project_git(proj)
             gs.commit(message)
+            self.refresh_history()
+            self.refresh_branch_selector()
         except Exception:
             pass
 
@@ -555,6 +557,16 @@ class GanttPilotGUI:
         sb.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
         self.tree.bind("<Button-3>", self.on_tree_right_click)
+        # Bind Alt+Up/Down directly on tree to ensure move shortcuts work
+        # (Treeview default bindings can interfere with root-level shortcuts)
+        def _tree_move_up(event):
+            self.toolbar_move_up()
+            return "break"
+        def _tree_move_down(event):
+            self.toolbar_move_down()
+            return "break"
+        self.tree.bind("<Alt-Up>", _tree_move_up)
+        self.tree.bind("<Alt-Down>", _tree_move_down)
 
         # Right: branch selector + notebook (gantt + history) + report
         right_frame = ttk.Frame(self.paned)
@@ -1637,6 +1649,9 @@ class GanttPilotGUI:
             self.store.delete_project(proj_data["name"])
         self.store.data["projects"].append(proj_data)
         self.store.save()
+        proj_name = proj_data.get("name", "")
+        self.current_project = proj_name
+        self._commit(f"Load example: {proj_name}")
         self.refresh_project_list()
         self.refresh_gantt()
         self.status_var.set(self._t("example_loaded"))
@@ -1954,6 +1969,8 @@ class GanttPilotGUI:
             moved = self.store.move_milestone(values[1], values[2], "up")
         elif kind == "plan":
             moved = self.store.move_plan(values[1], values[2], values[3], "up")
+        elif kind == "activity":
+            moved = self.store.move_activity(values[1], values[2], values[3], values[4], "up")
         if moved:
             self._commit(f"Move up: {kind}")
             self.refresh_project_list()
@@ -1982,6 +1999,8 @@ class GanttPilotGUI:
             moved = self.store.move_milestone(values[1], values[2], "down")
         elif kind == "plan":
             moved = self.store.move_plan(values[1], values[2], values[3], "down")
+        elif kind == "activity":
+            moved = self.store.move_activity(values[1], values[2], values[3], values[4], "down")
         if moved:
             self._commit(f"Move down: {kind}")
             self.refresh_project_list()
