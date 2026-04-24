@@ -5,6 +5,8 @@
   "remote_url": "",
   "remote_username": "",
   "remote_password": "",
+  "committer_name": "GanttPilot",
+  "committer_email": "demo@ganttpilot.app",
   "tags": ["frontend", "backend", "testing", "ops", "design"],
   "requirements": [
     {
