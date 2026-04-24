@@ -19,80 +19,49 @@ jobs:
         body: |
           ## GanttPilot ${{ github.ref_name }}
 
-          Collaborative Project Manager with Gantt Chart / 基于甘特图的协作式项目管理器
+          基于甘特图的协作式项目管理器 / Collaborative Project Manager with Gantt Chart
 
-          ### 📥 Download / 下载
-          - **Windows**: `GanttPilot.exe` — Double-click to run / 双击运行
-          - **macOS**: `GanttPilot.dmg` — Open DMG to run / 打开 DMG 运行
-          - **Linux**: `GanttPilot` — `chmod +x GanttPilot && ./GanttPilot`
+          ### 📥 下载 / Download
 
-          💡 Supports both GUI and CLI modes / 支持 GUI 和 CLI 双模式:
-          - GUI (default): `GanttPilot`
-          - CLI: `GanttPilot --cli`
+          | 平台 / Platform | 文件 / File | 使用方式 / Usage |
+          | --- | --- | --- |
+          | Windows | `GanttPilot.exe` | 双击运行 / Double-click to run |
+          | macOS | `GanttPilot.dmg` | 打开 DMG 运行 / Open DMG |
+          | Linux | `GanttPilot` | `chmod +x GanttPilot && ./GanttPilot` |
 
-          ### ✨ All Features / 全部功能
-          - 📊 Native Gantt chart with progress bars / 原生甘特图，含进度条
-          - 📌 Milestone deadlines with diamond markers / 里程碑截止日期（菱形标记）
-          - 📈 Plan progress tracking (0-100%) / 计划进度追踪
-          - 🎨 Per-executor auto-coloring / 每个执行者自动分配颜色
-          - 📁 Project CRUD with description / 项目增删改含描述
-          - ⏱ Planned hours for plans / 计划工时
-          - 🚫 Skip date visualization on Gantt bars / 跳过日期甘特图可视化
-          - ➖ `-YYYYMMDD` to add weekends as workdays / 减号前缀让周末变工作日
-          - 📦 Clone projects from remote repos / 从远端仓库克隆项目
-          - 🔗 Per-project Git repos with private branch + PR workflow / 项目级 Git 仓库 + 私有分支 + PR 工作流
-          - 👤 Project-level committer identity / 项目级提交者身份
-          - 🔄 Smart background sync / 智能后台同步
-          - ↩️ Undo/Redo (Ctrl+Z/Y) / 撤销恢复
-          - 📝 Rich reports with completion rates / 丰富报告含完成率
-          - 🖥️ GUI + CLI dual mode / GUI + CLI 双模式
-          - 🌏 Bilingual (EN/ZH) / 中英文双语
-          - 🔤 Font scaling + Gantt zoom / 字体缩放 + 甘特图缩放
-          - 🔄 Auto update from GitHub / 在线自动更新
-          - 🖼️ PNG report with local Gantt rendering / 本地渲染 PNG 甘特图报告
-          - 📐 Auto-compress for long projects / 长项目自动压缩
-          - 💾 Config with folder browser + report image settings / 配置含文件夹浏览 + 报告图片参数
-          - 📂 Built-in demo project / 内置示例项目
+          CLI 模式 / CLI mode: `GanttPilot --cli`
 
-          ### 🆕 New in v0.6.0 / v0.6.0 新功能
-          - 🔀 Push to private branch instead of main / 推送到私有分支而非主分支
-          - 👤 Project-level committer identity (name + email) / 项目级提交者身份
-          - 🔍 Auto-detect git user config / 自动检测 git 用户配置
-          - 📋 PR hint after sync / 同步后提示创建 Pull Request
-          - 🔒 Git install + committer check before sync / 同步前检测 git 和提交者
+          ### 🏗️ 核心能力 / Core Capabilities
 
-          ### From v0.5.x / v0.5.x 功能
-          - 🖼️ DrawBackend abstraction: PNG report with local rendering / DrawBackend 抽象层：本地渲染 PNG 报告
-          - 📐 Auto-compress long project Gantt images / 长项目甘特图自动压缩
-          - ⚙️ Report image compress settings in config / 配置中报告图片压缩参数
-          - 🔴 Red hatch overlay for skipped dates / 跳过日期红色斜线标注
-          - 📊 Download progress display for updates / 更新下载进度显示
+          **项目管理 / Project Management**
+          - 需求分析 → 任务拆解 → 里程碑规划 → 计划执行 → 活动记录，覆盖项目全生命周期
+          - Full lifecycle: Requirements → Tasks → Milestones → Plans → Activities
 
-          ### From v0.4.0 / v0.4.0 功能
-          - ⏱ Planned hours field for plans / 计划工时字段
-          - 🚫 Skip date visualization on Gantt bars / 甘特图跳过日期可视化
-          - ➖ `-YYYYMMDD` skip dates to add weekends as workdays / 跳过日期支持减号前缀
-          - 📊 Download progress display for updates / 更新下载进度显示
+          **甘特图 / Gantt Chart**
+          - 原生 Canvas 渲染，按执行者着色，进度条，里程碑菱形标记，跳过日期红色斜线
+          - Native rendering, per-executor coloring, progress bars, milestone markers, skip-date hatching
 
-          ### From v0.3.x / v0.3.x 功能
-          - 📈 Plan progress tracking with visual bars / 计划进度追踪（可视化进度条）
-          - 📊 Milestone completion rates in reports / 报告中里程碑完成率
-          - 📦 Clone projects from remote repos / 从远端仓库克隆项目
-          - 📁 Project description field / 项目描述字段
-          - 🖱️ Unified create dialogs / 统一创建对话框
-          - 📂 Load example project / 加载示例项目
-          - 📂 Folder browser in config / 配置中文件夹浏览按钮
-          - 🔇 Hidden console windows for git operations / 隐藏 git 操作控制台窗口
+          **需求跟踪 / Requirement Tracking**
+          - 计划关联任务，形成需求→任务→计划→进度完整跟踪链
+          - Link plans to tasks for full requirement → task → plan → progress traceability
 
-          ### From v0.2.0 / v0.2.0 功能
-          - ↩️ Undo/Redo with Ctrl+Z/Y / 撤销恢复
-          - ✏️ Edit all items via right-click / 右键编辑所有属性
-          - 🔗 Per-project Git repos / 项目级独立 Git 仓库
-          - 📌 Milestone deadlines / 里程碑截止日期
-          - 🔍 Independent Gantt zoom / 甘特图独立缩放
-          - 🔄 Auto-download updates / 自动下载更新
+          **工时管理 / Time Tracking**
+          - 时间段（0900/1200,1400/1700）或直接填写小时数，按项目/里程碑/计划/标签四维统计
+          - Time slots or direct hours, 4 view modes: by project/milestone/plan/tag
 
-          Documentation / 文档: [README.md](https://github.com/${{ github.repository }})
+          **Git 协作 / Git Collaboration**
+          - 每项目独立 Git 仓库，私有分支 + PR 工作流，后台自动检测远端更新
+          - Per-project Git repos, private branches + PR workflow, background update detection
+
+          **报告 / Reports**
+          - Markdown 报告内嵌 PNG 甘特图，含需求分析、进度详情、工时明细
+          - Markdown reports with embedded PNG Gantt chart, requirement analysis, progress details
+
+          **效率工具 / Productivity**
+          - 键盘快捷键（可自定义）、复制/粘贴/克隆、撤销/恢复、中英文双语
+          - Customizable shortcuts, copy/paste/duplicate, undo/redo, bilingual (EN/ZH)
+
+          📖 详细文档 / Documentation: [README.md](https://github.com/${{ github.repository }})
         draft: false
         prerelease: false
 

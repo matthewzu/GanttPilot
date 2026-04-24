@@ -2318,51 +2318,9 @@ class GanttPilotGUI:
             self._bg_check_interval_ms = pull_interval * 60 * 1000
 
     def show_help(self):
-        txt = {
-            "zh": (f"GanttPilot v{VERSION} - 协作式项目管理器\n\n"
-                   "工具栏按钮（根据选中节点自动启用/禁用）：\n"
-                   "• 添加 / 编辑 / 删除 / 上移 / 下移\n\n"
-                   "右键点击树状图进行操作：\n"
-                   "• 空白处右键 → 添加项目 / 加载示例 / 同步 / 刷新\n"
-                   "• 项目右键 → 添加里程碑 / 编辑项目 / Git配置 / 生成报告 / 同步 / 删除\n"
-                   "• 需求分析右键 → 添加需求\n"
-                   "• 需求右键 → 添加任务 / 编辑 / 删除\n"
-                   "• 任务右键 → 编辑 / 删除\n"
-                   "• 计划执行右键 → 添加里程碑\n"
-                   "• 里程碑右键 → 添加计划 / 编辑里程碑 / 设置颜色 / 删除\n"
-                   "• 计划右键 → 添加活动 / 编辑属性 / 设置颜色 / 设置进度 / 终结 / 删除\n"
-                   "• 活动右键 → 编辑活动 / 删除\n\n"
-                   "需求跟踪：\n"
-                   "• 在需求分析节点下创建需求和任务\n"
-                   "• 编辑计划时可关联任务，建立需求→任务→计划跟踪链条\n"
-                   "• 需求跟踪标签页查看完整跟踪关系\n\n"
-                   "快捷键：Ctrl+Z 撤销 / Ctrl+Y 恢复\n"
-                   "甘特图：🔍+/- 独立缩放\n\n"
-                   "跳过日期格式：20260501 (添加节假日), -20260510 (让周末变工作日)\n\n"
-                   f"GitHub: https://github.com/{GITHUB_REPO}"),
-            "en": (f"GanttPilot v{VERSION} - Collaborative Project Manager\n\n"
-                   "Toolbar buttons (auto-enabled based on selected node):\n"
-                   "• Add / Edit / Delete / Move Up / Move Down\n\n"
-                   "Right-click the tree for operations:\n"
-                   "• Empty area → Add project / Load example / Sync / Refresh\n"
-                   "• Project → Add milestone / Edit / Git config / Report / Sync / Delete\n"
-                   "• Requirement Analysis → Add requirement\n"
-                   "• Requirement → Add task / Edit / Delete\n"
-                   "• Task → Edit / Delete\n"
-                   "• Plan Execution → Add milestone\n"
-                   "• Milestone → Add plan / Edit / Color / Delete\n"
-                   "• Plan → Add activity / Edit / Color / Set progress / Finish / Delete\n"
-                   "• Activity → Edit / Delete\n\n"
-                   "Requirement Tracking:\n"
-                   "• Create requirements and tasks under Requirement Analysis\n"
-                   "• Link tasks to plans to build requirement → task → plan tracking chain\n"
-                   "• View full tracking in the Requirement Tracking tab\n\n"
-                   "Shortcuts: Ctrl+Z Undo / Ctrl+Y Redo\n"
-                   "Gantt: 🔍+/- independent zoom\n\n"
-                   "Skip dates: 20260501 (add holiday), -20260510 (make weekend a workday)\n\n"
-                   f"GitHub: https://github.com/{GITHUB_REPO}"),
-        }
-        messagebox.showinfo(self._t("help"), txt.get(self.lang, txt["en"]))
+        help_body = self._t("help_text")
+        footer = f"v{VERSION}  |  GitHub: https://github.com/{GITHUB_REPO}"
+        messagebox.showinfo(self._t("help"), help_body + footer)
 
     def do_sync(self):
         if not self.current_project:

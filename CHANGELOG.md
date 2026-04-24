@@ -1,5 +1,18 @@
 # 更新日志 / Changelog
 
+## [1.0.0] - 2026-04-24
+
+### 🎉 v1.0 正式发布 / v1.0 Official Release
+
+GanttPilot 正式发布 1.0 版本，标志着功能体系趋于完整和稳定。
+
+GanttPilot reaches v1.0, marking a complete and stable feature set.
+
+### 改进 / Improved
+- 📖 **README 重构** - 从功能列表重组为面向用户的使用指南，按工作流程组织，中英文双语
+- 💡 **GUI 帮助重写** - 帮助对话框从简单菜单罗列改为结构化快速参考，涵盖快速上手、界面指南、工时记录、Git 协作等
+- 🏷️ **Release 页面优化** - GitHub Release 说明从功能堆砌改为简洁的分类概览
+
 ## [0.13.0] - 2026-04-23
 
 ### 新增 / Added

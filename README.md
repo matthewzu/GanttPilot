@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-0.13.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -17,17 +17,17 @@
 
 ## English
 
-### 📖 Introduction
+### What is GanttPilot?
 
-GanttPilot is a collaborative project manager that visualizes project status with Gantt charts. Each project is an independent Git repository, enabling multi-user collaboration through Git sync. Manage projects, milestones, plans, and activities — all from a clean right-click menu interface.
+GanttPilot is a lightweight, Git-based collaborative project manager. Each project lives in its own Git repository, so your team can work together through familiar Git workflows — branches, push, pull, and PRs.
 
-Version: 0.13.0
+It covers the full project lifecycle: define requirements, break them into tasks, plan milestones, track progress on a Gantt chart, log work hours, and generate reports — all from a single desktop app.
 
-### 🚀 Quick Start
+### Quick Start
 
-#### Download Packaged Program (Recommended)
+#### Download (Recommended)
 
-Download from GitHub Releases — no Python required:
+Grab the latest release — no Python needed:
 
 👉 [Download Latest Version](https://github.com/matthewzu/GanttPilot/releases/latest)
 
@@ -37,143 +37,221 @@ Download from GitHub Releases — no Python required:
 | macOS | `GanttPilot.dmg` |
 | Linux | `GanttPilot` |
 
-Double-click to launch GUI. CLI: `GanttPilot --cli`
+Double-click to launch. For CLI mode: `GanttPilot --cli`
 
-#### Run from Source (Alternative)
+#### Run from Source
 
 ```bash
 git clone https://github.com/matthewzu/GanttPilot.git
 cd GanttPilot
-python main.py          # GUI (default)
-python main.py --cli    # CLI mode
-python main.py --lang en
-python main.py --version
+python main.py              # GUI (default)
+python main.py --cli        # CLI mode
+python main.py --lang en    # English UI
+python main.py --version    # Show version
 ```
 
-### ✨ Features
+### How It Works
 
-- 📊 **Native Gantt Chart** - Canvas rendering, independent zoom, per-executor coloring, progress bars
-- 📌 **Milestone Deadlines** - Diamond markers on Gantt chart
-- 📈 **Progress Tracking** - Plan progress (0-100%), actual end date, ahead/behind schedule detection
-- 📁 **Project Management** - Add/edit/delete/clone via right-click, project description
-- 📋 **Requirement Management** - Create requirements with category, subject, and description under Requirement Analysis node
-- ✅ **Task Management** - Break down requirements into tasks with effort estimation (person-days)
-- 🔗 **Requirement Tracking** - Link plans to tasks, track requirements → tasks → plans → progress in a dedicated tab
-- 🏷️ **Milestone Management** - Deadline, description, custom color
-- 📋 **Plan Management** - Executor, date range, linked task, skip non-workdays, skip dates with `-YYYYMMDD` support, color, finish/reopen, set progress
-- ⏱ **Activity Tracking** - Per-executor time logging
-- 🛠️ **Unified Toolbar** - Add, Edit, Delete, Copy, Paste, Duplicate, Move Up, Move Down buttons with context-sensitive enable/disable
-- ⧉ **Duplicate Node** - Clone any node (project, requirement, task, milestone, plan, activity) with all children via toolbar or right-click
-- 📋 **Copy & Paste** - Copy nodes to clipboard and paste across projects/milestones/requirements (Ctrl+C / Ctrl+V)
-- 🔗 **Per-project Git Repos** - Independent repos with configurable remote, private branch per user, PR workflow
-- 🔄 **Manual Sync** - Push to remote only via manual push (right-click / Ctrl+S); startup auto-fetches remote updates without pushing
-- 🔽 **Pull from Remote** - Dedicated pull menu to fetch latest data from remote without pushing
-- 🔄 **Background Update Check** - Periodically fetches remote and shows banner when main branch has updates (configurable interval, default 5 min)
-- 🏷️ **Project Tags** - Define project-level tags; activity tag selection is restricted to project-defined tags
-- ⏪ **Reset to Commit** - Right-click any commit in History tab to reset branch to that point (git reset --hard)
-- ↩️ **Revert Commit** - Right-click any commit in History tab to create an inverse commit (git revert)
-- ↩️ **Undo/Redo** - Ctrl+Z / Ctrl+Y
-- 📝 **Rich Reports** - Markdown with milestone completion rates, plan progress details, executor activity logs
-- 🖥️ **GUI + CLI** - Single executable, both modes
-- 🌏 **Bilingual** - English and Chinese
-- 🔤 **Font Scaling** - Independent tree font and Gantt zoom
-- 🔄 **Auto Update** - Download with progress display from GitHub
-- 💾 **Config Persistence** - Window state, language, font, paths with folder browser, report image settings
-- 📦 **Clone from Remote** - Create project by cloning existing remote repo
-- 📂 **Load Example** - Built-in demo project
-- 🚫 **Skip Date Visualization** - Skipped days shown as red hatch overlay on Gantt bars
-- 🖼️ **PNG Report** - Reports embed locally rendered PNG Gantt chart (no PlantUML dependency)
-- 📐 **Auto-compress** - Long projects auto-shrink day width in report images (configurable threshold)
-- 📜 **History Tab** - Gantt window includes a History tab showing Git commit log (author, date, message, diff)
-- 🌿 **Branch Selector** - Dropdown to switch branches and view Gantt chart / history for each branch
-- 🔀 **Manual Rebase Sync** - Sync no longer auto-rebases; a banner prompts when main has updates, click to rebase manually
-- ⏱ **Time Slot Hours** - Activity hours entered as start/end time slots (e.g. `0900/1200,1430/1500`), total hours auto-calculated
-- ⏱ **Effort Hours** - Activity hours can also be entered directly as a number (e.g. `3.5`), mutually exclusive with time slots
-- 📊 **Project Total Hours** - Project report includes a total hours summary with per-executor breakdown and percentage
-- 📊 **Group Totals & Percentage** - Time report shows group totals and per-executor percentage in all view modes
-- 🏷️ **Activity Tags** - Single tag per activity; time reports and project reports group summaries by tag
-- 🏷️ **Remote Branch Labels** - Remote branches in the branch selector show `[Remote]` prefix for clear identification
-- ↔️ **Resizable Panels** - Draggable splitter between Gantt chart/history and time report areas
-- 📊 **Report View Modes** - Time report supports 4 view modes: by project, by milestone, by plan, by tag; Markdown reports include all 4 dimensions
-- 🪟 **Window State Persistence** - Maximized window state saved and restored correctly on relaunch
-- 📝 **Milestone Multiline Description** - Milestone description uses resizable multiline editor in create/edit dialogs
-- ⌨️ **Keyboard Shortcuts** - Centralized shortcut system: Ctrl+N add, F2 edit, Delete delete, Alt+Up/Down move, Ctrl+D duplicate, Ctrl+S sync, F5 refresh; customizable in config dialog with conflict detection
-- ⎋ **ESC Close Dialogs** - All dialogs can be closed with ESC key
-- 📅 **Optional Activity Date** - Activity date field is now optional
+#### Project Structure
 
-### 🖱️ Usage
+Every project follows this hierarchy:
 
-All operations via toolbar buttons and right-click context menus:
+```
+Project
+  ├── Requirement Analysis          ← Define what to build
+  │     └── Requirement               (category, subject, description)
+  │           └── Task                 (subject, effort in person-days)
+  └── Plan Execution                ← Plan how to build it
+        └── Milestone                  (deadline, description, color)
+              └── Plan                 (executor, date range, linked task, progress)
+                    └── Activity       (executor, date, hours, tag, content)
+```
 
-| Node / Area | Toolbar | Right-click |
+- **Requirements & Tasks** define *what* needs to be done and the estimated effort
+- **Milestones & Plans** define *when* and *who* will do it
+- **Activities** record *actual work* done — hours, content, and tags
+- **Linked Tasks** connect plans back to requirements, creating a full traceability chain
+
+#### Typical Workflow
+
+1. **Create a project** — right-click empty area → Add Project (or clone from a remote repo)
+2. **Define requirements** — expand "Requirement Analysis", add requirements and break them into tasks
+3. **Set up milestones** — expand "Plan Execution", create milestones with deadlines
+4. **Create plans** — under each milestone, add plans with executor, date range, and optionally link to a task
+5. **Log activities** — under each plan, record daily work with hours and content
+6. **Track progress** — view the Gantt chart, check the Requirement Tracking tab, set plan progress (0-100%)
+7. **Generate reports** — right-click project → Generate Report (Markdown with embedded Gantt chart PNG)
+8. **Collaborate** — push/pull via Git, each team member works on their private branch, merge via PR
+
+### Interface Guide
+
+#### Main Window
+
+The main window has two areas:
+
+- **Left panel**: Project tree — all your projects, requirements, milestones, plans, and activities in a tree view
+- **Right panel**: Tabbed view with Gantt Chart, Time Statistics, Requirement Tracking, and History
+
+#### Toolbar
+
+The toolbar at the top provides quick access to common actions. Buttons are context-sensitive — they enable/disable based on what you've selected in the tree:
+
+| Button | Action | Shortcut |
 | --- | --- | --- |
-| Empty area | — | Add project, Load example, Push, Pull, Refresh |
-| Project | Edit, Copy, Duplicate | Edit, Git config, Copy, Duplicate, Report, Push, Pull, Refresh, Delete |
-| Requirement Analysis | Add (requirement), Paste | Add requirement, Paste |
-| Requirement | Add (task), Edit, Delete, Copy, Paste, Duplicate, Move Up/Down | Add task, Edit, Copy, Paste, Duplicate, Delete |
-| Task | Edit, Delete, Copy, Duplicate, Move Up/Down | Edit, Copy, Duplicate, Delete |
-| Plan Execution | Add (milestone), Paste | Add milestone, Paste |
-| Milestone | Add (plan), Edit, Delete, Copy, Paste, Duplicate, Move Up/Down | Add plan, Edit, Color, Copy, Paste, Duplicate, Delete |
-| Plan | Add (activity), Edit, Delete, Copy, Paste, Duplicate, Move Up/Down | Add activity, Edit, Color, Copy, Paste, Duplicate, Finish, Reopen, Set progress, Delete |
-| Activity | Edit, Delete, Copy, Duplicate | Edit, Copy, Duplicate, Delete |
+| Add | Add child node (requirement/task/milestone/plan/activity) | `Ctrl+N` |
+| Edit | Edit selected node | `F2` |
+| Delete | Delete selected node | `Delete` |
+| Copy | Copy node to clipboard | `Ctrl+C` |
+| Paste | Paste from clipboard | `Ctrl+V` |
+| Duplicate | Clone node with all children | `Ctrl+D` |
+| Move Up | Reorder node up among siblings | `Alt+Up` |
+| Move Down | Reorder node down among siblings | `Alt+Down` |
 
-### 📐 Data Structure
+Other shortcuts: `Ctrl+Z` Undo, `Ctrl+Y` Redo, `Ctrl+S` Push, `F5` Refresh. All shortcuts are customizable in Config.
 
-```
-Project (independent Git repo, with description, tags)
-  ├── Requirement Analysis
-  │     └── Requirement (category, subject, description)
-  │           └── Task (subject, effort_days, description)
-  └── Plan Execution
-        └── Milestone (deadline, description, color)
-              └── Plan (executor, dates, linked_task, progress, skip dates, actual_end_date)
-                    └── Activity (executor, date, hours, time_slots, tag, content)
-```
+#### Right-Click Menus
 
-- `linked_task_id`: References a task ID from requirements, linking plan to requirement tracking
-- `time_slots`: Start/end time slot list, format `HHMM/HHMM` comma-separated (e.g. `0900/1200,1430/1500`)
-- `hours`: Auto-calculated from `time_slots` when provided; or entered directly as a number when `time_slots` is empty. The two input modes are mutually exclusive
-- `tag`: Single string tag for activity classification, selected from project-defined tags
+Right-click is the primary way to access all operations. What you see depends on what you clicked:
 
-### � Creating a Project
+| Right-click on | Available actions |
+| --- | --- |
+| Empty area | Add Project, Load Example, Push, Pull, Refresh |
+| Project | Edit, Git Config, Copy, Duplicate, Generate Report, Push, Pull, Refresh, Delete |
+| Requirement Analysis | Add Requirement, Paste |
+| Requirement | Add Task, Edit, Copy, Paste, Duplicate, Move Up/Down, Delete |
+| Task | Edit, Copy, Duplicate, Move Up/Down, Delete |
+| Plan Execution | Add Milestone, Paste |
+| Milestone | Add Plan, Edit, Color, Copy, Paste, Duplicate, Move Up/Down, Delete |
+| Plan | Add Activity, Edit, Color, Copy, Paste, Duplicate, Finish/Reopen, Set Progress, Move Up/Down, Delete |
+| Activity | Edit, Copy, Duplicate, Delete |
 
-There are two ways to create a project (right-click empty area → Add project):
+#### Gantt Chart Tab
 
-#### Method 1: Clone from Remote Repository
+- Each plan is rendered as a horizontal bar, colored by executor
+- Milestones appear as diamond markers at their deadline
+- Progress is shown as a filled portion of each bar
+- Skipped dates (holidays) are overlaid with red hatching
+- Use 🔍+/- buttons to zoom in/out independently from the tree font size
 
-Fill in the "Remote URL" field in the create project dialog. The remote must be a **bare repository** (`git init --bare`).
+#### Time Statistics Tab
 
-- Remote can be a local path (e.g. `E:\repos\myproject`) or a server URL (e.g. `https://github.com/user/repo.git`)
-- "Project Name" and "Description" are optional — if the remote already contains a `project.json`, the name and description will be read from it
-- "Remote Main Branch" defaults to `main`, change to `master` or other as needed
-- After cloning, a local `priv` work branch is created automatically
+Shows work hours logged across activities, with four view modes:
 
-#### Method 2: Create Local Project
+- **By Project** — total hours per executor across the whole project
+- **By Milestone** — hours grouped by milestone
+- **By Plan** — hours grouped by plan
+- **By Tag** — hours grouped by activity tag
 
-Leave the "Remote URL" field empty to create a purely local project.
+Each view shows group totals and per-executor percentage.
 
-- Only "Project Name" is required
-- Data is stored locally at `~/.ganttpilot/data/{project_name}/`
-- You can configure a remote repository later via right-click → Git Config on the project
-- Once a remote is configured, use manual sync (right-click → Sync) to push changes
+#### Requirement Tracking Tab
 
-### 🔗 Git Sync
+Displays the full traceability chain: Requirement → Task → Linked Plan → Progress → Actual Hours. This is where you verify that every requirement has been planned and track its completion status.
 
-- Each project is an independent Git repository stored in `~/.ganttpilot/data/{project_name}/`
-- Remote repositories must be **bare repos** (created with `git init --bare`)
-- Configurable remote main branch name (default: `main`)
-- Per-user private branch: `priv_{committer_name}` (configurable)
-- Sync flow: fetch main → push priv to origin (no auto-rebase)
-- Manual rebase: banner prompts when main has updates, click "Sync Main" to rebase
-- Changes are merged to main via Pull Request on the remote platform
-- Project-level committer identity (name + email), auto-detected from git config
-- Automatic background fetch on startup (all projects, pull-only, no push)
-- Periodic background update check (configurable interval, default 5 minutes)
-- Manual push: right-click project → Push, or Ctrl+S
-- Manual pull: right-click project → Pull
-- History tab: right-click a commit to "Reset to Here" (hard reset) or "Revert This Commit" (inverse commit)
+#### History Tab
 
-### 📄 License
+Shows the Git commit log for the current project. You can:
+
+- Switch branches via the dropdown (remote branches show a `[Remote]` prefix)
+- View commit details: author, date, message, and diff
+- Right-click a commit to **Reset to Here** (hard reset) or **Revert This Commit** (inverse commit)
+
+### Creating a Project
+
+Right-click empty area → Add Project. Two options:
+
+#### Clone from Remote
+
+Fill in the "Remote URL" field. The remote must be a **bare repository** (`git init --bare`).
+
+- Remote can be a local path (`E:\repos\myproject`) or server URL (`https://github.com/user/repo.git`)
+- Project Name and Description are optional — if the remote already has a `project.json`, they'll be read from it
+- Remote Main Branch defaults to `main`
+- A local `priv` work branch is created automatically after cloning
+
+#### Create Locally
+
+Leave Remote URL empty.
+
+- Only Project Name is required
+- Data is stored at `~/.ganttpilot/data/{project_name}/`
+- You can add a remote later via right-click → Git Config
+
+### Recording Work Hours
+
+Activities support two ways to log hours (mutually exclusive):
+
+- **Time Slots**: Enter start/end pairs like `0900/1200,1400/1700` — hours are auto-calculated
+- **Direct Hours**: Enter a number like `3.5`
+
+Both Chinese and English commas are accepted as separators.
+
+### Skip Dates (Holidays & Workdays)
+
+In plan creation/editing, the "Skip Dates" field controls which days are excluded from the plan duration:
+
+- `20260501` — skip this date (e.g., a holiday)
+- `-20260510` — un-skip this date (e.g., make a weekend day a workday)
+- Enable "Skip Non-workdays" to automatically skip weekends
+
+Skipped days appear as red hatched overlay on Gantt bars.
+
+### Git Collaboration
+
+Each project is an independent Git repo stored at `~/.ganttpilot/data/{project_name}/`.
+
+#### How It Works
+
+- Each user works on a private branch: `priv_{committer_name}`
+- Push sends your private branch to the remote (right-click → Push, or `Ctrl+S`)
+- Pull fetches the latest from remote (right-click → Pull)
+- Changes are merged to the main branch via Pull Request on your Git platform
+- A banner appears when the main branch has updates — click "Sync Main" to rebase
+
+#### Setup
+
+1. Right-click project → Git Config
+2. Set Remote URL (must be a bare repo), committer name, and email
+3. Git user info can be auto-detected from your system git config
+
+#### Background Sync
+
+- On startup, all projects auto-fetch from remote (pull only, no push)
+- A periodic background check (default: every 5 minutes, configurable) detects remote updates
+
+### Reports
+
+Right-click a project → Generate Report. The Markdown report includes:
+
+1. **Gantt Chart** — embedded PNG image (rendered locally, no external dependencies)
+2. **Requirement Analysis** — requirements table with task counts
+3. **Milestones** — deadline, completion rate
+4. **Plan Progress** — per-plan details with planned vs actual hours, ahead/behind schedule detection
+5. **Requirement Tracking** — full traceability from requirement to plan progress
+6. **Project Total Hours** — per-executor breakdown with percentages
+7. **Time Details** — by project, by milestone, by plan, and by tag
+
+Long projects auto-compress the day width in report images (configurable threshold).
+
+### Configuration
+
+Menu → Config opens the settings dialog:
+
+| Setting | Description |
+| --- | --- |
+| Language | Chinese / English |
+| Font Size | Tree view font size |
+| Data Directory | Where project data is stored |
+| Compress Threshold | Days threshold for auto-compressing report Gantt images |
+| Max Chart Width | Maximum width in pixels for report images |
+| Pull Interval | Background remote check interval in minutes (default: 5) |
+| Shortcuts | Customize all keyboard shortcuts with conflict detection |
+
+### Project Tags
+
+Define tags at the project level (Edit Project → Tags field, comma-separated). When adding activities, the tag dropdown only shows project-defined tags. Tags are used to group hours in Time Statistics and Reports.
+
+### License
 
 GPL-3.0
 
@@ -181,15 +259,17 @@ GPL-3.0
 
 ## 中文
 
-### 📖 简介
+### GanttPilot 是什么？
 
-GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作为独立 Git 仓库，通过 Git 同步实现多人协作。
+GanttPilot 是一款轻量级、基于 Git 的协作式项目管理器。每个项目都是一个独立的 Git 仓库，团队成员通过 Git 工作流（分支、推送、拉取、PR）进行协作。
 
-版本：0.13.0
+它覆盖项目全生命周期：定义需求、拆解任务、规划里程碑、甘特图跟踪进度、记录工时、生成报告——全部在一个桌面应用中完成。
 
-### 🚀 快速开始
+### 快速开始
 
-#### 下载打包程序（首选）
+#### 下载安装（推荐）
+
+直接下载，无需安装 Python：
 
 👉 [下载最新版本](https://github.com/matthewzu/GanttPilot/releases/latest)
 
@@ -199,143 +279,221 @@ GanttPilot 是一款基于甘特图的协作式项目管理器。每个项目作
 | macOS | `GanttPilot.dmg` |
 | Linux | `GanttPilot` |
 
-双击运行 GUI，CLI：`GanttPilot --cli`
+双击运行即可。CLI 模式：`GanttPilot --cli`
 
-#### 从源码运行（备选）
+#### 从源码运行
 
 ```bash
 git clone https://github.com/matthewzu/GanttPilot.git
 cd GanttPilot
-python main.py          # GUI（默认）
-python main.py --cli    # CLI 模式
-python main.py --lang zh
-python main.py --version
+python main.py              # GUI（默认）
+python main.py --cli        # CLI 模式
+python main.py --lang zh    # 中文界面
+python main.py --version    # 显示版本
 ```
 
-### ✨ 功能特性
+### 工作原理
 
-- 📊 **原生甘特图** - Canvas 渲染，独立缩放，执行者颜色，进度条
-- 📌 **里程碑截止日期** - 甘特图菱形标记
-- 📈 **进度追踪** - 计划进度（0-100%）、实际完成时间、提前/延期检测
-- 📁 **项目管理** - 右键添加/编辑/删除/克隆，项目描述
-- 📋 **需求管理** - 在需求分析节点下创建需求，支持类别、主题和描述
-- ✅ **任务管理** - 将需求拆解为任务，支持工作量估算（人日）
-- 🔗 **需求跟踪** - 计划关联任务，在需求跟踪标签页中查看需求→任务→计划→进度跟踪链条
-- 🏷️ **里程碑管理** - 截止日期、描述、自定义颜色
-- 📋 **计划管理** - 执行者、日期范围、关联任务、跳过非工作日、跳过日期（支持 `-YYYYMMDD` 格式）、颜色、完结/重开、设置进度
-- ⏱ **活动跟踪** - 按执行者记录工时
-- 🛠️ **统一工具栏** - 添加、编辑、删除、复制、粘贴、克隆、上移、下移按钮，根据选中节点类型自动启用/禁用
-- ⧉ **节点克隆** - 通过工具栏或右键菜单克隆任意节点（项目、需求、任务、里程碑、计划、活动）及其所有子节点
-- 📋 **复制粘贴** - 复制节点到剪贴板，支持跨项目/跨里程碑/跨需求粘贴（Ctrl+C / Ctrl+V）
-- 🔗 **项目级独立 Git 仓库** - 可配置远端，每用户私有分支，PR 工作流
-- 🔄 **手动推送** - 推送仅通过手动操作（右键菜单/Ctrl+S）触发；启动时自动拉取远端更新但不推送
-- 🔽 **拉取远端** - 独立的拉取菜单，从远端获取最新数据而不推送
-- 🔄 **后台自动检测更新** - 定期后台 fetch 远端并在主线有更新时显示提示横幅（可配置间隔，默认 5 分钟）
-- 🏷️ **项目标签管理** - 项目级定义标签列表，活动标签只能从项目标签中选择
-- ⏪ **回退到此处** - 在历史记录标签页右键提交记录，回退分支到该提交（git reset --hard）
-- ↩️ **撤销此提交** - 在历史记录标签页右键提交记录，生成反向提交撤销该操作（git revert）
-- ↩️ **撤销/恢复** - Ctrl+Z / Ctrl+Y
-- 📝 **丰富报告** - 里程碑完成率、计划进度详情、执行者工时明细
-- 🖥️ **GUI + CLI 双模式**
-- 🌏 **中英文双语**
-- 🔤 **字体缩放** - 树状图和甘特图独立缩放
-- 🔄 **在线自动更新** - 含下载进度显示
-- 💾 **配置持久化** - 含文件夹浏览按钮、报告图片压缩参数
-- 📦 **远端克隆** - 从远端仓库克隆已有项目
-- 📂 **加载示例** - 内置演示项目
-- 🚫 **跳过日期可视化** - 甘特图中跳过的日期以红色斜线标注
-- 🖼️ **PNG 报告** - 报告内嵌本地渲染的 PNG 甘特图（无需 PlantUML）
-- 📐 **自动压缩** - 长项目自动缩小报告图片日宽度（可配置阈值）
-- 📜 **历史记录标签页** - 甘特图窗口增加历史记录标签，显示 Git 提交记录（提交者、时间、message、diff）
-- 🌿 **分支选择** - 下拉列表切换不同分支查看甘特图和历史记录
-- 🔀 **手动 Rebase 同步** - 同步时不自动 rebase，提示主线有更新后手动点击同步按钮
-- ⏱ **起止时间工时** - 活动工时支持填写起止时间列表（如 `0900/1200,1430/1500`），自动计算总工时
-- ⏱ **直接填写小时数** - 活动工时也可直接输入小时数（如 `3.5`），与时间段二选一填写
-- 📊 **项目总工时** - 项目报告新增项目总工时章节，含每位执行者工时明细和占比
-- 📊 **分组合计与占比** - 工时统计界面所有查看模式均显示分组合计和每位执行者占比
-- 🏷️ **活动标签** - 活动增加单个标签字段，工时报告和项目报告按标签分组汇总
-- 🏷️ **远端分支标识** - 分支选择器中远端分支显示 `[远端]` 前缀，便于区分
-- ↔️ **可调整面板** - 甘特图/历史记录与工时报告之间的分隔栏可拖拽调整
-- 📊 **报告查看模式** - 工时报告支持按项目、按里程碑、按计划、按标签四种查看模式；Markdown 报告同时包含四种维度统计
-- 🪟 **窗口状态记忆** - 最大化状态正确保存和恢复，重启后不再偏移
-- 📝 **里程碑多行描述** - 里程碑创建/编辑对话框中描述字段改为可调整大小的多行编辑框
-- ⌨️ **键盘快捷键** - 集中式快捷键管理：Ctrl+N 添加、F2 编辑、Delete 删除、Alt+Up/Down 上移/下移、Ctrl+D 克隆、Ctrl+S 同步、F5 刷新；可在配置对话框中自定义，支持冲突检测
-- ⎋ **ESC 关闭对话框** - 所有对话框支持 ESC 键快速关闭
-- 📅 **活动日期可选** - 活动对话框中日期字段改为可选项
+#### 项目结构
 
-### 🖱️ 操作方式
+每个项目遵循以下层级：
 
-通过工具栏按钮和右键菜单进行所有操作：
+```
+项目
+  ├── 需求分析                      ← 定义要做什么
+  │     └── 需求                      (类别、主题、描述)
+  │           └── 任务                 (主题、工作量/人日)
+  └── 计划执行                      ← 规划怎么做
+        └── 里程碑                     (截止日期、描述、颜色)
+              └── 计划                  (执行者、日期范围、关联任务、进度)
+                    └── 活动            (执行者、日期、工时、标签、内容)
+```
 
-| 节点 / 区域 | 工具栏 | 右键菜单 |
+- **需求和任务**定义"做什么"以及预估工作量
+- **里程碑和计划**定义"什么时候做"和"谁来做"
+- **活动**记录实际工作——工时、内容和标签
+- **关联任务**将计划与需求连接起来，形成完整的跟踪链条
+
+#### 典型工作流程
+
+1. **创建项目** — 空白处右键 → 添加项目（或从远端仓库克隆）
+2. **定义需求** — 展开"需求分析"，添加需求并拆解为任务
+3. **设置里程碑** — 展开"计划执行"，创建带截止日期的里程碑
+4. **创建计划** — 在里程碑下添加计划，指定执行者、日期范围，可选关联任务
+5. **记录活动** — 在计划下记录每日工作，填写工时和内容
+6. **跟踪进度** — 查看甘特图，检查需求跟踪标签页，设置计划进度（0-100%）
+7. **生成报告** — 项目右键 → 生成报告（Markdown 格式，内嵌甘特图 PNG）
+8. **团队协作** — 通过 Git 推送/拉取，每人在私有分支上工作，通过 PR 合并
+
+### 界面指南
+
+#### 主窗口
+
+主窗口分为两个区域：
+
+- **左侧面板**：项目树 — 以树形结构展示所有项目、需求、里程碑、计划和活动
+- **右侧面板**：标签页视图，包含甘特图、工时统计、需求跟踪和历史记录
+
+#### 工具栏
+
+顶部工具栏提供常用操作的快捷入口。按钮会根据当前选中的节点类型自动启用/禁用：
+
+| 按钮 | 功能 | 快捷键 |
 | --- | --- | --- |
-| 空白处 | — | 添加项目、加载示例、推送、拉取、刷新 |
-| 项目 | 编辑、复制、克隆 | 编辑项目、Git 配置、复制、克隆、生成报告、推送、拉取、刷新、删除 |
-| 需求分析 | 添加（需求）、粘贴 | 添加需求、粘贴 |
-| 需求 | 添加（任务）、编辑、删除、复制、粘贴、克隆、上移/下移 | 添加任务、编辑、复制、粘贴、克隆、删除 |
-| 任务 | 编辑、删除、复制、克隆、上移/下移 | 编辑、复制、克隆、删除 |
-| 计划执行 | 添加（里程碑）、粘贴 | 添加里程碑、粘贴 |
-| 里程碑 | 添加（计划）、编辑、删除、复制、粘贴、克隆、上移/下移 | 添加计划、编辑里程碑、设置颜色、复制、粘贴、克隆、删除 |
-| 计划 | 添加（活动）、编辑、删除、复制、粘贴、克隆、上移/下移 | 添加活动、编辑属性、设置颜色、复制、粘贴、克隆、完结、重开、设置进度、删除 |
-| 活动 | 编辑、删除、复制、克隆 | 编辑活动、复制、克隆、删除 |
+| 添加 | 添加子节点（需求/任务/里程碑/计划/活动） | `Ctrl+N` |
+| 编辑 | 编辑选中节点 | `F2` |
+| 删除 | 删除选中节点 | `Delete` |
+| 复制 | 复制节点到剪贴板 | `Ctrl+C` |
+| 粘贴 | 从剪贴板粘贴 | `Ctrl+V` |
+| 克隆 | 复制节点及其所有子节点 | `Ctrl+D` |
+| 上移 | 在同级节点中上移 | `Alt+Up` |
+| 下移 | 在同级节点中下移 | `Alt+Down` |
 
-### 📐 数据结构
+其他快捷键：`Ctrl+Z` 撤销、`Ctrl+Y` 恢复、`Ctrl+S` 推送、`F5` 刷新。所有快捷键均可在配置中自定义。
 
-```
-项目 (独立 Git 仓库，含描述、标签)
-  ├── 需求分析
-  │     └── 需求 (类别、主题、描述)
-  │           └── 任务 (主题、工作量/人日、描述)
-  └── 计划执行
-        └── 里程碑 (截止日期、描述、颜色)
-              └── 计划 (执行者、日期范围、关联任务、进度、跳过日期、实际完成时间)
-                    └── 活动 (执行者、日期、小时数、工时时间段、标签、内容)
-```
+#### 右键菜单
 
-- `linked_task_id`：引用需求中的任务 ID，将计划与需求跟踪链条关联
-- `time_slots`：起止时间段列表，格式 `HHMM/HHMM` 逗号分隔（如 `0900/1200,1430/1500`）
-- `hours`：填写 `time_slots` 时自动计算；也可直接输入小时数（两种方式二选一）
-- `tag`：单个字符串标签，用于活动分类，从项目定义的标签中选择
+右键菜单是执行各种操作的主要方式。菜单内容取决于你点击的位置：
 
-### � 创建项目
+| 右键点击 | 可用操作 |
+| --- | --- |
+| 空白处 | 添加项目、加载示例、推送、拉取、刷新 |
+| 项目 | 编辑、Git 配置、复制、克隆、生成报告、推送、拉取、刷新、删除 |
+| 需求分析 | 添加需求、粘贴 |
+| 需求 | 添加任务、编辑、复制、粘贴、克隆、上移/下移、删除 |
+| 任务 | 编辑、复制、克隆、上移/下移、删除 |
+| 计划执行 | 添加里程碑、粘贴 |
+| 里程碑 | 添加计划、编辑、设置颜色、复制、粘贴、克隆、上移/下移、删除 |
+| 计划 | 添加活动、编辑、设置颜色、复制、粘贴、克隆、完结/重开、设置进度、上移/下移、删除 |
+| 活动 | 编辑、复制、克隆、删除 |
 
-有两种方式创建项目（空白处右键 → 添加项目）：
+#### 甘特图标签页
 
-#### 方式一：从远端仓库克隆
+- 每个计划显示为一条水平条形，按执行者着色
+- 里程碑在截止日期处显示为菱形标记
+- 进度以条形的填充比例展示
+- 跳过的日期（节假日）以红色斜线覆盖显示
+- 使用 🔍+/- 按钮独立缩放甘特图（不影响树形图字体）
 
-在创建项目对话框中填写"远端仓库地址"。远端必须是 **bare 仓库**（通过 `git init --bare` 创建）。
+#### 工时统计标签页
 
-- 远端可以是本地路径（如 `E:\repos\myproject`）或服务器地址（如 `https://github.com/user/repo.git`）
-- "项目名称"和"描述"为可选项 — 如果远端仓库已包含 `project.json`，名称和描述会从中读取
-- "远端主分支"默认为 `main`，可根据需要改为 `master` 或其他分支名
-- 克隆完成后会自动创建本地 `priv` 工作分支
+展示活动中记录的工时数据，支持四种查看模式：
 
-#### 方式二：本地创建项目
+- **按项目** — 整个项目中每位执行者的总工时
+- **按里程碑** — 按里程碑分组的工时
+- **按计划** — 按计划分组的工时
+- **按标签** — 按活动标签分组的工时
 
-"远端仓库地址"留空即可创建纯本地项目。
+每种模式都显示分组合计和每位执行者的占比。
+
+#### 需求跟踪标签页
+
+展示完整的跟踪链条：需求 → 任务 → 关联计划 → 进度 → 实际工时。在这里可以验证每个需求是否已被规划，并跟踪其完成状态。
+
+#### 历史记录标签页
+
+显示当前项目的 Git 提交日志。你可以：
+
+- 通过下拉列表切换分支（远端分支显示 `[远端]` 前缀）
+- 查看提交详情：提交者、时间、提交信息和修改内容
+- 右键提交记录 → **回退到此处**（hard reset）或 **撤销此提交**（生成反向提交）
+
+### 创建项目
+
+空白处右键 → 添加项目。有两种方式：
+
+#### 从远端仓库克隆
+
+填写"远端仓库地址"。远端必须是 **bare 仓库**（通过 `git init --bare` 创建）。
+
+- 远端可以是本地路径（如 `x:\repos\myproject`）或服务器地址（如 `https://github.com/user/repo.git`）
+- "项目名称"和"描述"为可选项 — 如果远端已有 `project.json`，会自动读取
+- "远端主分支"默认为 `main`
+- 克隆完成后自动创建本地 `priv` 工作分支
+
+#### 本地创建
+
+"远端仓库地址"留空即可。
 
 - 仅"项目名称"为必填项
 - 数据存储在 `~/.ganttpilot/data/{项目名}/`
-- 后续可通过项目右键菜单 → Git 配置 来添加远端仓库
-- 配置远端后，通过手动同步（右键 → 同步）推送更改
+- 后续可通过项目右键 → Git 配置添加远端仓库
 
-### 🔗 Git 同步
+### 记录工时
 
-- 每个项目是独立的 Git 仓库，存储在 `~/.ganttpilot/data/{项目名}/`
-- 远端仓库必须是 **bare 仓库**（通过 `git init --bare` 创建）
-- 可配置远端主分支名称（默认 `main`）
-- 每用户私有分支：`priv_{提交者名称}`（可配置）
-- 同步流程：fetch main → push priv 到远端（不自动 rebase）
-- 手动 rebase：主线有更新时显示提示横幅，点击"同步主线"按钮执行 rebase
-- 通过远端平台的 Pull Request 合并到主分支
-- 项目级提交者身份（名称 + 邮箱），可自动检测 git 配置
-- 启动时自动后台 fetch（仅拉取远端更新，不推送）
-- 定期后台检测远端更新（可配置间隔，默认 5 分钟）
-- 手动推送：项目右键 → 推送，或 Ctrl+S
-- 手动拉取：项目右键 → 拉取
-- 历史记录标签页：右键提交记录可"回退到此处"（hard reset）或"撤销此提交"（反向提交）
+活动支持两种工时记录方式（二选一）：
 
-### 📄 许可证
+- **时间段**：填写起止时间对，如 `0900/1200,1400/1700`，系统自动计算总工时
+- **直接填写小时数**：输入数字，如 `3.5`
+
+中英文逗号均可作为分隔符。
+
+### 跳过日期（节假日与工作日）
+
+在创建/编辑计划时，"跳过日期列表"字段控制哪些日期不计入计划工期：
+
+- `20260501` — 跳过该日期（如节假日）
+- `-20260510` — 取消跳过（如让周末变为工作日）
+- 勾选"跳过非工作日"可自动跳过周末
+
+跳过的日期在甘特图上以红色斜线覆盖显示。
+
+### Git 协作
+
+每个项目是独立的 Git 仓库，存储在 `~/.ganttpilot/data/{项目名}/`。
+
+#### 协作流程
+
+- 每位用户在私有分支上工作：`priv_{提交者名称}`
+- 推送将私有分支发送到远端（项目右键 → 推送，或 `Ctrl+S`）
+- 拉取从远端获取最新数据（项目右键 → 拉取）
+- 通过 Git 平台的 Pull Request 将更改合并到主分支
+- 主线有更新时会显示提示横幅，点击"同步主线"执行 rebase
+
+#### 配置方法
+
+1. 项目右键 → Git 配置
+2. 设置远端仓库地址（必须是 bare 仓库）、提交者名称和邮箱
+3. Git 用户信息可从系统 git 配置自动检测
+
+#### 后台同步
+
+- 启动时自动拉取所有项目的远端更新（仅拉取，不推送）
+- 定期后台检测远端更新（默认每 5 分钟，可在配置中调整）
+
+### 报告
+
+项目右键 → 生成报告。Markdown 报告包含：
+
+1. **甘特图** — 内嵌 PNG 图片（本地渲染，无需外部依赖）
+2. **需求分析** — 需求表格及任务数
+3. **里程碑** — 截止日期、完成率
+4. **计划进度详情** — 每个计划的计划工时 vs 实际工时、提前/延期检测
+5. **需求跟踪** — 从需求到计划进度的完整跟踪链
+6. **项目总工时** — 每位执行者的工时明细和占比
+7. **工时明细** — 按项目、按里程碑、按计划、按标签四个维度
+
+长周期项目会自动压缩报告图片的日宽度（可配置阈值）。
+
+### 配置
+
+菜单 → 配置，打开设置对话框：
+
+| 设置项 | 说明 |
+| --- | --- |
+| 语言 | 中文 / 英文 |
+| 字体大小 | 树形图字体大小 |
+| 数据文件夹路径 | 项目数据存储位置 |
+| 报告图片压缩阈值 | 超过此天数自动压缩甘特图日宽度 |
+| 报告图片最大宽度 | 报告图片最大像素宽度 |
+| 拉取间隔 | 后台远端检测间隔（分钟，默认 5） |
+| 快捷键配置 | 自定义所有键盘快捷键，支持冲突检测 |
+
+### 项目标签
+
+在项目级别定义标签（编辑项目 → 标签字段，逗号分隔）。添加活动时，标签下拉框只显示项目已定义的标签。标签用于在工时统计和报告中按类别分组汇总。
+
+### 许可证
 
 GPL-3.0
 
