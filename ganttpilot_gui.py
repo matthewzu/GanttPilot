@@ -8,6 +8,7 @@ All CRUD operations via right-click context menus on the tree.
 import copy
 import os
 import re
+import subprocess
 import sys
 import threading
 import tkinter as tk
@@ -1433,6 +1434,11 @@ class GanttPilotGUI:
         description = dlg.result.get("description", "")
         remote_url = dlg.result.get("remote_url", "")
         remote_branch = dlg.result.get("remote_branch", "main")
+        remote_username = dlg.result.get("remote_username", "")
+        remote_password = dlg.result.get("remote_password", "")
+        committer_name = dlg.result.get("committer_name", "")
+        committer_email = dlg.result.get("committer_email", "")
+        priv_branch = dlg.result.get("priv_branch", "")
         self.undo_manager.save_snapshot()
         if remote_url:
             # Clone from remote
@@ -1444,7 +1450,13 @@ class GanttPilotGUI:
                 # Clean up any leftover temp dir from a previous failed clone
                 if os.path.exists(tmp_dir):
                     _force_rmtree(tmp_dir)
-                gs = GitSync(tmp_dir, remote_url, main_branch=remote_branch)
+                gs = GitSync(tmp_dir, remote_url,
+                             username=remote_username,
+                             password=remote_password,
+                             main_branch=remote_branch,
+                             committer_name=committer_name,
+                             committer_email=committer_email,
+                             priv_branch=priv_branch)
                 gs.clone_repo(remote_url, tmp_dir, remote_branch)
                 # Read the actual project name from cloned project.json
                 pj_file = os.path.join(tmp_dir, "project.json")
@@ -1452,6 +1464,16 @@ class GanttPilotGUI:
                     with open(pj_file, "r", encoding="utf-8") as f:
                         pj_data = json.load(f)
                     real_name = pj_data.get("name", name)
+                    # Update project.json with full Git config fields
+                    pj_data["remote_url"] = remote_url
+                    pj_data["remote_username"] = remote_username
+                    pj_data["remote_password"] = remote_password
+                    pj_data["remote_branch"] = remote_branch
+                    pj_data["committer_name"] = committer_name
+                    pj_data["committer_email"] = committer_email
+                    pj_data["priv_branch"] = priv_branch
+                    with open(pj_file, "w", encoding="utf-8") as f:
+                        json.dump(pj_data, f, ensure_ascii=False, indent=2)
                 else:
                     # Empty repo — create initial project.json
                     real_name = name
@@ -1461,15 +1483,25 @@ class GanttPilotGUI:
                         "name": name,
                         "description": description,
                         "remote_url": remote_url,
-                        "remote_username": "",
-                        "remote_password": "",
+                        "remote_username": remote_username,
+                        "remote_password": remote_password,
                         "remote_branch": remote_branch,
+                        "committer_name": committer_name,
+                        "committer_email": committer_email,
+                        "priv_branch": priv_branch,
+                        "requirements": [],
                         "milestones": [],
                     }
                     with open(pj_file, "w", encoding="utf-8") as f:
                         json.dump(pj_data, f, ensure_ascii=False, indent=2)
                     # Commit the new project.json
-                    gs_tmp = GitSync(tmp_dir, remote_url, main_branch=remote_branch)
+                    gs_tmp = GitSync(tmp_dir, remote_url,
+                                     username=remote_username,
+                                     password=remote_password,
+                                     main_branch=remote_branch,
+                                     committer_name=committer_name,
+                                     committer_email=committer_email,
+                                     priv_branch=priv_branch)
                     gs_tmp.init_repo()
                     gs_tmp.commit(f"Initialize project: {name}")
                 # Rename temp dir to the real project name
@@ -1495,7 +1527,13 @@ class GanttPilotGUI:
                 messagebox.showerror(self._t("error"), self._t("clone_failed", str(e)))
                 self.status_var.set(self._t("clone_failed", str(e)))
         else:
-            result = self.store.add_project(name, description=description)
+            result = self.store.add_project(
+                name, description=description,
+                remote_branch=remote_branch,
+                committer_name=committer_name,
+                committer_email=committer_email,
+                priv_branch=priv_branch,
+            )
             if result:
                 self._commit(f"Add project: {name}")
                 self.refresh_project_list()
@@ -3373,60 +3411,309 @@ class ProjectGitConfigDialog:
         self.top.destroy()
 
 
+class PlaceholderEntry(ttk.Entry):
+    """带占位提示文字的 Entry 控件"""
+
+    def __init__(self, master, placeholder="", **kwargs):
+        self._show_char = kwargs.pop("show", None)
+        super().__init__(master, **kwargs)
+        self.placeholder = placeholder
+        self._is_placeholder = True
+        self._show_placeholder()
+        self.bind("<FocusIn>", self._on_focus_in)
+        self.bind("<FocusOut>", self._on_focus_out)
+
+    def _show_placeholder(self):
+        """显示占位提示文字（灰色）"""
+        self.configure(show="")
+        self.delete(0, tk.END)
+        self.insert(0, self.placeholder)
+        self.configure(foreground="gray")
+        self._is_placeholder = True
+
+    def _on_focus_in(self, event=None):
+        """获得焦点时清除占位文字"""
+        if self._is_placeholder:
+            self.delete(0, tk.END)
+            self.configure(foreground="")
+            if self._show_char:
+                self.configure(show=self._show_char)
+            self._is_placeholder = False
+
+    def _on_focus_out(self, event=None):
+        """失去焦点且为空时恢复占位文字"""
+        if not self.get():
+            self.configure(show="")
+            self._show_placeholder()
+
+    def get_value(self) -> str:
+        """获取实际值（排除占位文字）"""
+        if self._is_placeholder:
+            return ""
+        return self.get()
+
+
+def validate_remote_url(url: str) -> bool:
+    """验证远端仓库地址格式：https://、http://、git@ 开头，或绝对路径"""
+    if not url:
+        return False
+    return bool(re.match(r'^(https?://|git@)', url)) or os.path.isabs(url)
+
+
 class ProjectCreateDialog:
-    """Dialog for creating a new project with optional remote clone support."""
+    """Dialog for creating a new project with local/collaboration mode support."""
+
+    DIALOG_SIZE_LOCAL = "450x200"
+    DIALOG_SIZE_COLLAB = "500x480"
+
     def __init__(self, parent, t_func, lang):
         self.result = None
-        self.t_func = t_func
+        self.t = t_func
+        self.t_func = t_func  # backward compat alias
+        self.lang = lang
+
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("project"))
-        self.top.geometry("450x260")
+        self.top.geometry(self.DIALOG_SIZE_LOCAL)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
         self.top.bind("<Escape>", lambda e: self.top.destroy())
-        self.top.columnconfigure(1, weight=1)
 
-        ttk.Label(self.top, text=t_func("project_name")).grid(row=0, column=0, padx=8, pady=5, sticky=tk.W)
-        self.name_entry = ttk.Entry(self.top, width=35)
-        self.name_entry.grid(row=0, column=1, padx=8, pady=5, sticky=tk.EW)
+        # ── Mode state variable ──
+        self.mode_var = tk.StringVar(value="local")
 
-        ttk.Label(self.top, text=t_func("description")).grid(row=1, column=0, padx=8, pady=5, sticky=tk.W)
-        self.desc_entry = ttk.Entry(self.top, width=35)
-        self.desc_entry.grid(row=1, column=1, padx=8, pady=5, sticky=tk.EW)
+        # ── Build UI sections ──
+        self._build_mode_selector()
+        self._build_local_fields()
+        self._build_collab_fields()
 
-        ttk.Label(self.top, text=t_func("remote_url")).grid(row=2, column=0, padx=8, pady=5, sticky=tk.W)
-        self.url_entry = ttk.Entry(self.top, width=35)
-        self.url_entry.grid(row=2, column=1, padx=8, pady=5, sticky=tk.EW)
+        # ── OK button ──
+        self.btn_frame = ttk.Frame(self.top)
+        self.btn_frame.pack(pady=8)
+        ttk.Button(self.btn_frame, text="OK", command=self._ok).pack()
 
-        ttk.Label(self.top, text=t_func("remote_branch")).grid(row=3, column=0, padx=8, pady=5, sticky=tk.W)
-        self.branch_entry = ttk.Entry(self.top, width=35)
+        # ── Initialize display state ──
+        self._on_mode_change()
+
+    # ──────────────────────────────────────────────
+    # Task 4.1: Mode selector
+    # ──────────────────────────────────────────────
+    def _build_mode_selector(self):
+        """构建单选按钮组：本地模式 / 协作模式"""
+        mode_frame = ttk.Frame(self.top)
+        mode_frame.pack(fill=tk.X, padx=8, pady=(8, 4))
+
+        ttk.Radiobutton(
+            mode_frame, text=self.t("mode_local"),
+            variable=self.mode_var, value="local",
+            command=self._on_mode_change
+        ).pack(side=tk.LEFT, padx=(0, 16))
+
+        ttk.Radiobutton(
+            mode_frame, text=self.t("mode_collab"),
+            variable=self.mode_var, value="collab",
+            command=self._on_mode_change
+        ).pack(side=tk.LEFT)
+
+    # ──────────────────────────────────────────────
+    # Task 4.2: Local mode fields
+    # ──────────────────────────────────────────────
+    def _build_local_fields(self):
+        """项目名称 + 描述（始终显示）"""
+        self.local_frame = ttk.Frame(self.top)
+        self.local_frame.pack(fill=tk.X, padx=8, pady=2)
+        self.local_frame.columnconfigure(1, weight=1)
+
+        # Project name (required)
+        ttk.Label(self.local_frame, text=self.t("project_name")).grid(
+            row=0, column=0, padx=4, pady=4, sticky=tk.W)
+        self.name_entry = PlaceholderEntry(
+            self.local_frame, placeholder=self.t("ph_project_name"), width=35)
+        self.name_entry.grid(row=0, column=1, padx=4, pady=4, sticky=tk.EW)
+
+        # Description (optional)
+        desc_label = self.t("description") + " " + self.t("desc_optional")
+        ttk.Label(self.local_frame, text=desc_label).grid(
+            row=1, column=0, padx=4, pady=4, sticky=tk.W)
+        self.desc_entry = PlaceholderEntry(
+            self.local_frame, placeholder=self.t("ph_description"), width=35)
+        self.desc_entry.grid(row=1, column=1, padx=4, pady=4, sticky=tk.EW)
+
+    # ──────────────────────────────────────────────
+    # Task 4.3: Collaboration mode fields
+    # ──────────────────────────────────────────────
+    def _build_collab_fields(self):
+        """Git 配置字段组（仅协作模式显示）"""
+        self.collab_frame = ttk.Frame(self.top)
+        self.collab_frame.columnconfigure(1, weight=1)
+
+        row = 0
+        # 1. Remote URL
+        ttk.Label(self.collab_frame, text=self.t("remote_url")).grid(
+            row=row, column=0, padx=4, pady=3, sticky=tk.W)
+        self.url_entry = PlaceholderEntry(
+            self.collab_frame, placeholder=self.t("ph_remote_url"), width=35)
+        self.url_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
+
+        # 2. Remote branch (prefilled "main")
+        row += 1
+        ttk.Label(self.collab_frame, text=self.t("remote_branch")).grid(
+            row=row, column=0, padx=4, pady=3, sticky=tk.W)
+        self.branch_entry = PlaceholderEntry(
+            self.collab_frame, placeholder=self.t("ph_remote_branch"), width=35)
+        # Pre-fill with "main"
+        self.branch_entry.delete(0, tk.END)
         self.branch_entry.insert(0, "main")
-        self.branch_entry.grid(row=3, column=1, padx=8, pady=5, sticky=tk.EW)
+        self.branch_entry.configure(foreground="")
+        self.branch_entry._is_placeholder = False
+        self.branch_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
 
-        ttk.Button(self.top, text="OK", command=self._ok).grid(row=4, column=0, columnspan=2, pady=10)
+        # 3. Username
+        row += 1
+        ttk.Label(self.collab_frame, text=self.t("username")).grid(
+            row=row, column=0, padx=4, pady=3, sticky=tk.W)
+        self.username_entry = PlaceholderEntry(
+            self.collab_frame, placeholder=self.t("ph_username"), width=35)
+        self.username_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
+
+        # 4. Password/Token (masked)
+        row += 1
+        ttk.Label(self.collab_frame, text=self.t("password")).grid(
+            row=row, column=0, padx=4, pady=3, sticky=tk.W)
+        self.password_entry = PlaceholderEntry(
+            self.collab_frame, placeholder=self.t("ph_password"),
+            width=35, show="*")
+        self.password_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
+
+        # 5. Committer name
+        row += 1
+        ttk.Label(self.collab_frame, text=self.t("committer_name")).grid(
+            row=row, column=0, padx=4, pady=3, sticky=tk.W)
+        self.committer_name_entry = PlaceholderEntry(
+            self.collab_frame, placeholder=self.t("ph_committer_name"), width=35)
+        self.committer_name_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
+
+        # 6. Committer email
+        row += 1
+        ttk.Label(self.collab_frame, text=self.t("committer_email")).grid(
+            row=row, column=0, padx=4, pady=3, sticky=tk.W)
+        self.committer_email_entry = PlaceholderEntry(
+            self.collab_frame, placeholder=self.t("ph_committer_email"), width=35)
+        self.committer_email_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
+
+        # 7. Private branch name
+        row += 1
+        ttk.Label(self.collab_frame, text=self.t("priv_branch")).grid(
+            row=row, column=0, padx=4, pady=3, sticky=tk.W)
+        self.priv_branch_entry = PlaceholderEntry(
+            self.collab_frame, placeholder=self.t("ph_priv_branch"), width=35)
+        self.priv_branch_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
+
+    # ──────────────────────────────────────────────
+    # Task 4.4: Mode switching logic
+    # ──────────────────────────────────────────────
+    def _on_mode_change(self):
+        """模式切换回调：显示/隐藏协作模式字段组，调整对话框尺寸"""
+        if self.mode_var.get() == "collab":
+            self.collab_frame.pack(fill=tk.X, padx=8, pady=2,
+                                   before=self.btn_frame)
+            self.top.geometry(self.DIALOG_SIZE_COLLAB)
+        else:
+            self.collab_frame.pack_forget()
+            self.top.geometry(self.DIALOG_SIZE_LOCAL)
+
+    # ──────────────────────────────────────────────
+    # Task 4.5: Validation and confirm logic
+    # ──────────────────────────────────────────────
+    def _detect_git_user(self):
+        """尝试自动检测系统 Git 用户信息"""
+        try:
+            name = subprocess.check_output(
+                ["git", "config", "user.name"],
+                stderr=subprocess.DEVNULL
+            ).decode().strip()
+        except Exception:
+            name = ""
+        try:
+            email = subprocess.check_output(
+                ["git", "config", "user.email"],
+                stderr=subprocess.DEVNULL
+            ).decode().strip()
+        except Exception:
+            email = ""
+        return name, email
 
     def _ok(self):
-        name = self.name_entry.get().strip()
-        remote_url = self.url_entry.get().strip()
-        # If cloning and no name given, derive from URL
-        if not name and remote_url:
-            # Extract last path component as project name
-            # Use os.path.basename for Windows paths, posixpath for URLs
-            url_path = remote_url.rstrip("/")
-            if url_path.endswith(".git"):
-                url_path = url_path[:-4]
-            name = os.path.basename(url_path)
+        name = self.name_entry.get_value().strip()
+        mode = self.mode_var.get()
+
+        # If collaboration mode and no name given, derive from URL
+        if mode == "collab":
+            remote_url = self.url_entry.get_value().strip()
+            if not name and remote_url:
+                url_path = remote_url.rstrip("/")
+                if url_path.endswith(".git"):
+                    url_path = url_path[:-4]
+                name = os.path.basename(url_path)
+
+        # Validate project name
         if not name:
-            messagebox.showwarning(self.t_func("warning"), self.t_func("name_required"))
+            messagebox.showwarning(self.t("warning"), self.t("name_required"))
             return
-        self.result = {
-            "name": name,
-            "description": self.desc_entry.get().strip(),
-            "remote_url": remote_url,
-            "remote_branch": self.branch_entry.get().strip() or "main",
-        }
-        self.top.destroy()
+
+        if mode == "local":
+            # Local mode: simple result
+            self.result = {
+                "name": name,
+                "description": self.desc_entry.get_value().strip(),
+                "remote_url": "",
+                "remote_branch": "main",
+            }
+            self.top.destroy()
+        else:
+            # Collaboration mode: validate and build full result
+            remote_url = self.url_entry.get_value().strip()
+            if not remote_url:
+                messagebox.showwarning(self.t("warning"), self.t("url_required"))
+                return
+            if not validate_remote_url(remote_url):
+                messagebox.showwarning(self.t("warning"), self.t("invalid_url_format"))
+                return
+
+            committer_name = self.committer_name_entry.get_value().strip()
+            committer_email = self.committer_email_entry.get_value().strip()
+
+            # Auto-detect git user if committer info is empty
+            if not committer_name or not committer_email:
+                detected_name, detected_email = self._detect_git_user()
+                if detected_name and detected_email:
+                    msg = self.t("detect_git_user_confirm").format(
+                        detected_name, detected_email)
+                    if messagebox.askyesno(self.t("warning"), msg):
+                        if not committer_name:
+                            committer_name = detected_name
+                        if not committer_email:
+                            committer_email = detected_email
+                    else:
+                        return
+                else:
+                    messagebox.showwarning(
+                        self.t("warning"), self.t("committer_required"))
+                    return
+
+            self.result = {
+                "name": name,
+                "description": self.desc_entry.get_value().strip(),
+                "remote_url": remote_url,
+                "remote_branch": self.branch_entry.get_value().strip() or "main",
+                "remote_username": self.username_entry.get_value().strip(),
+                "remote_password": self.password_entry.get_value().strip(),
+                "committer_name": committer_name,
+                "committer_email": committer_email,
+                "priv_branch": self.priv_branch_entry.get_value().strip(),
+            }
+            self.top.destroy()
 
 
 class MilestoneCreateDialog:

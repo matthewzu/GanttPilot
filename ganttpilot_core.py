@@ -223,7 +223,8 @@ class DataStore:
                 return p
         return None
 
-    def add_project(self, name, remote_url="", remote_username="", remote_password="", description="", tags=None):
+    def add_project(self, name, remote_url="", remote_username="", remote_password="", description="", tags=None,
+                    remote_branch="main", committer_name="", committer_email="", priv_branch=""):
         if self.get_project(name):
             return None
         proj = {
@@ -233,6 +234,10 @@ class DataStore:
             "remote_url": remote_url,
             "remote_username": remote_username,
             "remote_password": remote_password,
+            "remote_branch": remote_branch,
+            "committer_name": committer_name,
+            "committer_email": committer_email,
+            "priv_branch": priv_branch,
             "tags": tags or [],
             "requirements": [],
             "milestones": [],

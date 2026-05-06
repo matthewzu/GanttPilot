@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)
+![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -158,24 +158,31 @@ Shows the Git commit log for the current project. You can:
 
 ### Creating a Project
 
-Right-click empty area → Add Project. Two options:
+Right-click empty area → Add Project. The dialog offers two modes via radio buttons:
 
-#### Clone from Remote
+#### Local Mode (default)
 
-Fill in the "Remote URL" field. The remote must be a **bare repository** (`git init --bare`).
+For personal, offline use. Only two fields:
 
-- Remote can be a local path (`E:\repos\myproject`) or server URL (`https://github.com/user/repo.git`)
-- Project Name and Description are optional — if the remote already has a `project.json`, they'll be read from it
-- Remote Main Branch defaults to `main`
-- A local `priv` work branch is created automatically after cloning
+- **Project Name** (required)
+- **Description** (optional)
 
-#### Create Locally
+Data is stored at `~/.ganttpilot/data/{project_name}/`. You can add a remote later via right-click → Git Config.
 
-Leave Remote URL empty.
+#### Collaboration Mode
 
-- Only Project Name is required
-- Data is stored at `~/.ganttpilot/data/{project_name}/`
-- You can add a remote later via right-click → Git Config
+For team projects with Git sync. Shows all fields needed to set up collaboration in one step:
+
+- **Project Name** and **Description** — same as local mode
+- **Remote URL** — bare repository address (local path or server URL like `https://github.com/user/repo.git`)
+- **Remote Main Branch** — defaults to `main`
+- **Username** — Git repository username
+- **Password/Token** — personal access token or password (masked)
+- **Committer Name** — name for Git commits (auto-detected from system git config if empty)
+- **Committer Email** — email for Git commits (auto-detected if empty)
+- **Private Branch** — leave empty to auto-generate `priv_{committer_name}`
+
+Each field has placeholder hints to guide you. The dialog auto-resizes when switching modes.
 
 ### Recording Work Hours
 
@@ -400,24 +407,31 @@ python main.py --version    # 显示版本
 
 ### 创建项目
 
-空白处右键 → 添加项目。有两种方式：
+空白处右键 → 添加项目。对话框提供两种模式（通过单选按钮切换）：
 
-#### 从远端仓库克隆
+#### 本地模式（默认）
 
-填写"远端仓库地址"。远端必须是 **bare 仓库**（通过 `git init --bare` 创建）。
+适合个人离线使用，仅需填写两个字段：
 
-- 远端可以是本地路径（如 `x:\repos\myproject`）或服务器地址（如 `https://github.com/user/repo.git`）
-- "项目名称"和"描述"为可选项 — 如果远端已有 `project.json`，会自动读取
-- "远端主分支"默认为 `main`
-- 克隆完成后自动创建本地 `priv` 工作分支
+- **项目名称**（必填）
+- **描述**（可选）
 
-#### 本地创建
+数据存储在 `~/.ganttpilot/data/{项目名}/`。后续可通过项目右键 → Git 配置添加远端仓库。
 
-"远端仓库地址"留空即可。
+#### 协作模式
 
-- 仅"项目名称"为必填项
-- 数据存储在 `~/.ganttpilot/data/{项目名}/`
-- 后续可通过项目右键 → Git 配置添加远端仓库
+适合团队协作，一步完成 Git 配置：
+
+- **项目名称**和**描述** — 同本地模式
+- **远端仓库地址** — bare 仓库地址（本地路径或服务器地址如 `https://github.com/user/repo.git`）
+- **远端主分支** — 默认 `main`
+- **用户名** — Git 仓库用户名
+- **密码/Token** — 个人访问令牌或密码（掩码显示）
+- **提交者名称** — 用于 Git 提交记录的名称（留空可自动检测系统 Git 配置）
+- **提交者邮箱** — 用于 Git 提交记录的邮箱（留空可自动检测）
+- **私有分支名称** — 留空则自动生成 `priv_{提交者名称}`
+
+每个字段都有占位提示信息引导填写。切换模式时对话框自动调整大小。
 
 ### 记录工时
 
