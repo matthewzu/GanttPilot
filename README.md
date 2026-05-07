@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.3.1-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -179,8 +179,8 @@ For team projects with Git sync. Shows all fields needed to set up collaboration
 - **Remote Main Branch** — defaults to `main`
 - **Username** — Git repository username
 - **Password/Token** — personal access token or password (masked)
-- **Committer Name** — name for Git commits (saved to global config, auto-detected from system git config if empty)
-- **Committer Email** — email for Git commits (saved to global config, auto-detected if empty)
+- **Committer Name** — name for Git commits (per-project, saved locally; leave empty to use global config)
+- **Committer Email** — email for Git commits (per-project, saved locally; leave empty to use global config)
 - **Private Branch** — leave empty to auto-generate `priv_{committer_name}` (spaces are replaced with underscores)
 
 Each field has placeholder hints to guide you. The dialog auto-resizes when switching modes.
@@ -219,9 +219,9 @@ Each project is an independent Git repo stored at `~/.ganttpilot/data/{project_n
 
 #### Setup
 
-1. Right-click project → Git Config
-2. Set Remote URL (must be a bare repo) and private branch name
-3. Committer name and email are configured globally in Config (⚙️), shared across all projects
+1. Right-click project → Git Config to set Remote URL and private branch name
+2. Edit Project to set per-project committer name and email (or leave empty to use global)
+3. Global committer defaults are configured in Config (⚙️), shared across all projects
 4. Git user info can be auto-detected from your system git config
 
 #### Background Sync

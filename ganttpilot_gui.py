@@ -714,17 +714,23 @@ class GanttPilotGUI:
     def _get_project_git(self, proj):
         """Construct a GitSync for a specific project directory.
 
-        Committer info is read from global config (not per-project).
+        Committer info: project-specific (from global config keyed by project name),
+        falling back to global default.
         """
         proj_dir = os.path.join(self.config.data_dir, proj["name"])
+        # Resolve committer: project-specific > global
+        proj_committers = self.config.get("project_committers", {}) or {}
+        proj_comm = proj_committers.get(proj["name"], {})
+        committer_name = proj_comm.get("name", "") or self.config.get("committer_name", "")
+        committer_email = proj_comm.get("email", "") or self.config.get("committer_email", "")
         return GitSync(
             proj_dir,
             proj.get("remote_url", ""),
             proj.get("remote_username", ""),
             proj.get("remote_password", ""),
             proj.get("remote_branch", "main"),
-            committer_name=self.config.get("committer_name", ""),
-            committer_email=self.config.get("committer_email", ""),
+            committer_name=committer_name,
+            committer_email=committer_email,
             priv_branch=proj.get("priv_branch", ""),
         )
 
@@ -1642,19 +1648,20 @@ class GanttPilotGUI:
         remote_password = dlg.result.get("remote_password", "")
         priv_branch = dlg.result.get("priv_branch", "")
 
-        # Committer info from dialog goes to global config (not per-project)
+        # Committer info: save to project_committers in global config
         dlg_committer_name = dlg.result.get("committer_name", "")
         dlg_committer_email = dlg.result.get("committer_email", "")
-        if dlg_committer_name:
-            self.config.set("committer_name", dlg_committer_name)
-        if dlg_committer_email:
-            self.config.set("committer_email", dlg_committer_email)
         if dlg_committer_name or dlg_committer_email:
+            proj_committers = self.config.get("project_committers", {}) or {}
+            proj_committers[name] = {"name": dlg_committer_name, "email": dlg_committer_email}
+            self.config.set("project_committers", proj_committers)
             self.config.save()
 
-        # Read committer from global config for git operations
-        committer_name = self.config.get("committer_name", "")
-        committer_email = self.config.get("committer_email", "")
+        # Resolve effective committer for git operations (project-specific > global)
+        proj_committers = self.config.get("project_committers", {}) or {}
+        proj_comm = proj_committers.get(name, {})
+        committer_name = proj_comm.get("name", "") or self.config.get("committer_name", "")
+        committer_email = proj_comm.get("email", "") or self.config.get("committer_email", "")
 
         self.undo_manager.save_snapshot()
         if remote_url:
@@ -1979,7 +1986,7 @@ class GanttPilotGUI:
             return
         if self._has_active_dialog():
             return
-        dlg = ProjectEditDialog(self.root, self._t, self.lang, proj)
+        dlg = ProjectEditDialog(self.root, self._t, self.lang, proj, config=self.config)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
         self._active_dialog = None
@@ -2051,7 +2058,7 @@ class GanttPilotGUI:
             return
         if self._has_active_dialog():
             return
-        dlg = ProjectGitConfigDialog(self.root, self._t, self.lang, proj)
+        dlg = ProjectGitConfigDialog(self.root, self._t, self.lang, proj, config=self.config)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
         self._active_dialog = None
@@ -2657,8 +2664,12 @@ class GanttPilotGUI:
             messagebox.showwarning(self._t("warning"), self._t("git_not_installed"))
             return
 
-        # Check committer configured (from global config)
-        if not self.config.get("committer_name") or not self.config.get("committer_email"):
+        # Check committer configured (project-specific or global)
+        proj_committers = self.config.get("project_committers", {}) or {}
+        proj_comm = proj_committers.get(self.current_project, {})
+        eff_name = proj_comm.get("name", "") or self.config.get("committer_name", "")
+        eff_email = proj_comm.get("email", "") or self.config.get("committer_email", "")
+        if not eff_name or not eff_email:
             messagebox.showwarning(self._t("warning"), self._t("committer_not_configured"))
             return
 
@@ -3360,13 +3371,15 @@ class ConfigDialog:
 
 
 class ProjectEditDialog:
-    """Dialog for editing a project name, description and tags"""
-    def __init__(self, parent, t_func, lang, project):
+    """Dialog for editing a project name, description, tags, and committer info"""
+    def __init__(self, parent, t_func, lang, project, config=None):
         self.result = None
         self.t_func = t_func
+        self.config = config
+        self.proj_name = project.get("name", "")
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_project"))
-        _center_dialog(self.top, parent, 400, 300)
+        _center_dialog(self.top, parent, 400, 380)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3382,7 +3395,7 @@ class ProjectEditDialog:
         ttk.Label(self.top, text=t_func("description")).grid(row=1, column=0, padx=8, pady=6, sticky=tk.NW)
         desc_frame = ttk.Frame(self.top)
         desc_frame.grid(row=1, column=1, padx=8, pady=6, sticky=tk.NSEW)
-        self.desc_text = tk.Text(desc_frame, width=30, height=6, wrap=tk.WORD, undo=True)
+        self.desc_text = tk.Text(desc_frame, width=30, height=4, wrap=tk.WORD, undo=True)
         desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
         self.desc_text.configure(yscrollcommand=desc_sb.set)
         self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -3398,7 +3411,29 @@ class ProjectEditDialog:
         ttk.Label(self.top, text=t_func("project_tags_hint"), foreground="gray", font=("", 8)).grid(
             row=3, column=1, padx=8, pady=(0, 2), sticky=tk.W)
 
-        ttk.Button(self.top, text="OK", command=self._ok).grid(row=4, column=0, columnspan=2, pady=10)
+        # Committer info (per-project, stored in global config keyed by project name)
+        proj_committers = config.get("project_committers", {}) if config else {}
+        proj_comm = proj_committers.get(self.proj_name, {})
+        global_name = config.get("committer_name", "") if config else ""
+        global_email = config.get("committer_email", "") if config else ""
+
+        ttk.Label(self.top, text=t_func("committer_name")).grid(row=4, column=0, padx=8, pady=4, sticky=tk.W)
+        self.committer_name_entry = ttk.Entry(self.top, width=30)
+        self.committer_name_entry.insert(0, proj_comm.get("name", ""))
+        self.committer_name_entry.grid(row=4, column=1, padx=8, pady=4, sticky=tk.EW)
+
+        ttk.Label(self.top, text=t_func("committer_email")).grid(row=5, column=0, padx=8, pady=4, sticky=tk.W)
+        self.committer_email_entry = ttk.Entry(self.top, width=30)
+        self.committer_email_entry.insert(0, proj_comm.get("email", ""))
+        self.committer_email_entry.grid(row=5, column=1, padx=8, pady=4, sticky=tk.EW)
+
+        # Hint: show global fallback
+        hint = t_func("committer_fallback_hint", global_name, global_email) if (global_name or global_email) else ""
+        if hint:
+            ttk.Label(self.top, text=hint, foreground="gray", font=("", 8)).grid(
+                row=6, column=1, padx=8, pady=(0, 2), sticky=tk.W)
+
+        ttk.Button(self.top, text="OK", command=self._ok).grid(row=7, column=0, columnspan=2, pady=10)
 
     def _ok(self):
         name = self.name_entry.get().strip()
@@ -3408,6 +3443,23 @@ class ProjectEditDialog:
         tags_str = self.tags_entry.get().strip()
         tags_str = tags_str.replace("\uff0c", ",")  # Chinese comma → ASCII comma
         tags = [t.strip() for t in tags_str.split(",") if t.strip()] if tags_str else []
+
+        committer_name = self.committer_name_entry.get().strip()
+        committer_email = self.committer_email_entry.get().strip()
+
+        # Save per-project committer to global config
+        if self.config:
+            proj_committers = self.config.get("project_committers", {}) or {}
+            if committer_name or committer_email:
+                proj_committers[name] = {"name": committer_name, "email": committer_email}
+            else:
+                proj_committers.pop(name, None)
+            # If project was renamed, remove old key
+            if name != self.proj_name and self.proj_name in proj_committers:
+                proj_committers.pop(self.proj_name, None)
+            self.config.set("project_committers", proj_committers)
+            self.config.save()
+
         self.result = {"name": name, "description": self.desc_text.get("1.0", tk.END).strip(), "tags": tags}
         self.top.destroy()
 
@@ -3595,10 +3647,11 @@ class ActivityEditDialog:
 
 class ProjectGitConfigDialog:
     """Dialog for configuring project Git remote"""
-    def __init__(self, parent, t_func, lang, project):
+    def __init__(self, parent, t_func, lang, project, config=None):
         self.result = None
         self.t_func = t_func
         self.lang = lang
+        self.config = config
         self.top = tk.Toplevel(parent)
         self.top.title("🔗 " + t_func("git_config"))
         _center_dialog(self.top, parent, 500, 300)
@@ -3763,7 +3816,7 @@ class ProjectCreateDialog:
     # Task 4.2: Local mode fields
     # ──────────────────────────────────────────────
     def _build_local_fields(self):
-        """项目名称 + 描述（始终显示）"""
+        """项目名称 + 描述 + 提交者（始终显示）"""
         self.local_frame = ttk.Frame(self.top)
         self.local_frame.pack(fill=tk.X, padx=8, pady=2)
         self.local_frame.columnconfigure(1, weight=1)
@@ -3782,6 +3835,20 @@ class ProjectCreateDialog:
         self.desc_entry = PlaceholderEntry(
             self.local_frame, placeholder=self.t("ph_description"), width=35)
         self.desc_entry.grid(row=1, column=1, padx=4, pady=4, sticky=tk.EW)
+
+        # Committer name (optional, falls back to global)
+        ttk.Label(self.local_frame, text=self.t("committer_name")).grid(
+            row=2, column=0, padx=4, pady=4, sticky=tk.W)
+        self.local_committer_name_entry = PlaceholderEntry(
+            self.local_frame, placeholder=self.t("ph_committer_name"), width=35)
+        self.local_committer_name_entry.grid(row=2, column=1, padx=4, pady=4, sticky=tk.EW)
+
+        # Committer email (optional, falls back to global)
+        ttk.Label(self.local_frame, text=self.t("committer_email")).grid(
+            row=3, column=0, padx=4, pady=4, sticky=tk.W)
+        self.local_committer_email_entry = PlaceholderEntry(
+            self.local_frame, placeholder=self.t("ph_committer_email"), width=35)
+        self.local_committer_email_entry.grid(row=3, column=1, padx=4, pady=4, sticky=tk.EW)
 
     # ──────────────────────────────────────────────
     # Task 4.3: Collaboration mode fields
@@ -3906,12 +3973,16 @@ class ProjectCreateDialog:
             return
 
         if mode == "local":
-            # Local mode: simple result
+            # Local mode: get committer from local fields
+            committer_name = self.local_committer_name_entry.get_value().strip()
+            committer_email = self.local_committer_email_entry.get_value().strip()
             self.result = {
                 "name": name,
                 "description": self.desc_entry.get_value().strip(),
                 "remote_url": "",
                 "remote_branch": "main",
+                "committer_name": committer_name,
+                "committer_email": committer_email,
             }
             self.top.destroy()
         else:
