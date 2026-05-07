@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.3.1-blue.svg)
+![Version](https://img.shields.io/badge/version-1.3.2-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -98,6 +98,11 @@ The toolbar at the top provides quick access to common actions. Buttons are cont
 
 | Button | Action | Shortcut |
 | --- | --- | --- |
+| EN/中 | Toggle language | — |
+| ↩ | Undo | `Ctrl+Z` |
+| ↪ | Redo | `Ctrl+Y` |
+| A+ | Increase font size | — |
+| A- | Decrease font size | — |
 | Add | Add child node (requirement/task/milestone/plan/activity) | `Ctrl+N` |
 | Edit | Edit selected node | `F2` |
 | Delete | Delete selected node | `Delete` |
@@ -106,9 +111,11 @@ The toolbar at the top provides quick access to common actions. Buttons are cont
 | Duplicate | Clone node with all children | `Ctrl+D` |
 | Move Up | Reorder node up among siblings | `Alt+Up` |
 | Move Down | Reorder node down among siblings | `Alt+Down` |
+| ? | Show help | — |
 | ⟳ | Check for updates | — |
+| ⚙ | Open settings | — |
 
-Other shortcuts: `Ctrl+Z` Undo, `Ctrl+Y` Redo, `Ctrl+S` Push, `F5` Refresh. All shortcuts are customizable in Config.
+Other shortcuts: `Ctrl+S` Push/Sync, `F5` Refresh. All shortcuts are customizable in Config.
 
 #### Right-Click Menus
 
@@ -117,7 +124,7 @@ Right-click is the primary way to access all operations. What you see depends on
 | Right-click on | Available actions |
 | --- | --- |
 | Empty area | Add Project, Load Example, Push, Pull, Refresh |
-| Project | Edit, Git Config, Copy, Duplicate, Generate Report, Push, Pull, Refresh, Delete |
+| Project | Edit, Git Config, Copy, Duplicate, Generate Report, Push, Pull, Sync Main, Refresh, Delete |
 | Requirement Analysis | Add Requirement, Paste |
 | Requirement | Add Task, Edit, Copy, Paste, Duplicate, Move Up/Down, Delete |
 | Task | Edit, Copy, Duplicate, Move Up/Down, Delete |
@@ -163,10 +170,12 @@ Right-click empty area → Add Project. The dialog offers two modes via radio bu
 
 #### Local Mode (default)
 
-For personal, offline use. Only two fields:
+For personal, offline use. Fields:
 
 - **Project Name** (required)
 - **Description** (optional)
+- **Committer Name** (optional — leave empty to use global config, then auto-detect from system Git)
+- **Committer Email** (optional — leave empty to use global config, then auto-detect from system Git)
 
 Data is stored at `~/.ganttpilot/data/{project_name}/`. You can add a remote later via right-click → Git Config.
 
@@ -179,8 +188,8 @@ For team projects with Git sync. Shows all fields needed to set up collaboration
 - **Remote Main Branch** — defaults to `main`
 - **Username** — Git repository username
 - **Password/Token** — personal access token or password (masked)
-- **Committer Name** — name for Git commits (per-project, saved locally; leave empty to use global config)
-- **Committer Email** — email for Git commits (per-project, saved locally; leave empty to use global config)
+- **Committer Name** — name for Git commits (leave empty to use global config, then auto-detect from system Git)
+- **Committer Email** — email for Git commits (leave empty to use global config, then auto-detect from system Git)
 - **Private Branch** — leave empty to auto-generate `priv_{committer_name}` (spaces are replaced with underscores)
 
 Each field has placeholder hints to guide you. The dialog auto-resizes when switching modes.
@@ -215,13 +224,24 @@ Each project is an independent Git repo stored at `~/.ganttpilot/data/{project_n
 - Pull fetches the latest from remote and auto-updates local main branch (right-click → Pull)
 - Changes are merged to the main branch via Pull Request on your Git platform
 - After pull/sync, if main has new commits, a dialog asks whether to rebase your branch to latest main
+- Right-click project → Sync Main to manually rebase at any time (fetches latest + rebases + auto-pushes)
 - GanttPilot never pushes to the main branch — only your private branch is pushed
+
+#### Rebase Workflow
+
+When your PR is merged and main moves ahead of your private branch:
+
+1. **Pull** (right-click → Pull, or background auto-fetch) — fetches remote and fast-forwards local main
+2. **Rebase prompt** — GanttPilot detects main has new commits and asks "Rebase your branch to latest?"
+3. **Accept** — your private branch is rebased onto the updated main (conflicts auto-abort with a warning), then auto-pushed with `--force-with-lease`
+
+After rebase, the remote tracking branch is automatically updated — no manual push needed.
 
 #### Setup
 
 1. Right-click project → Git Config to set Remote URL and private branch name
-2. Edit Project to set per-project committer name and email (or leave empty to use global)
-3. Global committer defaults are configured in Config (⚙️), shared across all projects
+2. Edit Project to set per-project committer name and email (saved locally, not committed to repo; leave empty to use global)
+3. Global committer defaults are configured in Config (⚙), shared across all projects
 4. Git user info can be auto-detected from your system git config
 
 #### Background Sync
@@ -245,17 +265,20 @@ Long projects auto-compress the day width in report images (configurable thresho
 
 ### Configuration
 
-Menu → Config opens the settings dialog:
+Toolbar → ⚙ opens the settings dialog:
 
 | Setting | Description |
 | --- | --- |
-| Language | Chinese / English |
-| Font Size | Tree view font size |
 | Data Directory | Where project data is stored |
+| Config Directory | Where configuration files are stored |
+| Committer Name | Global Git committer name (shared across all projects) |
+| Committer Email | Global Git committer email (shared across all projects) |
 | Compress Threshold | Days threshold for auto-compressing report Gantt images |
 | Max Chart Width | Maximum width in pixels for report images |
 | Pull Interval | Background remote check interval in minutes (default: 5) |
 | Shortcuts | Customize all keyboard shortcuts with conflict detection |
+
+Language is toggled via the `EN/中` toolbar button. Font size is adjusted via `A+`/`A-` toolbar buttons.
 
 ### Project Tags
 
@@ -350,6 +373,11 @@ python main.py --version    # 显示版本
 
 | 按钮 | 功能 | 快捷键 |
 | --- | --- | --- |
+| EN/中 | 切换语言 | — |
+| ↩ | 撤销 | `Ctrl+Z` |
+| ↪ | 恢复 | `Ctrl+Y` |
+| A+ | 增大字体 | — |
+| A- | 减小字体 | — |
 | 添加 | 添加子节点（需求/任务/里程碑/计划/活动） | `Ctrl+N` |
 | 编辑 | 编辑选中节点 | `F2` |
 | 删除 | 删除选中节点 | `Delete` |
@@ -358,9 +386,11 @@ python main.py --version    # 显示版本
 | 克隆 | 复制节点及其所有子节点 | `Ctrl+D` |
 | 上移 | 在同级节点中上移 | `Alt+Up` |
 | 下移 | 在同级节点中下移 | `Alt+Down` |
+| ? | 显示帮助 | — |
 | ⟳ | 检查更新 | — |
+| ⚙ | 打开设置 | — |
 
-其他快捷键：`Ctrl+Z` 撤销、`Ctrl+Y` 恢复、`Ctrl+S` 推送、`F5` 刷新。所有快捷键均可在配置中自定义。
+其他快捷键：`Ctrl+S` 推送/同步、`F5` 刷新。所有快捷键均可在配置中自定义。
 
 #### 右键菜单
 
@@ -369,7 +399,7 @@ python main.py --version    # 显示版本
 | 右键点击 | 可用操作 |
 | --- | --- |
 | 空白处 | 添加项目、加载示例、推送、拉取、刷新 |
-| 项目 | 编辑、Git 配置、复制、克隆、生成报告、推送、拉取、刷新、删除 |
+| 项目 | 编辑、Git 配置、复制、克隆、生成报告、推送、拉取、同步主线、刷新、删除 |
 | 需求分析 | 添加需求、粘贴 |
 | 需求 | 添加任务、编辑、复制、粘贴、克隆、上移/下移、删除 |
 | 任务 | 编辑、复制、克隆、上移/下移、删除 |
@@ -415,10 +445,12 @@ python main.py --version    # 显示版本
 
 #### 本地模式（默认）
 
-适合个人离线使用，仅需填写两个字段：
+适合个人离线使用，字段：
 
 - **项目名称**（必填）
 - **描述**（可选）
+- **提交者名称**（可选 — 留空则依次从全局配置、系统 Git 配置获取）
+- **提交者邮箱**（可选 — 留空则依次从全局配置、系统 Git 配置获取）
 
 数据存储在 `~/.ganttpilot/data/{项目名}/`。后续可通过项目右键 → Git 配置添加远端仓库。
 
@@ -431,8 +463,8 @@ python main.py --version    # 显示版本
 - **远端主分支** — 默认 `main`
 - **用户名** — Git 仓库用户名
 - **密码/Token** — 个人访问令牌或密码（掩码显示）
-- **提交者名称** — 用于 Git 提交记录的名称（留空可自动检测系统 Git 配置）
-- **提交者邮箱** — 用于 Git 提交记录的邮箱（留空可自动检测）
+- **提交者名称** — 用于 Git 提交记录的名称（留空则依次从全局配置、系统 Git 配置获取）
+- **提交者邮箱** — 用于 Git 提交记录的邮箱（留空则依次从全局配置、系统 Git 配置获取）
 - **私有分支名称** — 留空则自动生成 `priv_{提交者名称}`
 
 每个字段都有占位提示信息引导填写。切换模式时对话框自动调整大小。
@@ -467,13 +499,25 @@ python main.py --version    # 显示版本
 - 拉取从远端获取最新数据并自动更新本地 main 分支（项目右键 → 拉取）
 - 通过 Git 平台的 Pull Request 将更改合并到主分支
 - 拉取/同步后如果 main 有新提交，会弹窗询问是否将私有分支变基到最新 main
+- 项目右键 → 同步主线：随时手动将私有分支变基到最新 main（自动拉取 + 变基 + 推送）
 - GanttPilot 不会向远端 main 分支推送——仅推送私有分支
+
+#### 变基（Rebase）流程
+
+当你的 PR 被合并后，main 分支领先于你的私有分支：
+
+1. **拉取**（项目右键 → 拉取，或后台自动拉取）— 获取远端更新并快进本地 main
+2. **变基提示** — GanttPilot 检测到 main 有新提交，弹窗询问"是否将私有分支变基到最新？"
+3. **确认** — 私有分支变基到更新后的 main（冲突时自动中止并提示），然后自动使用 `--force-with-lease` 推送
+
+变基后远端跟踪分支会自动更新，无需手动推送。
 
 #### 配置方法
 
-1. 项目右键 → Git 配置
-2. 设置远端仓库地址（必须是 bare 仓库）、提交者名称和邮箱
-3. Git 用户信息可从系统 git 配置自动检测
+1. 项目右键 → Git 配置，设置远端仓库地址和私有分支名称
+2. 编辑项目设置项目级提交者名称和邮箱（保存在本地，不会提交到仓库；留空则使用全局配置）
+3. 全局提交者信息在配置（⚙）中设置，所有项目共享
+4. Git 用户信息可从系统 git 配置自动检测
 
 #### 后台同步
 
@@ -496,17 +540,20 @@ python main.py --version    # 显示版本
 
 ### 配置
 
-菜单 → 配置，打开设置对话框：
+工具栏 → ⚙ 打开设置对话框：
 
 | 设置项 | 说明 |
 | --- | --- |
-| 语言 | 中文 / 英文 |
-| 字体大小 | 树形图字体大小 |
 | 数据文件夹路径 | 项目数据存储位置 |
+| 本地配置路径 | 配置文件存储位置 |
+| 提交者名称 | 全局 Git 提交者名称（所有项目共享） |
+| 提交者邮箱 | 全局 Git 提交者邮箱（所有项目共享） |
 | 报告图片压缩阈值 | 超过此天数自动压缩甘特图日宽度 |
 | 报告图片最大宽度 | 报告图片最大像素宽度 |
 | 拉取间隔 | 后台远端检测间隔（分钟，默认 5） |
 | 快捷键配置 | 自定义所有键盘快捷键，支持冲突检测 |
+
+语言通过工具栏 `EN/中` 按钮切换。字体大小通过 `A+`/`A-` 按钮调整。
 
 ### 项目标签
 

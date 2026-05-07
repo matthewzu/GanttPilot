@@ -407,6 +407,9 @@ class GanttPilotGUI:
         self._show_tooltip(self.tb_dup_btn, self._tooltip_with_shortcut(self._t("duplicate"), "duplicate"))
         self._show_tooltip(self.tb_up_btn, self._tooltip_with_shortcut(self._t("move_up"), "move_up"))
         self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
+        self._show_tooltip(self.update_check_btn, self._t("update_check"))
+        self._show_tooltip(self.help_btn, self._t("help"))
+        self._show_tooltip(self.config_btn, self._t("config"))
 
         # Start background fetch for all projects with remote_url
         threading.Thread(target=self._startup_sync, daemon=True).start()
@@ -772,10 +775,12 @@ class GanttPilotGUI:
         self.tb_down_btn = ttk.Button(toolbar, text="↓", command=self.toolbar_move_down, width=4, state=tk.DISABLED)
         self.tb_down_btn.pack(side=tk.LEFT, padx=1)
 
-        ttk.Button(toolbar, text="⚙", command=self.open_config_dialog, width=3).pack(side=tk.RIGHT, padx=1)
+        self.config_btn = ttk.Button(toolbar, text="⚙", command=self.open_config_dialog, width=3)
+        self.config_btn.pack(side=tk.RIGHT, padx=1)
         self.update_check_btn = ttk.Button(toolbar, text="⟳", command=self.manual_update_check, width=3)
         self.update_check_btn.pack(side=tk.RIGHT, padx=1)
-        ttk.Button(toolbar, text="?", command=self.show_help, width=3).pack(side=tk.RIGHT, padx=1)
+        self.help_btn = ttk.Button(toolbar, text="?", command=self.show_help, width=3)
+        self.help_btn.pack(side=tk.RIGHT, padx=1)
 
         # Tree
         tree_frame = ttk.Frame(left_frame)
@@ -987,6 +992,7 @@ class GanttPilotGUI:
                 menu.add_command(label=self._t("report"), command=self.generate_report)
                 menu.add_command(label=self._t("push"), command=self.do_sync, accelerator=self._accel("sync"))
                 menu.add_command(label=self._t("pull"), command=self.do_pull)
+                menu.add_command(label=self._t("sync_main"), command=self.do_manual_rebase_menu)
                 menu.add_command(label=self._t("refresh"), command=self._full_refresh, accelerator=self._accel("refresh"))
                 menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
@@ -1446,6 +1452,26 @@ class GanttPilotGUI:
         except RuntimeError:
             messagebox.showerror(self._t("error"), self._t("rebase_conflict"))
 
+    def do_manual_rebase_menu(self):
+        """Handle right-click menu → Sync Main: fetch + rebase private branch to latest main."""
+        if not self.current_project:
+            return
+
+        proj = self.store.get_project(self.current_project)
+        if not proj or not proj.get("remote_url"):
+            messagebox.showwarning("", self._t("no_remote"))
+            return
+
+        try:
+            gs = self._get_project_git(proj)
+            gs.fetch_remote()
+            gs.manual_rebase()
+            self.update_banner.pack_forget()
+            self._full_refresh()
+            self.status_var.set(self._t("rebase_success"))
+        except RuntimeError:
+            messagebox.showerror(self._t("error"), self._t("rebase_conflict"))
+
     def on_branch_changed(self, event=None):
         """Handle branch selection change — load data from selected branch."""
         selected = self.branch_selector.get()
@@ -1634,7 +1660,7 @@ class GanttPilotGUI:
     def add_project(self):
         if self._has_active_dialog():
             return
-        dlg = ProjectCreateDialog(self.root, self._t, self.lang)
+        dlg = ProjectCreateDialog(self.root, self._t, self.lang, config=self.config)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
         self._active_dialog = None
@@ -2640,6 +2666,9 @@ class GanttPilotGUI:
             self._show_tooltip(self.tb_dup_btn, self._tooltip_with_shortcut(self._t("duplicate"), "duplicate"))
             self._show_tooltip(self.tb_up_btn, self._tooltip_with_shortcut(self._t("move_up"), "move_up"))
             self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
+            self._show_tooltip(self.update_check_btn, self._t("update_check"))
+            self._show_tooltip(self.help_btn, self._t("help"))
+            self._show_tooltip(self.config_btn, self._t("config"))
             # Update pull interval from config
             pull_interval = max(1, self.config.get("pull_interval", 5))
             self._bg_check_interval_ms = pull_interval * 60 * 1000
@@ -2647,7 +2676,36 @@ class GanttPilotGUI:
     def show_help(self):
         help_body = self._t("help_text")
         footer = f"v{VERSION}  |  GitHub: https://github.com/{GITHUB_REPO}"
-        messagebox.showinfo(self._t("help"), help_body + footer)
+        text = help_body + footer
+        readme_url = f"https://github.com/{GITHUB_REPO}#readme"
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title(self._t("help"))
+        _center_dialog(dlg, self.root, 560, 520)
+        dlg.transient(self.root)
+        dlg.grab_set()
+        dlg.focus_set()
+        dlg.bind("<Escape>", lambda e: dlg.destroy())
+
+        # Clickable README link at top
+        link_text = self._t("view_readme") + f"  ({readme_url})"
+        link_label = ttk.Label(dlg, text=link_text, foreground="blue", cursor="hand2")
+        link_label.pack(anchor=tk.W, padx=12, pady=(8, 4))
+        link_label.bind("<Button-1>", lambda e: webbrowser.open(readme_url))
+
+        frame = ttk.Frame(dlg)
+        frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
+
+        txt = tk.Text(frame, wrap=tk.WORD, font=("", 10), padx=8, pady=8)
+        sb = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=txt.yview)
+        txt.configure(yscrollcommand=sb.set)
+        txt.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        sb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        txt.insert("1.0", text)
+        txt.configure(state=tk.DISABLED)
+
+        ttk.Button(dlg, text="OK", command=dlg.destroy).pack(pady=(0, 8))
 
     def do_sync(self):
         if not self.current_project:
@@ -3379,7 +3437,7 @@ class ProjectEditDialog:
         self.proj_name = project.get("name", "")
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_project"))
-        _center_dialog(self.top, parent, 400, 380)
+        _center_dialog(self.top, parent, 480, 450)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3654,7 +3712,7 @@ class ProjectGitConfigDialog:
         self.config = config
         self.top = tk.Toplevel(parent)
         self.top.title("🔗 " + t_func("git_config"))
-        _center_dialog(self.top, parent, 500, 300)
+        _center_dialog(self.top, parent, 560, 380)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3761,12 +3819,13 @@ class ProjectCreateDialog:
     DIALOG_SIZE_LOCAL = "450x200"
     DIALOG_SIZE_COLLAB = "500x480"
 
-    def __init__(self, parent, t_func, lang):
+    def __init__(self, parent, t_func, lang, config=None):
         self.result = None
         self.t = t_func
         self.t_func = t_func  # backward compat alias
         self.lang = lang
         self.parent = parent
+        self.config = config
 
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("project"))
@@ -3973,9 +4032,34 @@ class ProjectCreateDialog:
             return
 
         if mode == "local":
-            # Local mode: get committer from local fields
+            # Local mode: get committer from local fields, fallback to global → system git
             committer_name = self.local_committer_name_entry.get_value().strip()
             committer_email = self.local_committer_email_entry.get_value().strip()
+
+            if not committer_name or not committer_email:
+                if self.config:
+                    if not committer_name:
+                        committer_name = self.config.get("committer_name", "")
+                    if not committer_email:
+                        committer_email = self.config.get("committer_email", "")
+
+            if not committer_name or not committer_email:
+                detected_name, detected_email = self._detect_git_user()
+                if detected_name and detected_email:
+                    msg = self.t("detect_git_user_confirm").format(
+                        detected_name, detected_email)
+                    if messagebox.askyesno(self.t("warning"), msg):
+                        if not committer_name:
+                            committer_name = detected_name
+                        if not committer_email:
+                            committer_email = detected_email
+                    else:
+                        return
+                else:
+                    messagebox.showwarning(
+                        self.t("warning"), self.t("committer_required"))
+                    return
+
             self.result = {
                 "name": name,
                 "description": self.desc_entry.get_value().strip(),
@@ -3998,8 +4082,17 @@ class ProjectCreateDialog:
             committer_name = self.committer_name_entry.get_value().strip()
             committer_email = self.committer_email_entry.get_value().strip()
 
-            # Auto-detect git user if committer info is empty
+            # Fallback: global config → system git config → require manual input
             if not committer_name or not committer_email:
+                # Try global config first
+                if self.config:
+                    if not committer_name:
+                        committer_name = self.config.get("committer_name", "")
+                    if not committer_email:
+                        committer_email = self.config.get("committer_email", "")
+
+            if not committer_name or not committer_email:
+                # Try system git config
                 detected_name, detected_email = self._detect_git_user()
                 if detected_name and detected_email:
                     msg = self.t("detect_git_user_confirm").format(

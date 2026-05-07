@@ -277,8 +277,12 @@ TEXTS = {
             "【Git协作】Ctrl+S 推送 / 右键拉取\n"
             "• 每人私有分支，通过 PR 合并到主线\n"
             "• 启动时自动拉取，后台定期检测更新\n"
-            "• 拉取后自动更新本地 main，提示 rebase\n"
+            "• 拉取后自动更新本地 main，提示 rebase（变基后自动推送）\n"
+            "• 项目右键 → 同步主线：手动将私有分支变基到最新 main\n"
             "• 私有分支名不能为 \"priv\" 或与主分支同名\n\n"
+            "【提交者信息】创建项目时必须\n"
+            "• 获取顺序：手动输入 → 全局配置(⚙) → 系统 git config\n"
+            "• 全部获取不到则阻止创建，请先配置\n\n"
             "【其他】Ctrl+Z 撤销 / Ctrl+Y 恢复 / 快捷键可自定义\n\n"
         ),
         # ── Keyboard shortcuts / 键盘快捷键 ──
@@ -603,8 +607,12 @@ TEXTS = {
             "[Git Collaboration] Ctrl+S Push / Right-click Pull\n"
             "• Each user on private branch, merge via PR\n"
             "• Auto-fetch on startup, periodic background check\n"
-            "• Pull auto-updates local main, prompts rebase\n"
+            "• Pull auto-updates local main, prompts rebase (auto-pushes after)\n"
+            "• Right-click project → Sync Main: manually rebase to latest main\n"
             "• Private branch name cannot be \"priv\" or same as main\n\n"
+            "[Committer Info] Required when creating a project\n"
+            "• Fallback order: manual input → global config(⚙) → system git config\n"
+            "• Blocks creation if none found; configure first\n\n"
             "[Other] Ctrl+Z Undo / Ctrl+Y Redo / Shortcuts customizable\n\n"
         ),
         # ── Keyboard shortcuts ──

@@ -489,6 +489,8 @@ class GitSync:
     def manual_rebase(self):
         """手动将私有分支 rebase 到远端主分支最新提交。
 
+        Rebase 成功后自动 force-push 私有分支到远端（使用 --force-with-lease 安全推送）。
+
         Raises:
             RuntimeError: rebase 冲突时抛出异常
         """
@@ -496,6 +498,13 @@ class GitSync:
         if result.returncode != 0:
             self._run("rebase", "--abort", check=False)
             raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Rebase conflict, aborted")
+        # Force-push private branch after successful rebase
+        wb = self.priv_branch
+        try:
+            self._run("push", "--force-with-lease", "-u", "origin", wb)
+        except RuntimeError:
+            self._restore_plain_remote()
+            self._run("push", "--force-with-lease", "-u", "origin", wb)
 
 
     def reset_to_commit(self, commit_hash):
