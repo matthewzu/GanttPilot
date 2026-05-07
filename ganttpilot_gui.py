@@ -151,7 +151,7 @@ def _center_dialog(dialog, parent, width, height):
     dialog.geometry(f"{width}x{height}+{x}+{y}")
 
 
-def _link_dialog(parent, title, message, link_text, link_url, ask=False):
+def _link_dialog(parent, title, message, link_text, link_url, ask=False, gui=None):
     """显示带可点击链接的对话框。
 
     Args:
@@ -161,16 +161,22 @@ def _link_dialog(parent, title, message, link_text, link_url, ask=False):
         link_text: 链接显示文本
         link_url: 链接 URL
         ask: True 返回 bool (Yes/No), False 仅显示 OK
+        gui: GanttPilotGUI 实例，用于注册 _active_dialog 防止重复打开
 
     Returns:
         bool: 如果 ask=True，返回用户是否点击了 Yes；否则返回 True
     """
+    if gui and gui._has_active_dialog():
+        return False
     result = [False]
     dlg = tk.Toplevel(parent)
     dlg.title(title)
     dlg.transient(parent)
     dlg.grab_set()
     dlg.resizable(False, False)
+
+    if gui:
+        gui._active_dialog = dlg
 
     frame = ttk.Frame(dlg, padding=16)
     frame.pack(fill=tk.BOTH, expand=True)
@@ -202,6 +208,8 @@ def _link_dialog(parent, title, message, link_text, link_url, ask=False):
     dlg.focus_set()
     dlg.bind("<Escape>", lambda e: dlg.destroy())
     parent.wait_window(dlg)
+    if gui:
+        gui._active_dialog = None
     return result[0]
 
 
@@ -579,10 +587,10 @@ class GanttPilotGUI:
                 messagebox.showinfo(self._t("update_check"), msg)
                 return
             # Show update confirmation with clickable CHANGELOG link
-            changelog_url = f"https://github.com/{GITHUB_REPO}/blob/main/CHANGELOG.md"
+            changelog_url = f"https://github.com/{GITHUB_REPO}/blob/master/CHANGELOG.md"
             msg = self._t("update_available", new_version)
             link_text = "📋 " + self._t("view_changelog")
-            if not _link_dialog(self.root, self._t("update_check"), msg, link_text, changelog_url, ask=True):
+            if not _link_dialog(self.root, self._t("update_check"), msg, link_text, changelog_url, ask=True, gui=self):
                 return
             self.status_var.set(self._t("downloading_update"))
             self.root.update()
@@ -674,10 +682,10 @@ class GanttPilotGUI:
 
             # Show completion dialog with clickable README link, then auto-restart
             def _post_update():
-                readme_url = f"https://github.com/{GITHUB_REPO}/blob/main/README.md"
+                readme_url = f"https://github.com/{GITHUB_REPO}#readme"
                 msg = self._t("update_restart", new_version)
                 link_text = "📖 " + self._t("view_readme")
-                _link_dialog(self.root, self._t("update_check"), msg, link_text, readme_url, ask=False)
+                _link_dialog(self.root, self._t("update_check"), msg, link_text, readme_url, ask=False, gui=self)
                 # Auto-restart
                 self._restart_app(exe_path)
 
