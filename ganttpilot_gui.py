@@ -551,13 +551,15 @@ class GanttPilotGUI:
             )
             if not answer:
                 continue
-            try:
-                gs = self._get_project_git(proj)
-                gs.manual_rebase()
-                self.status_var.set(self._t("rebase_success"))
-                self._full_refresh()
-            except RuntimeError as e:
-                messagebox.showerror(self._t("error"), self._t("rebase_conflict"))
+
+            def _do(p=proj):
+                try:
+                    gs = self._get_project_git(p)
+                    gs.manual_rebase()
+                    self.root.after(0, self._on_rebase_done)
+                except RuntimeError as e:
+                    self.root.after(0, lambda: messagebox.showerror(self._t("error"), self._t("rebase_conflict")))
+            threading.Thread(target=_do, daemon=True).start()
 
     def manual_update_check(self):
         """手动触发更新检测，禁用按钮直到检测完成。"""
@@ -1450,15 +1452,23 @@ class GanttPilotGUI:
         if not proj:
             return
 
-        try:
-            gs = self._get_project_git(proj)
-            gs.manual_rebase()
-            # Success — hide banner, refresh views
-            self.update_banner.pack_forget()
-            self._full_refresh()
-            self.status_var.set(self._t("rebase_success"))
-        except RuntimeError:
-            messagebox.showerror(self._t("error"), self._t("rebase_conflict"))
+        self.status_var.set(self._t("pushing"))
+        self.root.update()
+
+        def _do():
+            try:
+                gs = self._get_project_git(proj)
+                gs.manual_rebase()
+                self.root.after(0, self._on_rebase_done)
+            except RuntimeError:
+                self.root.after(0, lambda: messagebox.showerror(self._t("error"), self._t("rebase_conflict")))
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _on_rebase_done(self):
+        """Callback on main thread after rebase completes successfully."""
+        self.update_banner.pack_forget()
+        self._full_refresh()
+        self.status_var.set(self._t("rebase_success"))
 
     def do_manual_rebase_menu(self):
         """Handle right-click menu → Sync Main: fetch + rebase private branch to latest main."""
@@ -1470,15 +1480,18 @@ class GanttPilotGUI:
             messagebox.showwarning("", self._t("no_remote"))
             return
 
-        try:
-            gs = self._get_project_git(proj)
-            gs.fetch_remote()
-            gs.manual_rebase()
-            self.update_banner.pack_forget()
-            self._full_refresh()
-            self.status_var.set(self._t("rebase_success"))
-        except RuntimeError:
-            messagebox.showerror(self._t("error"), self._t("rebase_conflict"))
+        self.status_var.set(self._t("pushing"))
+        self.root.update()
+
+        def _do():
+            try:
+                gs = self._get_project_git(proj)
+                gs.fetch_remote()
+                gs.manual_rebase()
+                self.root.after(0, self._on_rebase_done)
+            except RuntimeError:
+                self.root.after(0, lambda: messagebox.showerror(self._t("error"), self._t("rebase_conflict")))
+        threading.Thread(target=_do, daemon=True).start()
 
     def on_branch_changed(self, event=None):
         """Handle branch selection change — load data from selected branch."""
@@ -2741,29 +2754,35 @@ class GanttPilotGUI:
 
         self.status_var.set(self._t("pushing"))
         self.root.update()
-        try:
-            gs = self._get_project_git(proj)
-            proj_dir = os.path.join(self.config.data_dir, proj["name"])
-            # If project directory was deleted, re-clone from remote
-            if not gs.is_repo():
-                remote_url = proj.get("remote_url", "")
-                remote_branch = proj.get("remote_branch", "main")
-                if os.path.exists(proj_dir):
-                    _force_rmtree(proj_dir)
-                gs.clone_repo(remote_url, proj_dir, remote_branch)
+
+        def _do():
+            try:
                 gs = self._get_project_git(proj)
-            gs.init_repo()
-            gs.sync()
-            self._full_refresh()
-            # Show PR hint in status bar
-            priv = gs.priv_branch
-            main = proj.get("remote_branch", "main")
-            self.status_var.set(self._t("sync_pr_hint", priv, priv, main))
-            # Prompt rebase if main was updated during sync
-            if getattr(gs, '_main_updated', False):
-                self._prompt_rebase([proj])
-        except Exception as e:
-            self.status_var.set(self._t("push_fail", str(e)))
+                proj_dir = os.path.join(self.config.data_dir, proj["name"])
+                # If project directory was deleted, re-clone from remote
+                if not gs.is_repo():
+                    remote_url = proj.get("remote_url", "")
+                    remote_branch = proj.get("remote_branch", "main")
+                    if os.path.exists(proj_dir):
+                        _force_rmtree(proj_dir)
+                    gs.clone_repo(remote_url, proj_dir, remote_branch)
+                    gs = self._get_project_git(proj)
+                gs.init_repo()
+                gs.sync()
+                priv = gs.priv_branch
+                main = proj.get("remote_branch", "main")
+                main_updated = getattr(gs, '_main_updated', False)
+                self.root.after(0, lambda: self._on_sync_done(proj, priv, main, main_updated))
+            except Exception as e:
+                self.root.after(0, lambda: self.status_var.set(self._t("push_fail", str(e))))
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _on_sync_done(self, proj, priv, main, main_updated):
+        """Callback on main thread after sync completes successfully."""
+        self._full_refresh()
+        self.status_var.set(self._t("sync_pr_hint", priv, priv, main))
+        if main_updated:
+            self._prompt_rebase([proj])
 
     def do_pull(self):
         """Pull (fetch + reload) from remote without pushing."""
@@ -2782,26 +2801,33 @@ class GanttPilotGUI:
 
         self.status_var.set(self._t("pulling"))
         self.root.update()
-        try:
-            gs = self._get_project_git(proj)
-            if not gs.is_repo():
-                # Clone if repo doesn't exist locally
-                remote_url = proj.get("remote_url", "")
-                remote_branch = proj.get("remote_branch", "main")
-                proj_dir = os.path.join(self.config.data_dir, proj["name"])
-                if os.path.exists(proj_dir):
-                    _force_rmtree(proj_dir)
-                gs.clone_repo(remote_url, proj_dir, remote_branch)
+
+        def _do():
+            try:
                 gs = self._get_project_git(proj)
-            gs.init_repo()
-            gs.fetch_remote()
-            self._full_refresh()
-            self.status_var.set(self._t("pull_done"))
-            # Prompt rebase if main was updated during fetch
-            if getattr(gs, '_main_updated', False):
-                self._prompt_rebase([proj])
-        except Exception as e:
-            self.status_var.set(self._t("pull_fail", str(e)))
+                if not gs.is_repo():
+                    # Clone if repo doesn't exist locally
+                    remote_url = proj.get("remote_url", "")
+                    remote_branch = proj.get("remote_branch", "main")
+                    proj_dir = os.path.join(self.config.data_dir, proj["name"])
+                    if os.path.exists(proj_dir):
+                        _force_rmtree(proj_dir)
+                    gs.clone_repo(remote_url, proj_dir, remote_branch)
+                    gs = self._get_project_git(proj)
+                gs.init_repo()
+                gs.fetch_remote()
+                main_updated = getattr(gs, '_main_updated', False)
+                self.root.after(0, lambda: self._on_pull_done(proj, main_updated))
+            except Exception as e:
+                self.root.after(0, lambda: self.status_var.set(self._t("pull_fail", str(e))))
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _on_pull_done(self, proj, main_updated):
+        """Callback on main thread after pull completes successfully."""
+        self._full_refresh()
+        self.status_var.set(self._t("pull_done"))
+        if main_updated:
+            self._prompt_rebase([proj])
 
     def on_close(self):
         is_maximized = self.root.state() == "zoomed"

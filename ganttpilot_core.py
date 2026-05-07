@@ -174,16 +174,10 @@ class DataStore:
                     if "priv_branch" not in proj:
                         proj["priv_branch"] = ""
                     # Migration: remove committer info from project (now in global config)
-                    _migrated = False
-                    if "committer_name" in proj:
-                        del proj["committer_name"]
-                        _migrated = True
-                    if "committer_email" in proj:
-                        del proj["committer_email"]
-                        _migrated = True
-                    if _migrated:
-                        with open(proj_file, "w", encoding="utf-8") as f:
-                            json.dump(proj, f, ensure_ascii=False, indent=2)
+                    # Only remove from in-memory dict; do NOT write back to file here
+                    # to avoid creating unstaged changes that block git rebase.
+                    proj.pop("committer_name", None)
+                    proj.pop("committer_email", None)
                     # Backward compat: initialize empty requirements list for old projects
                     if "requirements" not in proj:
                         proj["requirements"] = []
