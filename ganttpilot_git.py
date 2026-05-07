@@ -57,7 +57,7 @@ class GitSync:
                 creationflags=_SUBPROCESS_FLAGS,
             )
             subprocess.run(
-                ["git", "checkout", "-b", "priv"],
+                ["git", "checkout", "-b", self.priv_branch],
                 cwd=target_dir, capture_output=True, text=True,
                 encoding="utf-8", errors="replace", timeout=30, check=False,
                 creationflags=_SUBPROCESS_FLAGS,
@@ -240,6 +240,7 @@ class GitSync:
         # 2. Configure remote, fetch
         self._ensure_remote()
         self._run("fetch", "origin", check=False)
+        self._main_updated = self._update_local_main()
 
         # 3. Push priv_branch to origin (fallback to credential helper on auth failure)
         try:
@@ -265,6 +266,40 @@ class GitSync:
             # Embedded credentials may be stale; retry with plain URL
             self._restore_plain_remote()
             self._run("fetch", "origin", check=False)
+        main_updated = self._update_local_main()
+        self._main_updated = main_updated
+        return True
+
+    def _update_local_main(self):
+        """将本地 main 分支快进到 origin/main。
+
+        如果本地 main 可以快进，执行 fast-forward。
+        如果本地 main 已分叉（用户不应在 main 上直接提交），强制重置。
+        不切换当前分支（使用 update-ref）。
+
+        Returns:
+            bool: True if main was updated, False if already up-to-date or skipped.
+        """
+        # 检查 origin/main 是否存在
+        result = self._run("rev-parse", f"origin/{self.main_branch}", check=False)
+        if result.returncode != 0:
+            return False  # 远端 main 不存在，跳过
+
+        remote_sha = result.stdout.strip()
+
+        # 检查本地 main 是否存在
+        local_result = self._run("rev-parse", self.main_branch, check=False)
+        if local_result.returncode != 0:
+            # 本地 main 不存在，创建指向 origin/main
+            self._run("branch", self.main_branch, remote_sha, check=False)
+            return True
+
+        local_sha = local_result.stdout.strip()
+        if local_sha == remote_sha:
+            return False  # 已是最新
+
+        # 直接更新 ref（不需要 checkout main）
+        self._run("update-ref", f"refs/heads/{self.main_branch}", remote_sha)
         return True
 
     def get_log(self, branch=None, max_count=50):

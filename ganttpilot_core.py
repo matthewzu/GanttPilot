@@ -199,6 +199,7 @@ class DataStore:
                             for activity in plan.get("activities", []):
                                 activity.setdefault("time_slots", "")
                                 activity.setdefault("tag", "")
+                                activity.setdefault("description", "")
                     projects.append(proj)
                 except (json.JSONDecodeError, IOError) as e:
                     warnings.warn(f"Skipping project in '{entry}': {e}")
@@ -479,7 +480,7 @@ class DataStore:
 
     # ── Activity ─────────────────────────────────────────────
     def add_activity(self, project_name, milestone_name, plan_id,
-                     executor, date, hours, content, time_slots="", tag=""):
+                     executor, date, hours, content, time_slots="", tag="", description=""):
         plan = self._find_plan(project_name, milestone_name, plan_id)
         if not plan:
             return None
@@ -493,6 +494,7 @@ class DataStore:
             "content": content,
             "time_slots": time_slots,
             "tag": tag,
+            "description": description,
         }
         plan["activities"].append(activity)
         self.save()
@@ -560,7 +562,7 @@ class DataStore:
 
     def update_activity(self, project_name, milestone_name, plan_id,
                         activity_id, executor, date, hours, content,
-                        time_slots="", tag=""):
+                        time_slots="", tag="", description=""):
         """Update activity attributes and persist."""
         plan = self._find_plan(project_name, milestone_name, plan_id)
         if not plan:
@@ -572,6 +574,7 @@ class DataStore:
                 act["content"] = content
                 act["time_slots"] = time_slots
                 act["tag"] = tag
+                act["description"] = description
                 if time_slots:
                     act["hours"] = calculate_hours_from_slots(time_slots)
                 else:

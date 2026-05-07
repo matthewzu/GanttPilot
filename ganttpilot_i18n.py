@@ -152,8 +152,9 @@ TEXTS = {
         "not_git_repo": "当前项目不是 Git 仓库",
         "main_updated": "主线有更新",
         "sync_main": "同步主线",
-        "rebase_success": "同步主线成功",
-        "rebase_conflict": "同步主线冲突，已中止",
+        "rebase_success": "变基成功",
+        "rebase_conflict": "变基冲突，已自动中止。请手动解决冲突。",
+        "rebase_prompt": "远端主分支有更新，是否将私有分支变基到最新？",
         "time_slots": "工时（时间段）",
         "time_slots_hint": "格式: HHMM/HHMM,HHMM/HHMM",
         "invalid_time_slots": "工时（时间段）格式错误",
@@ -183,6 +184,8 @@ TEXTS = {
         "update_available": "发现新版本 {}！是否立即下载更新？",
         "update_not_ready": "v{} 发布资源尚未就绪，请稍后重试。",
         "downloading_update": "正在下载更新...",
+        "checking_update": "正在检查更新...",
+        "check_update_fail": "检查更新失败",
         # ── Requirement tracking / 需求跟踪 ──
         "requirement_analysis": "需求分析",
         "plan_execution": "计划执行",
@@ -245,7 +248,8 @@ TEXTS = {
             "【工具栏】根据选中节点自动启用/禁用\n"
             "• 添加(Ctrl+N) / 编辑(F2) / 删除(Delete)\n"
             "• 复制(Ctrl+C) / 粘贴(Ctrl+V) / 克隆(Ctrl+D)\n"
-            "• 上移(Alt+↑) / 下移(Alt+↓)\n\n"
+            "• 上移(Alt+↑) / 下移(Alt+↓)\n"
+            "• ⟳ 检查更新 / ⚙ 配置\n\n"
             "【右键菜单】所有操作的主要入口\n"
             "• 空白处 → 添加项目、推送、拉取、刷新\n"
             "• 项目 → 编辑、Git配置、报告、推送、拉取、删除\n"
@@ -261,12 +265,16 @@ TEXTS = {
             "【工时记录】二选一\n"
             "• 时间段：0900/1200,1400/1700（自动算工时）\n"
             "• 直接填写小时数：3.5\n\n"
+            "【活动描述】\n"
+            "• 活动支持多行描述字段，记录背景和补充说明\n\n"
             "【跳过日期】\n"
             "• 20260501 → 跳过（节假日）\n"
             "• -20260510 → 取消跳过（周末变工作日）\n\n"
             "【Git协作】Ctrl+S 推送 / 右键拉取\n"
             "• 每人私有分支，通过 PR 合并到主线\n"
-            "• 启动时自动拉取，后台定期检测更新\n\n"
+            "• 启动时自动拉取，后台定期检测更新\n"
+            "• 拉取后自动更新本地 main，提示 rebase\n"
+            "• 私有分支名不能为 \"priv\" 或与主分支同名\n\n"
             "【其他】Ctrl+Z 撤销 / Ctrl+Y 恢复 / 快捷键可自定义\n\n"
         ),
         # ── Keyboard shortcuts / 键盘快捷键 ──
@@ -312,6 +320,10 @@ TEXTS = {
         "url_required": "请填写远端仓库地址",
         "invalid_url_format": "远端仓库地址格式无效",
         "desc_optional": "(可选)",
+        # ── Private branch validation / 私有分支名校验 ──
+        "priv_branch_invalid_priv": "不能使用 'priv' 作为私有分支名称",
+        "priv_branch_same_as_main": "私有分支名称不能与主分支相同",
+        "priv_branch_invalid_chars": "分支名称包含非法字符",
     },
     "en": {
         "app_title": "GanttPilot - Collaborative Project Manager",
@@ -463,7 +475,8 @@ TEXTS = {
         "main_updated": "Main branch updated",
         "sync_main": "Sync Main",
         "rebase_success": "Rebase successful",
-        "rebase_conflict": "Rebase conflict, aborted",
+        "rebase_conflict": "Rebase conflict, auto-aborted. Please resolve manually.",
+        "rebase_prompt": "Remote main branch updated. Rebase your branch to latest?",
         "time_slots": "Time Slots",
         "time_slots_hint": "Format: HHMM/HHMM,HHMM/HHMM",
         "invalid_time_slots": "Invalid time slots format",
@@ -493,6 +506,8 @@ TEXTS = {
         "update_available": "New version {} available! Download now?",
         "update_not_ready": "v{} release assets are not ready yet. Please try again later.",
         "downloading_update": "Downloading update...",
+        "checking_update": "Checking for updates...",
+        "check_update_fail": "Update check failed",
         # ── Requirement tracking ──
         "requirement_analysis": "Requirement Analysis",
         "plan_execution": "Plan Execution",
@@ -555,7 +570,8 @@ TEXTS = {
             "[Toolbar] Auto-enabled based on selected node\n"
             "• Add(Ctrl+N) / Edit(F2) / Delete(Delete)\n"
             "• Copy(Ctrl+C) / Paste(Ctrl+V) / Duplicate(Ctrl+D)\n"
-            "• Move Up(Alt+↑) / Move Down(Alt+↓)\n\n"
+            "• Move Up(Alt+↑) / Move Down(Alt+↓)\n"
+            "• ⟳ Check Updates / ⚙ Config\n\n"
             "[Right-Click Menus] Primary entry for all operations\n"
             "• Empty area → Add Project, Push, Pull, Refresh\n"
             "• Project → Edit, Git Config, Report, Push, Pull, Delete\n"
@@ -571,12 +587,16 @@ TEXTS = {
             "[Work Hours] Choose one\n"
             "• Time Slots: 0900/1200,1400/1700 (auto-calculated)\n"
             "• Direct hours: 3.5\n\n"
+            "[Activity Description]\n"
+            "• Activities support multi-line description for background notes\n\n"
             "[Skip Dates]\n"
             "• 20260501 → Skip (holiday)\n"
             "• -20260510 → Un-skip (make weekend a workday)\n\n"
             "[Git Collaboration] Ctrl+S Push / Right-click Pull\n"
             "• Each user on private branch, merge via PR\n"
-            "• Auto-fetch on startup, periodic background check\n\n"
+            "• Auto-fetch on startup, periodic background check\n"
+            "• Pull auto-updates local main, prompts rebase\n"
+            "• Private branch name cannot be \"priv\" or same as main\n\n"
             "[Other] Ctrl+Z Undo / Ctrl+Y Redo / Shortcuts customizable\n\n"
         ),
         # ── Keyboard shortcuts ──
@@ -622,6 +642,10 @@ TEXTS = {
         "url_required": "Remote URL is required",
         "invalid_url_format": "Invalid remote URL format",
         "desc_optional": "(Optional)",
+        # ── Private branch validation ──
+        "priv_branch_invalid_priv": "Cannot use 'priv' as private branch name",
+        "priv_branch_same_as_main": "Private branch name cannot be the same as main branch",
+        "priv_branch_invalid_chars": "Branch name contains invalid characters",
     },
 }
 

@@ -93,7 +93,8 @@
               "hours": 3.0,
               "time_slots": "0900/1200",
               "tag": "Research",
-              "content": "User interview preparation"
+              "content": "User interview preparation",
+              "description": "Prepare interview guide, identify target user groups, schedule interview sessions"
             },
             {
               "id": "a02",

@@ -126,11 +126,75 @@ def _force_rmtree(path):
     shutil.rmtree(path, onerror=_on_error)
 
 
+def _center_dialog(dialog, parent, width, height):
+    """将对话框居中于父窗口。
+
+    Args:
+        dialog: Toplevel 对话框窗口
+        parent: 父窗口（主窗口或其他 Toplevel）
+        width: 对话框宽度
+        height: 对话框高度
+    """
+    parent.update_idletasks()
+    px = parent.winfo_x()
+    py = parent.winfo_y()
+    pw = parent.winfo_width()
+    ph = parent.winfo_height()
+
+    x = px + (pw - width) // 2
+    y = py + (ph - height) // 2
+
+    # 确保不超出屏幕边界
+    x = max(0, x)
+    y = max(0, y)
+
+    dialog.geometry(f"{width}x{height}+{x}+{y}")
+
+
+def validate_priv_branch_name(name, main_branch="main"):
+    """校验私有分支名称。
+
+    Args:
+        name: 用户输入的分支名称
+        main_branch: 远端主分支名称
+
+    Returns:
+        (bool, str): (是否合法, 错误信息key)
+    """
+    if not name:
+        return True, ""  # 空值允许（将自动生成）
+
+    # 禁止 "priv" 作为分支名
+    if name == "priv":
+        return False, "priv_branch_invalid_priv"
+
+    # 禁止与主分支同名
+    if name == main_branch:
+        return False, "priv_branch_same_as_main"
+
+    # Git 分支名格式校验
+    if re.search(r'[\s~^:?*\[\]\\]', name):
+        return False, "priv_branch_invalid_chars"
+    if name.startswith('.') or name.startswith('/'):
+        return False, "priv_branch_invalid_chars"
+    if name.endswith('.') or name.endswith('/') or name.endswith('.lock'):
+        return False, "priv_branch_invalid_chars"
+    if '..' in name:
+        return False, "priv_branch_invalid_chars"
+    if name.startswith('-'):
+        return False, "priv_branch_invalid_chars"
+
+    return True, ""
+
+
 class UpdateChecker:
-    def __init__(self, current_version, language, callback):
+    def __init__(self, current_version, language, callback,
+                 no_update_callback=None, fail_callback=None):
         self.current_version = current_version
         self.language = language
         self.callback = callback
+        self.no_update_callback = no_update_callback
+        self.fail_callback = fail_callback
 
     def check(self):
         threading.Thread(target=self._do_check, daemon=True).start()
@@ -143,6 +207,8 @@ class UpdateChecker:
                 data = json.loads(resp.read().decode())
             # Skip draft or prerelease
             if data.get("draft") or data.get("prerelease"):
+                if self.no_update_callback:
+                    self.no_update_callback()
                 return
             tag = data.get("tag_name", "").lstrip("v")
             if tag and tag != self.current_version:
@@ -167,8 +233,14 @@ class UpdateChecker:
                         asset_size = asset.get("size", 0)
                 dl_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases")
                 self.callback(tag, dl_url, asset_url, asset_size)
+            else:
+                # No update available (current version is latest)
+                if self.no_update_callback:
+                    self.no_update_callback()
         except Exception:
-            pass
+            # Network failure or other error
+            if self.fail_callback:
+                self.fail_callback()
 
 
 class UndoManager:
@@ -355,6 +427,7 @@ class GanttPilotGUI:
     def _startup_sync(self):
         """Fetch remote updates for all projects (pull-only, no push)."""
         try:
+            updated_projects = []
             for proj in self.store.list_projects():
                 if proj.get("remote_url"):
                     try:
@@ -363,11 +436,15 @@ class GanttPilotGUI:
                             continue
                         gs.init_repo()
                         gs.fetch_remote()
+                        if getattr(gs, '_main_updated', False):
+                            updated_projects.append(proj)
                     except Exception:
                         pass
             self.store.load()
             self.root.after(0, self.refresh_project_list)
             self.root.after(0, self.check_remote_updates)
+            if updated_projects:
+                self.root.after(0, lambda: self._prompt_rebase(updated_projects))
         except Exception:
             pass
 
@@ -375,6 +452,7 @@ class GanttPilotGUI:
         """Periodically fetch remote and check for main branch updates in background."""
         def _do():
             try:
+                updated_projects = []
                 for proj in self.store.list_projects():
                     if proj.get("remote_url"):
                         try:
@@ -382,14 +460,59 @@ class GanttPilotGUI:
                             if not gs.is_repo():
                                 continue
                             gs.fetch_remote()
+                            if getattr(gs, '_main_updated', False):
+                                updated_projects.append(proj)
                         except Exception:
                             pass
                 self.root.after(0, self.check_remote_updates)
+                if updated_projects:
+                    self.root.after(0, lambda: self._prompt_rebase(updated_projects))
             except Exception:
                 pass
         threading.Thread(target=_do, daemon=True).start()
         # Schedule next check
         self.root.after(self._bg_check_interval_ms, self._periodic_remote_check)
+
+    def _prompt_rebase(self, updated_projects):
+        """Prompt user to rebase private branch after main was updated.
+
+        Args:
+            updated_projects: list of project dicts whose main branch was updated.
+        """
+        for proj in updated_projects:
+            answer = messagebox.askyesno(
+                self._t("update_check"),
+                self._t("rebase_prompt"),
+            )
+            if not answer:
+                continue
+            try:
+                gs = self._get_project_git(proj)
+                gs.manual_rebase()
+                self.status_var.set(self._t("rebase_success"))
+                self._full_refresh()
+            except RuntimeError as e:
+                messagebox.showerror(self._t("error"), self._t("rebase_conflict"))
+
+    def manual_update_check(self):
+        """手动触发更新检测，禁用按钮直到检测完成。"""
+        self.update_check_btn.configure(state=tk.DISABLED)
+        self.status_var.set(self._t("checking_update"))
+
+        def on_result(new_version, download_url, asset_url=None, asset_size=0):
+            self.root.after(0, lambda: self.update_check_btn.configure(state=tk.NORMAL))
+            if new_version:
+                self.root.after(0, lambda: self._show_update_notification(new_version, download_url, asset_url, asset_size))
+
+        def on_no_update():
+            self.root.after(0, lambda: self.update_check_btn.configure(state=tk.NORMAL))
+            self.root.after(0, lambda: self.status_var.set(self._t("no_update")))
+
+        def on_fail():
+            self.root.after(0, lambda: self.update_check_btn.configure(state=tk.NORMAL))
+            self.root.after(0, lambda: self.status_var.set(self._t("check_update_fail")))
+
+        UpdateChecker(VERSION, self.lang, on_result, no_update_callback=on_no_update, fail_callback=on_fail).check()
 
     def _show_update_notification(self, new_version, download_url, asset_url=None, asset_size=0):
         def show():
@@ -565,6 +688,8 @@ class GanttPilotGUI:
         self.tb_down_btn.pack(side=tk.LEFT, padx=1)
 
         ttk.Button(toolbar, text="⚙", command=self.open_config_dialog, width=3).pack(side=tk.RIGHT, padx=1)
+        self.update_check_btn = ttk.Button(toolbar, text="⟳", command=self.manual_update_check, width=3)
+        self.update_check_btn.pack(side=tk.RIGHT, padx=1)
         ttk.Button(toolbar, text="?", command=self.show_help, width=3).pack(side=tk.RIGHT, padx=1)
 
         # Tree
@@ -1605,7 +1730,8 @@ class GanttPilotGUI:
             r = dlg.result
             self.undo_manager.save_snapshot()
             result = self.store.add_activity(proj, ms, plan_id, r["executor"], r["date"], r["hours"], r["content"],
-                                             time_slots=r.get("time_slots", ""), tag=r.get("tag", ""))
+                                             time_slots=r.get("time_slots", ""), tag=r.get("tag", ""),
+                                             description=r.get("description", ""))
             if result:
                 self._commit(f"Add activity: {r['content']}")
                 self.refresh_project_list()
@@ -1820,7 +1946,8 @@ class GanttPilotGUI:
             self.undo_manager.save_snapshot()
             self.store.update_activity(proj_name, ms_name, plan_id, act_id,
                                        r["executor"], r["date"], r["hours"], r["content"],
-                                       time_slots=r.get("time_slots", ""), tag=r.get("tag", ""))
+                                       time_slots=r.get("time_slots", ""), tag=r.get("tag", ""),
+                                       description=r.get("description", ""))
             self._commit(f"Edit activity: {act_id}")
             self.refresh_project_list()
             self.refresh_time_report()
@@ -2468,6 +2595,9 @@ class GanttPilotGUI:
             priv = proj.get("priv_branch") or f"priv_{proj['committer_name']}"
             main = proj.get("remote_branch", "main")
             self.status_var.set(self._t("sync_pr_hint", priv, priv, main))
+            # Prompt rebase if main was updated during sync
+            if getattr(gs, '_main_updated', False):
+                self._prompt_rebase([proj])
         except Exception as e:
             self.status_var.set(self._t("push_fail", str(e)))
 
@@ -2503,6 +2633,9 @@ class GanttPilotGUI:
             gs.fetch_remote()
             self._full_refresh()
             self.status_var.set(self._t("pull_done"))
+            # Prompt rebase if main was updated during fetch
+            if getattr(gs, '_main_updated', False):
+                self._prompt_rebase([proj])
         except Exception as e:
             self.status_var.set(self._t("pull_fail", str(e)))
 
@@ -2620,7 +2753,7 @@ class PlanDialog:
         self.result = None
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("plan"))
-        self.top.geometry("420x400")
+        _center_dialog(self.top, parent, 420, 400)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -2707,7 +2840,7 @@ class PlanEditDialog:
         self.result = None
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("plan"))
-        self.top.geometry("420x400")
+        _center_dialog(self.top, parent, 420, 400)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -2801,7 +2934,7 @@ class ActivityDialog:
         self.project_tags = project_tags or []
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("activity"))
-        self.top.geometry("420x360")
+        _center_dialog(self.top, parent, 420, 420)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -2858,6 +2991,19 @@ class ActivityDialog:
             tag_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
             self.entries["tag"] = tag_entry
         row += 1
+
+        # Description field (multi-line text with scrollbar)
+        ttk.Label(self.top, text=t_func("description")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.NW)
+        desc_frame = ttk.Frame(self.top)
+        desc_frame.grid(row=row, column=1, padx=8, pady=4, sticky=tk.NSEW)
+        self.top.rowconfigure(row, weight=1)
+        self.desc_text = tk.Text(desc_frame, width=30, height=4, wrap=tk.WORD, undo=True)
+        desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
+        self.desc_text.configure(yscrollcommand=desc_sb.set)
+        self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        desc_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        row += 1
+
         ttk.Button(self.top, text="OK", command=self._ok).grid(
             row=row, column=0, columnspan=2, pady=12)
 
@@ -2868,6 +3014,7 @@ class ActivityDialog:
         effort_hours_str = self.entries["effort_hours"].get().strip()
         time_slots = self.entries["time_slots"].get().strip()
         tag = self.entries["tag"].get().strip()
+        description = self.desc_text.get("1.0", tk.END).strip()
         # Mutual exclusion: cannot fill both
         if effort_hours_str and time_slots:
             messagebox.showwarning("", self.t_func("hours_conflict"))
@@ -2894,7 +3041,8 @@ class ActivityDialog:
             hours = calculate_hours_from_slots(time_slots)
         if executor and content:
             self.result = {"executor": executor, "date": date, "hours": hours,
-                           "content": content, "time_slots": time_slots, "tag": tag}
+                           "content": content, "time_slots": time_slots, "tag": tag,
+                           "description": description}
             self.top.destroy()
 
 
@@ -2925,7 +3073,7 @@ class ConfigDialog:
         self.shortcut_manager = shortcut_manager
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("config"))
-        self.top.geometry("620x520")
+        _center_dialog(self.top, parent, 620, 520)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3113,7 +3261,7 @@ class ProjectEditDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_project"))
-        self.top.geometry("400x300")
+        _center_dialog(self.top, parent, 400, 300)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3165,7 +3313,7 @@ class MilestoneEditDialog:
         self.result = None
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_milestone"))
-        self.top.geometry("400x250")
+        _center_dialog(self.top, parent, 400, 250)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3212,7 +3360,7 @@ class ActivityEditDialog:
         self.project_tags = project_tags or []
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_activity"))
-        self.top.geometry("420x380")
+        _center_dialog(self.top, parent, 420, 440)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3279,6 +3427,20 @@ class ActivityEditDialog:
             tag_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
             self.entries["tag"] = tag_entry
         row += 1
+
+        # Description field (multi-line text with scrollbar)
+        ttk.Label(self.top, text=t_func("description")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.NW)
+        desc_frame = ttk.Frame(self.top)
+        desc_frame.grid(row=row, column=1, padx=8, pady=4, sticky=tk.NSEW)
+        self.top.rowconfigure(row, weight=1)
+        self.desc_text = tk.Text(desc_frame, width=30, height=4, wrap=tk.WORD, undo=True)
+        desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
+        self.desc_text.configure(yscrollcommand=desc_sb.set)
+        self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        desc_sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.desc_text.insert("1.0", activity.get("description", ""))
+        row += 1
+
         ttk.Button(self.top, text="OK", command=self._ok).grid(
             row=row, column=0, columnspan=2, pady=12)
 
@@ -3289,6 +3451,7 @@ class ActivityEditDialog:
         effort_hours_str = self.entries["effort_hours"].get().strip()
         time_slots = self.entries["time_slots"].get().strip()
         tag = self.entries["tag"].get().strip()
+        description = self.desc_text.get("1.0", tk.END).strip()
         if not executor or not content:
             return
         # Validate date format (only if date is provided)
@@ -3320,7 +3483,8 @@ class ActivityEditDialog:
                 return
             hours = calculate_hours_from_slots(time_slots)
         self.result = {"executor": executor, "date": date, "hours": hours,
-                       "content": content, "time_slots": time_slots, "tag": tag}
+                       "content": content, "time_slots": time_slots, "tag": tag,
+                       "description": description}
         self.top.destroy()
 
 
@@ -3332,7 +3496,7 @@ class ProjectGitConfigDialog:
         self.lang = lang
         self.top = tk.Toplevel(parent)
         self.top.title("🔗 " + t_func("git_config"))
-        self.top.geometry("500x380")
+        _center_dialog(self.top, parent, 500, 380)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3391,6 +3555,13 @@ class ProjectGitConfigDialog:
                     messagebox.showwarning(self.t_func("warning"), self.t_func("committer_required"))
                     return
 
+        # Validate private branch name
+        main_branch = self.entries["remote_branch"].get().strip() or "main"
+        valid, err_key = validate_priv_branch_name(priv_branch, main_branch)
+        if not valid:
+            messagebox.showwarning("", self.t_func(err_key))
+            return
+
         # Show priv_branch default hint
         if not priv_branch and committer_name:
             default_branch = f"priv_{committer_name}"
@@ -3401,7 +3572,7 @@ class ProjectGitConfigDialog:
 
         self.result = {
             "remote_url": url,
-            "remote_branch": self.entries["remote_branch"].get().strip() or "main",
+            "remote_branch": main_branch,
             "remote_username": self.entries["remote_username"].get().strip(),
             "remote_password": self.entries["remote_password"].get().strip(),
             "committer_name": committer_name,
@@ -3471,10 +3642,11 @@ class ProjectCreateDialog:
         self.t = t_func
         self.t_func = t_func  # backward compat alias
         self.lang = lang
+        self.parent = parent
 
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("project"))
-        self.top.geometry(self.DIALOG_SIZE_LOCAL)
+        _center_dialog(self.top, parent, 450, 200)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3618,10 +3790,10 @@ class ProjectCreateDialog:
         if self.mode_var.get() == "collab":
             self.collab_frame.pack(fill=tk.X, padx=8, pady=2,
                                    before=self.btn_frame)
-            self.top.geometry(self.DIALOG_SIZE_COLLAB)
+            _center_dialog(self.top, self.parent, 500, 480)
         else:
             self.collab_frame.pack_forget()
-            self.top.geometry(self.DIALOG_SIZE_LOCAL)
+            _center_dialog(self.top, self.parent, 450, 200)
 
     # ──────────────────────────────────────────────
     # Task 4.5: Validation and confirm logic
@@ -3702,16 +3874,25 @@ class ProjectCreateDialog:
                         self.t("warning"), self.t("committer_required"))
                     return
 
+            priv_branch = self.priv_branch_entry.get_value().strip()
+            main_branch = self.branch_entry.get_value().strip() or "main"
+
+            # Validate private branch name
+            valid, err_key = validate_priv_branch_name(priv_branch, main_branch)
+            if not valid:
+                messagebox.showwarning("", self.t(err_key))
+                return
+
             self.result = {
                 "name": name,
                 "description": self.desc_entry.get_value().strip(),
                 "remote_url": remote_url,
-                "remote_branch": self.branch_entry.get_value().strip() or "main",
+                "remote_branch": main_branch,
                 "remote_username": self.username_entry.get_value().strip(),
                 "remote_password": self.password_entry.get_value().strip(),
                 "committer_name": committer_name,
                 "committer_email": committer_email,
-                "priv_branch": self.priv_branch_entry.get_value().strip(),
+                "priv_branch": priv_branch,
             }
             self.top.destroy()
 
@@ -3723,7 +3904,7 @@ class MilestoneCreateDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("milestone"))
-        self.top.geometry("450x280")
+        _center_dialog(self.top, parent, 450, 280)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3771,7 +3952,7 @@ class RequirementDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add_requirement"))
-        self.top.geometry("420x280")
+        _center_dialog(self.top, parent, 420, 280)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3818,7 +3999,7 @@ class RequirementEditDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("edit_requirement"))
-        self.top.geometry("420x280")
+        _center_dialog(self.top, parent, 420, 280)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3868,7 +4049,7 @@ class TaskDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add_task"))
-        self.top.geometry("420x280")
+        _center_dialog(self.top, parent, 420, 280)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3924,7 +4105,7 @@ class TaskEditDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("edit_task"))
-        self.top.geometry("420x280")
+        _center_dialog(self.top, parent, 420, 280)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3982,7 +4163,7 @@ class ProgressDialog:
         self.t_func = t_func
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("set_progress"))
-        self.top.geometry("350x130")
+        _center_dialog(self.top, parent, 350, 130)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()

@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -64,7 +64,7 @@ Project
   └── Plan Execution                ← Plan how to build it
         └── Milestone                  (deadline, description, color)
               └── Plan                 (executor, date range, linked task, progress)
-                    └── Activity       (executor, date, hours, tag, content)
+                    └── Activity       (executor, date, hours, tag, description, content)
 ```
 
 - **Requirements & Tasks** define *what* needs to be done and the estimated effort
@@ -106,6 +106,7 @@ The toolbar at the top provides quick access to common actions. Buttons are cont
 | Duplicate | Clone node with all children | `Ctrl+D` |
 | Move Up | Reorder node up among siblings | `Alt+Up` |
 | Move Down | Reorder node down among siblings | `Alt+Down` |
+| ⟳ | Check for updates | — |
 
 Other shortcuts: `Ctrl+Z` Undo, `Ctrl+Y` Redo, `Ctrl+S` Push, `F5` Refresh. All shortcuts are customizable in Config.
 
@@ -211,9 +212,10 @@ Each project is an independent Git repo stored at `~/.ganttpilot/data/{project_n
 
 - Each user works on a private branch: `priv_{committer_name}`
 - Push sends your private branch to the remote (right-click → Push, or `Ctrl+S`)
-- Pull fetches the latest from remote (right-click → Pull)
+- Pull fetches the latest from remote and auto-updates local main branch (right-click → Pull)
 - Changes are merged to the main branch via Pull Request on your Git platform
-- A banner appears when the main branch has updates — click "Sync Main" to rebase
+- After pull/sync, if main has new commits, a dialog asks whether to rebase your branch to latest main
+- GanttPilot never pushes to the main branch — only your private branch is pushed
 
 #### Setup
 
@@ -313,7 +315,7 @@ python main.py --version    # 显示版本
   └── 计划执行                      ← 规划怎么做
         └── 里程碑                     (截止日期、描述、颜色)
               └── 计划                  (执行者、日期范围、关联任务、进度)
-                    └── 活动            (执行者、日期、工时、标签、内容)
+                    └── 活动            (执行者、日期、工时、标签、描述、内容)
 ```
 
 - **需求和任务**定义"做什么"以及预估工作量
@@ -355,6 +357,7 @@ python main.py --version    # 显示版本
 | 克隆 | 复制节点及其所有子节点 | `Ctrl+D` |
 | 上移 | 在同级节点中上移 | `Alt+Up` |
 | 下移 | 在同级节点中下移 | `Alt+Down` |
+| ⟳ | 检查更新 | — |
 
 其他快捷键：`Ctrl+Z` 撤销、`Ctrl+Y` 恢复、`Ctrl+S` 推送、`F5` 刷新。所有快捷键均可在配置中自定义。
 
@@ -460,9 +463,10 @@ python main.py --version    # 显示版本
 
 - 每位用户在私有分支上工作：`priv_{提交者名称}`
 - 推送将私有分支发送到远端（项目右键 → 推送，或 `Ctrl+S`）
-- 拉取从远端获取最新数据（项目右键 → 拉取）
+- 拉取从远端获取最新数据并自动更新本地 main 分支（项目右键 → 拉取）
 - 通过 Git 平台的 Pull Request 将更改合并到主分支
-- 主线有更新时会显示提示横幅，点击"同步主线"执行 rebase
+- 拉取/同步后如果 main 有新提交，会弹窗询问是否将私有分支变基到最新 main
+- GanttPilot 不会向远端 main 分支推送——仅推送私有分支
 
 #### 配置方法
 

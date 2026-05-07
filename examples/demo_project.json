@@ -93,7 +93,8 @@
               "hours": 3.0,
               "time_slots": "0900/1200",
               "tag": "调研",
-              "content": "用户访谈准备"
+              "content": "用户访谈准备",
+              "description": "准备访谈提纲，确定目标用户群体，预约访谈时间"
             },
             {
               "id": "a02",
@@ -295,7 +296,8 @@
               "hours": 7.0,
               "time_slots": "0830/1130,1300/1500,1530/1730",
               "tag": "开发",
-              "content": "API框架搭建"
+              "content": "API框架搭建",
+              "description": "选型 FastAPI 框架，搭建项目骨架，配置数据库连接池和中间件"
             },
             {
               "id": "a13",
@@ -410,7 +412,8 @@
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "设计",
-              "content": "UI原型设计与评审"
+              "content": "UI原型设计与评审",
+              "description": "使用 Figma 完成高保真原型，组织设计评审会收集反馈意见"
             },
             {
               "id": "a20",
