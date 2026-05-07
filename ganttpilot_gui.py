@@ -151,6 +151,60 @@ def _center_dialog(dialog, parent, width, height):
     dialog.geometry(f"{width}x{height}+{x}+{y}")
 
 
+def _link_dialog(parent, title, message, link_text, link_url, ask=False):
+    """显示带可点击链接的对话框。
+
+    Args:
+        parent: 父窗口
+        title: 对话框标题
+        message: 主要文本内容
+        link_text: 链接显示文本
+        link_url: 链接 URL
+        ask: True 返回 bool (Yes/No), False 仅显示 OK
+
+    Returns:
+        bool: 如果 ask=True，返回用户是否点击了 Yes；否则返回 True
+    """
+    result = [False]
+    dlg = tk.Toplevel(parent)
+    dlg.title(title)
+    dlg.transient(parent)
+    dlg.grab_set()
+    dlg.resizable(False, False)
+
+    frame = ttk.Frame(dlg, padding=16)
+    frame.pack(fill=tk.BOTH, expand=True)
+
+    # Message text
+    ttk.Label(frame, text=message, wraplength=380, justify=tk.LEFT).pack(anchor=tk.W, pady=(0, 8))
+
+    # Clickable link
+    link_label = ttk.Label(frame, text=link_text, foreground="blue", cursor="hand2")
+    link_label.pack(anchor=tk.W, pady=(0, 12))
+    link_label.bind("<Button-1>", lambda e: webbrowser.open(link_url))
+
+    # Buttons
+    btn_frame = ttk.Frame(frame)
+    btn_frame.pack()
+    if ask:
+        def _yes():
+            result[0] = True
+            dlg.destroy()
+        def _no():
+            result[0] = False
+            dlg.destroy()
+        ttk.Button(btn_frame, text="Yes", command=_yes).pack(side=tk.LEFT, padx=8)
+        ttk.Button(btn_frame, text="No", command=_no).pack(side=tk.LEFT, padx=8)
+    else:
+        ttk.Button(btn_frame, text="OK", command=dlg.destroy).pack()
+
+    _center_dialog(dlg, parent, 420, 200)
+    dlg.focus_set()
+    dlg.bind("<Escape>", lambda e: dlg.destroy())
+    parent.wait_window(dlg)
+    return result[0]
+
+
 def validate_priv_branch_name(name, main_branch="main"):
     """校验私有分支名称。
 
@@ -517,12 +571,15 @@ class GanttPilotGUI:
     def _show_update_notification(self, new_version, download_url, asset_url=None, asset_size=0):
         def show():
             if not asset_url:
-                # No platform-specific asset ready yet
                 msg = self._t("update_not_ready", new_version) if hasattr(self, '_t') else \
                     f"v{new_version} 发布资源尚未就绪，请稍后重试。"
                 messagebox.showinfo(self._t("update_check"), msg)
                 return
-            if not messagebox.askyesno(self._t("update_check"), self._t("update_available", new_version)):
+            # Show update confirmation with clickable CHANGELOG link
+            changelog_url = f"https://github.com/{GITHUB_REPO}/blob/main/CHANGELOG.md"
+            msg = self._t("update_available", new_version)
+            link_text = "📋 " + self._t("view_changelog")
+            if not _link_dialog(self.root, self._t("update_check"), msg, link_text, changelog_url, ask=True):
                 return
             self.status_var.set(self._t("downloading_update"))
             self.root.update()
@@ -611,14 +668,33 @@ class GanttPilotGUI:
                     pass
                 os.rename(exe_path, old_path)
                 os.rename(tmp_path, exe_path)
-                msg = f"v{new_version} downloaded. Restart to apply." if self.lang == "en" else f"v{new_version} 已下载，重启生效。"
-            else:
-                msg = f"v{new_version} downloaded to {exe_path}" if self.lang == "en" else f"v{new_version} 已下载到 {exe_path}"
 
-            self.root.after(0, lambda: self.status_var.set(msg))
-            self.root.after(0, lambda: messagebox.showinfo(self._t("update_check"), msg))
+            # Show completion dialog with clickable README link, then auto-restart
+            def _post_update():
+                readme_url = f"https://github.com/{GITHUB_REPO}/blob/main/README.md"
+                msg = self._t("update_restart", new_version)
+                link_text = "📖 " + self._t("view_readme")
+                _link_dialog(self.root, self._t("update_check"), msg, link_text, readme_url, ask=False)
+                # Auto-restart
+                self._restart_app(exe_path)
+
+            self.root.after(0, _post_update)
         except Exception as e:
             self.root.after(0, lambda: self.status_var.set(f"Update failed: {e}"))
+
+    def _restart_app(self, exe_path=None):
+        """Restart the application after update."""
+        if exe_path is None:
+            exe_path = sys.executable
+        try:
+            if sys.platform == "win32":
+                os.startfile(exe_path)
+            else:
+                subprocess.Popen([exe_path], start_new_session=True)
+        except Exception:
+            pass
+        self.root.destroy()
+        sys.exit(0)
 
     def _commit(self, message):
         """Commit changes for the current project's git repo."""
@@ -636,7 +712,10 @@ class GanttPilotGUI:
             pass
 
     def _get_project_git(self, proj):
-        """Construct a GitSync for a specific project directory."""
+        """Construct a GitSync for a specific project directory.
+
+        Committer info is read from global config (not per-project).
+        """
         proj_dir = os.path.join(self.config.data_dir, proj["name"])
         return GitSync(
             proj_dir,
@@ -644,8 +723,8 @@ class GanttPilotGUI:
             proj.get("remote_username", ""),
             proj.get("remote_password", ""),
             proj.get("remote_branch", "main"),
-            committer_name=proj.get("committer_name", ""),
-            committer_email=proj.get("committer_email", ""),
+            committer_name=self.config.get("committer_name", ""),
+            committer_email=self.config.get("committer_email", ""),
             priv_branch=proj.get("priv_branch", ""),
         )
 
@@ -1561,9 +1640,22 @@ class GanttPilotGUI:
         remote_branch = dlg.result.get("remote_branch", "main")
         remote_username = dlg.result.get("remote_username", "")
         remote_password = dlg.result.get("remote_password", "")
-        committer_name = dlg.result.get("committer_name", "")
-        committer_email = dlg.result.get("committer_email", "")
         priv_branch = dlg.result.get("priv_branch", "")
+
+        # Committer info from dialog goes to global config (not per-project)
+        dlg_committer_name = dlg.result.get("committer_name", "")
+        dlg_committer_email = dlg.result.get("committer_email", "")
+        if dlg_committer_name:
+            self.config.set("committer_name", dlg_committer_name)
+        if dlg_committer_email:
+            self.config.set("committer_email", dlg_committer_email)
+        if dlg_committer_name or dlg_committer_email:
+            self.config.save()
+
+        # Read committer from global config for git operations
+        committer_name = self.config.get("committer_name", "")
+        committer_email = self.config.get("committer_email", "")
+
         self.undo_manager.save_snapshot()
         if remote_url:
             # Clone from remote
@@ -1589,14 +1681,15 @@ class GanttPilotGUI:
                     with open(pj_file, "r", encoding="utf-8") as f:
                         pj_data = json.load(f)
                     real_name = pj_data.get("name", name)
-                    # Update project.json with full Git config fields
+                    # Update project.json with Git config fields (no committer)
                     pj_data["remote_url"] = remote_url
                     pj_data["remote_username"] = remote_username
                     pj_data["remote_password"] = remote_password
                     pj_data["remote_branch"] = remote_branch
-                    pj_data["committer_name"] = committer_name
-                    pj_data["committer_email"] = committer_email
                     pj_data["priv_branch"] = priv_branch
+                    # Remove legacy committer fields from project.json if present
+                    pj_data.pop("committer_name", None)
+                    pj_data.pop("committer_email", None)
                     with open(pj_file, "w", encoding="utf-8") as f:
                         json.dump(pj_data, f, ensure_ascii=False, indent=2)
                 else:
@@ -1611,8 +1704,6 @@ class GanttPilotGUI:
                         "remote_username": remote_username,
                         "remote_password": remote_password,
                         "remote_branch": remote_branch,
-                        "committer_name": committer_name,
-                        "committer_email": committer_email,
                         "priv_branch": priv_branch,
                         "requirements": [],
                         "milestones": [],
@@ -1655,8 +1746,6 @@ class GanttPilotGUI:
             result = self.store.add_project(
                 name, description=description,
                 remote_branch=remote_branch,
-                committer_name=committer_name,
-                committer_email=committer_email,
                 priv_branch=priv_branch,
             )
             if result:
@@ -1972,8 +2061,6 @@ class GanttPilotGUI:
             proj["remote_branch"] = dlg.result["remote_branch"]
             proj["remote_username"] = dlg.result["remote_username"]
             proj["remote_password"] = dlg.result["remote_password"]
-            proj["committer_name"] = dlg.result["committer_name"]
-            proj["committer_email"] = dlg.result["committer_email"]
             proj["priv_branch"] = dlg.result["priv_branch"]
             self.store.save()
             self._commit(f"Configure Git for project: {proj_name}")
@@ -2570,8 +2657,8 @@ class GanttPilotGUI:
             messagebox.showwarning(self._t("warning"), self._t("git_not_installed"))
             return
 
-        # Check committer configured
-        if not proj.get("committer_name") or not proj.get("committer_email"):
+        # Check committer configured (from global config)
+        if not self.config.get("committer_name") or not self.config.get("committer_email"):
             messagebox.showwarning(self._t("warning"), self._t("committer_not_configured"))
             return
 
@@ -2592,7 +2679,7 @@ class GanttPilotGUI:
             gs.sync()
             self._full_refresh()
             # Show PR hint in status bar
-            priv = proj.get("priv_branch") or f"priv_{proj['committer_name']}"
+            priv = gs.priv_branch
             main = proj.get("remote_branch", "main")
             self.status_var.set(self._t("sync_pr_hint", priv, priv, main))
             # Prompt rebase if main was updated during sync
@@ -3083,6 +3170,8 @@ class ConfigDialog:
         fields = [
             ("data_dir", t_func("data_dir"), config.data_dir),
             ("config_dir", t_func("config_dir"), config.config_dir),
+            ("committer_name", t_func("committer_name"), config.get("committer_name", "")),
+            ("committer_email", t_func("committer_email"), config.get("committer_email", "")),
             ("compress_threshold", t_func("compress_threshold") if lang == "en" else "报告图片压缩阈值(天)", str(config.get("compress_threshold", 300))),
             ("max_chart_width", t_func("max_chart_width") if lang == "en" else "报告图片最大宽度(px)", str(config.get("max_chart_width", 4000))),
             ("pull_interval", t_func("pull_interval"), str(config.get("pull_interval", 5))),
@@ -3240,6 +3329,22 @@ class ConfigDialog:
                 except ValueError:
                     continue
             self.config.set(key, val)
+
+        # Auto-detect git user if committer fields are still empty
+        committer_name = self.config.get("committer_name", "")
+        committer_email = self.config.get("committer_email", "")
+        if not committer_name or not committer_email:
+            detected_name, detected_email = GitSync.detect_git_user()
+            if detected_name or detected_email:
+                name_to_use = committer_name or detected_name
+                email_to_use = committer_email or detected_email
+                if messagebox.askyesno(
+                    self.t_func("config"),
+                    self.t_func("detect_git_user_confirm", name_to_use, email_to_use),
+                    parent=self.top,
+                ):
+                    self.config.set("committer_name", name_to_use)
+                    self.config.set("committer_email", email_to_use)
 
         # Save shortcut bindings if shortcut_manager is available
         if self.shortcut_manager is not None:
@@ -3496,7 +3601,7 @@ class ProjectGitConfigDialog:
         self.lang = lang
         self.top = tk.Toplevel(parent)
         self.top.title("🔗 " + t_func("git_config"))
-        _center_dialog(self.top, parent, 500, 380)
+        _center_dialog(self.top, parent, 500, 300)
         self.top.transient(parent)
         self.top.grab_set()
         self.top.focus_set()
@@ -3508,8 +3613,6 @@ class ProjectGitConfigDialog:
             ("remote_branch", t_func("remote_branch") if lang == "en" else "远端主分支", project.get("remote_branch", "main")),
             ("remote_username", t_func("username"), project.get("remote_username", "")),
             ("remote_password", t_func("password"), project.get("remote_password", "")),
-            ("committer_name", t_func("committer_name"), project.get("committer_name", "")),
-            ("committer_email", t_func("committer_email"), project.get("committer_email", "")),
             ("priv_branch", t_func("priv_branch"), project.get("priv_branch", "")),
         ]
         self.entries = {}
@@ -3531,52 +3634,20 @@ class ProjectGitConfigDialog:
             messagebox.showwarning("", self.t_func("invalid_url"))
             return
 
-        committer_name = self.entries["committer_name"].get().strip()
-        committer_email = self.entries["committer_email"].get().strip()
         priv_branch = self.entries["priv_branch"].get().strip()
 
-        # Auto-detect git user if committer fields are empty
-        if not committer_name or not committer_email:
-            detected_name, detected_email = GitSync.detect_git_user()
-            if detected_name or detected_email:
-                name_to_use = committer_name or detected_name
-                email_to_use = committer_email or detected_email
-                if messagebox.askyesno(
-                    self.t_func("git_config"),
-                    self.t_func("detect_git_user_confirm", name_to_use, email_to_use),
-                ):
-                    committer_name = name_to_use
-                    committer_email = email_to_use
-                else:
-                    return
-            else:
-                # Auto-detect failed and fields still empty — block save
-                if not committer_name or not committer_email:
-                    messagebox.showwarning(self.t_func("warning"), self.t_func("committer_required"))
-                    return
-
-        # Validate private branch name
+        # Validate private branch name (if provided)
         main_branch = self.entries["remote_branch"].get().strip() or "main"
         valid, err_key = validate_priv_branch_name(priv_branch, main_branch)
         if not valid:
             messagebox.showwarning("", self.t_func(err_key))
             return
 
-        # Show priv_branch default hint
-        if not priv_branch and committer_name:
-            default_branch = f"priv_{committer_name}"
-            messagebox.showinfo(
-                self.t_func("git_config"),
-                self.t_func("priv_branch_auto", default_branch),
-            )
-
         self.result = {
             "remote_url": url,
             "remote_branch": main_branch,
             "remote_username": self.entries["remote_username"].get().strip(),
             "remote_password": self.entries["remote_password"].get().strip(),
-            "committer_name": committer_name,
-            "committer_email": committer_email,
             "priv_branch": priv_branch,
         }
         self.top.destroy()

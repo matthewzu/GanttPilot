@@ -14,6 +14,7 @@ Sync flow:
 """
 
 import os
+import re
 import subprocess
 import sys
 
@@ -35,7 +36,15 @@ class GitSync:
         self.main_branch = main_branch or "main"
         self.committer_name = committer_name
         self.committer_email = committer_email
-        self.priv_branch = priv_branch or (f"priv_{committer_name}" if committer_name else self.WORK_BRANCH)
+        if priv_branch:
+            self.priv_branch = priv_branch
+        elif committer_name:
+            # Sanitize committer name for use as branch name: replace spaces and
+            # invalid git branch characters with underscores
+            safe_name = re.sub(r'[\s~^:?*\[\]\\]+', '_', committer_name).strip('._/')
+            self.priv_branch = f"priv_{safe_name}" if safe_name else self.WORK_BRANCH
+        else:
+            self.priv_branch = self.WORK_BRANCH
 
     def clone_repo(self, remote_url, target_dir, main_branch="main"):
         """Clone a remote repository to target_dir, checkout main_branch, create priv branch."""
@@ -146,17 +155,25 @@ class GitSync:
             self._run("init")
         # Ensure priv branch exists and is checked out
         if not self._branch_exists(self.priv_branch):
-            # If no commits yet, make an initial commit
-            status = self._run("status", "--porcelain", check=False)
-            if not self._run("log", "--oneline", "-1", check=False).stdout.strip():
+            # Check if current branch is already a priv_* branch (migration case)
+            current = self._run("branch", "--show-current", check=False).stdout.strip()
+            if current and current.startswith("priv_") and current != self.priv_branch:
+                # Rename old branch to the new sanitized name
+                self._run("branch", "-m", current, self.priv_branch, check=False)
+            elif not self._run("log", "--oneline", "-1", check=False).stdout.strip():
                 # No commits — create initial
                 self._run("add", "-A", check=False)
                 self._run("commit", "--allow-empty", "-m", "Initial commit",
                          extra_config=self._committer_config())
-            try:
-                self._run("checkout", "-b", self.priv_branch)
-            except RuntimeError:
-                self._run("checkout", self.priv_branch)
+                try:
+                    self._run("checkout", "-b", self.priv_branch)
+                except RuntimeError:
+                    self._run("checkout", self.priv_branch)
+            else:
+                try:
+                    self._run("checkout", "-b", self.priv_branch)
+                except RuntimeError:
+                    self._run("checkout", self.priv_branch)
         else:
             self._run("checkout", self.priv_branch, check=False)
 

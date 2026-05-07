@@ -171,12 +171,19 @@ class DataStore:
                     # Fill missing project-level defaults
                     if "description" not in proj:
                         proj["description"] = ""
-                    if "committer_name" not in proj:
-                        proj["committer_name"] = ""
-                    if "committer_email" not in proj:
-                        proj["committer_email"] = ""
                     if "priv_branch" not in proj:
                         proj["priv_branch"] = ""
+                    # Migration: remove committer info from project (now in global config)
+                    _migrated = False
+                    if "committer_name" in proj:
+                        del proj["committer_name"]
+                        _migrated = True
+                    if "committer_email" in proj:
+                        del proj["committer_email"]
+                        _migrated = True
+                    if _migrated:
+                        with open(proj_file, "w", encoding="utf-8") as f:
+                            json.dump(proj, f, ensure_ascii=False, indent=2)
                     # Backward compat: initialize empty requirements list for old projects
                     if "requirements" not in proj:
                         proj["requirements"] = []
@@ -225,7 +232,7 @@ class DataStore:
         return None
 
     def add_project(self, name, remote_url="", remote_username="", remote_password="", description="", tags=None,
-                    remote_branch="main", committer_name="", committer_email="", priv_branch=""):
+                    remote_branch="main", priv_branch=""):
         if self.get_project(name):
             return None
         proj = {
@@ -236,8 +243,6 @@ class DataStore:
             "remote_username": remote_username,
             "remote_password": remote_password,
             "remote_branch": remote_branch,
-            "committer_name": committer_name,
-            "committer_email": committer_email,
             "priv_branch": priv_branch,
             "tags": tags or [],
             "requirements": [],
