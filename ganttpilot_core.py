@@ -178,6 +178,7 @@ class DataStore:
                     # to avoid creating unstaged changes that block git rebase.
                     proj.pop("committer_name", None)
                     proj.pop("committer_email", None)
+                    proj.pop("priv_branch", None)
                     # Backward compat: initialize empty requirements list for old projects
                     if "requirements" not in proj:
                         proj["requirements"] = []
@@ -212,6 +213,10 @@ class DataStore:
             proj_dir = os.path.join(self.data_dir, proj["name"])
             os.makedirs(proj_dir, exist_ok=True)
             proj_file = os.path.join(proj_dir, "project.json")
+            # Defensive: strip personal fields (now stored in global config)
+            proj.pop("committer_name", None)
+            proj.pop("committer_email", None)
+            proj.pop("priv_branch", None)
             with open(proj_file, "w", encoding="utf-8") as f:
                 json.dump(proj, f, ensure_ascii=False, indent=2)
 
@@ -237,7 +242,6 @@ class DataStore:
             "remote_username": remote_username,
             "remote_password": remote_password,
             "remote_branch": remote_branch,
-            "priv_branch": priv_branch,
             "tags": tags or [],
             "requirements": [],
             "milestones": [],

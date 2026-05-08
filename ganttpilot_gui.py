@@ -727,8 +727,10 @@ class GanttPilotGUI:
     def _get_project_git(self, proj):
         """Construct a GitSync for a specific project directory.
 
-        Committer info: project-specific (from global config keyed by project name),
-        falling back to global default.
+        Committer info and priv_branch: project-specific (from global config
+        keyed by project name), falling back to global default.
+        Project.json fields are NEVER used for committer/priv_branch to prevent
+        other users' data from overriding local branch settings.
         """
         proj_dir = os.path.join(self.config.data_dir, proj["name"])
         # Resolve committer: project-specific > global
@@ -736,6 +738,8 @@ class GanttPilotGUI:
         proj_comm = proj_committers.get(proj["name"], {})
         committer_name = proj_comm.get("name", "") or self.config.get("committer_name", "")
         committer_email = proj_comm.get("email", "") or self.config.get("committer_email", "")
+        # priv_branch: from global config only (never from project.json)
+        priv_branch = proj_comm.get("priv_branch", "")
         return GitSync(
             proj_dir,
             proj.get("remote_url", ""),
@@ -744,7 +748,7 @@ class GanttPilotGUI:
             proj.get("remote_branch", "main"),
             committer_name=committer_name,
             committer_email=committer_email,
-            priv_branch=proj.get("priv_branch", ""),
+            priv_branch=priv_branch,
         )
 
     # ── Widgets ──────────────────────────────────────────────
@@ -1698,9 +1702,16 @@ class GanttPilotGUI:
         # Committer info: save to project_committers in global config
         dlg_committer_name = dlg.result.get("committer_name", "")
         dlg_committer_email = dlg.result.get("committer_email", "")
-        if dlg_committer_name or dlg_committer_email:
+        if dlg_committer_name or dlg_committer_email or priv_branch:
             proj_committers = self.config.get("project_committers", {}) or {}
-            proj_committers[name] = {"name": dlg_committer_name, "email": dlg_committer_email}
+            if name not in proj_committers:
+                proj_committers[name] = {}
+            if dlg_committer_name:
+                proj_committers[name]["name"] = dlg_committer_name
+            if dlg_committer_email:
+                proj_committers[name]["email"] = dlg_committer_email
+            if priv_branch:
+                proj_committers[name]["priv_branch"] = priv_branch
             self.config.set("project_committers", proj_committers)
             self.config.save()
 
@@ -1735,15 +1746,15 @@ class GanttPilotGUI:
                     with open(pj_file, "r", encoding="utf-8") as f:
                         pj_data = json.load(f)
                     real_name = pj_data.get("name", name)
-                    # Update project.json with Git config fields (no committer)
+                    # Update project.json with Git config fields (no committer, no priv_branch)
                     pj_data["remote_url"] = remote_url
                     pj_data["remote_username"] = remote_username
                     pj_data["remote_password"] = remote_password
                     pj_data["remote_branch"] = remote_branch
-                    pj_data["priv_branch"] = priv_branch
-                    # Remove legacy committer fields from project.json if present
+                    # Remove legacy personal fields from project.json if present
                     pj_data.pop("committer_name", None)
                     pj_data.pop("committer_email", None)
+                    pj_data.pop("priv_branch", None)
                     with open(pj_file, "w", encoding="utf-8") as f:
                         json.dump(pj_data, f, ensure_ascii=False, indent=2)
                 else:
@@ -1758,7 +1769,6 @@ class GanttPilotGUI:
                         "remote_username": remote_username,
                         "remote_password": remote_password,
                         "remote_branch": remote_branch,
-                        "priv_branch": priv_branch,
                         "requirements": [],
                         "milestones": [],
                     }
@@ -1800,7 +1810,6 @@ class GanttPilotGUI:
             result = self.store.add_project(
                 name, description=description,
                 remote_branch=remote_branch,
-                priv_branch=priv_branch,
             )
             if result:
                 self._commit(f"Add project: {name}")
@@ -2115,7 +2124,16 @@ class GanttPilotGUI:
             proj["remote_branch"] = dlg.result["remote_branch"]
             proj["remote_username"] = dlg.result["remote_username"]
             proj["remote_password"] = dlg.result["remote_password"]
-            proj["priv_branch"] = dlg.result["priv_branch"]
+            # priv_branch saved to global config (not project.json)
+            priv_branch = dlg.result["priv_branch"]
+            proj_committers = self.config.get("project_committers", {}) or {}
+            if proj_name not in proj_committers:
+                proj_committers[proj_name] = {}
+            proj_committers[proj_name]["priv_branch"] = priv_branch
+            self.config.set("project_committers", proj_committers)
+            self.config.save()
+            # Remove legacy priv_branch from project.json
+            proj.pop("priv_branch", None)
             self.store.save()
             self._commit(f"Configure Git for project: {proj_name}")
             self._update_undo_redo_buttons()
@@ -3753,12 +3771,17 @@ class ProjectGitConfigDialog:
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
 
+        # Resolve priv_branch from global config (not project.json)
+        proj_committers = config.get("project_committers", {}) if config else {}
+        proj_comm = proj_committers.get(project.get("name", ""), {})
+        current_priv_branch = proj_comm.get("priv_branch", "")
+
         fields = [
             ("remote_url", t_func("remote_url"), project.get("remote_url", "")),
             ("remote_branch", t_func("remote_branch") if lang == "en" else "远端主分支", project.get("remote_branch", "main")),
             ("remote_username", t_func("username"), project.get("remote_username", "")),
             ("remote_password", t_func("password"), project.get("remote_password", "")),
-            ("priv_branch", t_func("priv_branch"), project.get("priv_branch", "")),
+            ("priv_branch", t_func("priv_branch"), current_priv_branch),
         ]
         self.entries = {}
         for i, (key, label, val) in enumerate(fields):
