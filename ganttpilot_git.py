@@ -178,12 +178,12 @@ class GitSync:
             self._run("checkout", self.priv_branch, check=False)
 
     def commit(self, message):
-        """Stage all changes and commit on priv branch"""
+        """Stage only project.json and commit on priv branch"""
         if not self.is_repo():
             self.init_repo()
         # Ensure we're on priv branch
         self._run("checkout", self.priv_branch, check=False)
-        self._run("add", "-A")
+        self._run("add", "project.json")
         status = self._run("status", "--porcelain", check=False)
         if not status.stdout.strip():
             return False
@@ -246,9 +246,9 @@ class GitSync:
 
         wb = self.priv_branch
 
-        # 1. Commit pending on priv_branch
+        # 1. Commit pending on priv_branch (only project.json)
         self._run("checkout", wb, check=False)
-        self._run("add", "-A", check=False)
+        self._run("add", "project.json", check=False)
         status = self._run("status", "--porcelain", check=False)
         if status.stdout.strip():
             self._run("commit", "-m", "Auto-commit before sync",

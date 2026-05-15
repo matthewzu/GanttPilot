@@ -1872,9 +1872,14 @@ class GanttPilotGUI:
         # Get project tags for tag selection
         proj_data = self.store.get_project(proj)
         project_tags = proj_data.get("tags", []) if proj_data else []
+        # Get committer name as default executor
+        proj_committers = self.config.get("project_committers", {}) or {}
+        proj_comm = proj_committers.get(proj, {})
+        default_executor = proj_comm.get("name", "") or self.config.get("committer_name", "")
         if self._has_active_dialog():
             return
-        dlg = ActivityDialog(self.root, self._t, self.lang, project_tags=project_tags)
+        dlg = ActivityDialog(self.root, self._t, self.lang, project_tags=project_tags,
+                             default_executor=default_executor)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
         self._active_dialog = None
@@ -2203,6 +2208,45 @@ class GanttPilotGUI:
         proj = self.store.get_project(self.current_project)
         if not proj:
             return
+
+        # Ask user for report type: summary or detail
+        dlg = tk.Toplevel(self.root)
+        dlg.title(self._t("report_type_title"))
+        dlg.transient(self.root)
+        dlg.grab_set()
+        dlg.resizable(False, False)
+        result = {"mode": None}
+
+        ttk.Label(dlg, text=self._t("report_type_title"), font=("", 11, "bold")).pack(pady=(12, 8))
+
+        btn_frame = ttk.Frame(dlg)
+        btn_frame.pack(pady=8, padx=20)
+
+        def pick_summary():
+            result["mode"] = "summary"
+            dlg.destroy()
+
+        def pick_detail():
+            result["mode"] = "detail"
+            dlg.destroy()
+
+        summary_btn = ttk.Button(btn_frame, text=self._t("report_type_summary"), command=pick_summary, width=12)
+        summary_btn.grid(row=0, column=0, padx=8)
+        detail_btn = ttk.Button(btn_frame, text=self._t("report_type_detail"), command=pick_detail, width=12)
+        detail_btn.grid(row=0, column=1, padx=8)
+
+        ttk.Label(dlg, text=self._t("report_type_summary_desc"), foreground="gray").pack(anchor="w", padx=28)
+        ttk.Label(dlg, text=self._t("report_type_detail_desc"), foreground="gray").pack(anchor="w", padx=28, pady=(0, 12))
+
+        _center_dialog(dlg, self.root, 380, 160)
+        dlg.protocol("WM_DELETE_WINDOW", dlg.destroy)
+        self.root.wait_window(dlg)
+
+        if result["mode"] is None:
+            return
+
+        summary_only = result["mode"] == "summary"
+
         path = filedialog.asksaveasfilename(
             defaultextension=".md", filetypes=[("Markdown", "*.md")],
             initialfile=f"{self.current_project}_report.md",
@@ -2228,7 +2272,7 @@ class GanttPilotGUI:
             png_filename = None
             self.status_var.set(f"PNG error: {e}")
 
-        md = generate_gantt_markdown(proj, self.lang, png_filename)
+        md = generate_gantt_markdown(proj, self.lang, png_filename, summary_only=summary_only)
         with open(path, "w", encoding="utf-8") as f:
             f.write(md)
         self._commit(f"Generate report: {self.current_project}")
@@ -2848,6 +2892,23 @@ class GanttPilotGUI:
             self._prompt_rebase([proj])
 
     def on_close(self):
+        # Prompt to push private branch for projects with remote
+        for proj in self.store.list_projects():
+            if proj.get("remote_url"):
+                try:
+                    gs = self._get_project_git(proj)
+                    if not gs.is_repo():
+                        continue
+                    answer = messagebox.askyesno(
+                        self._t("exit_push_title"),
+                        self._t("exit_push_prompt") + f"\n\n{proj['name']} → {gs.priv_branch}",
+                    )
+                    if answer:
+                        gs.init_repo()
+                        gs.sync()
+                except Exception:
+                    pass
+
         is_maximized = self.root.state() == "zoomed"
         self.config.set("window_maximized", is_maximized)
         if not is_maximized:
@@ -3136,7 +3197,7 @@ class PlanEditDialog:
 
 class ActivityDialog:
     """Dialog for adding an activity"""
-    def __init__(self, parent, t_func, lang, project_tags=None):
+    def __init__(self, parent, t_func, lang, project_tags=None, default_executor=""):
         self.result = None
         self.t_func = t_func
         self.project_tags = project_tags or []
@@ -3161,6 +3222,13 @@ class ActivityDialog:
             entry = ttk.Entry(self.top, width=30)
             entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
             self.entries[key] = entry
+            # Pre-fill executor with committer name and add hint
+            if key == "executor" and default_executor:
+                entry.insert(0, default_executor)
+                row += 1
+                ttk.Label(self.top, text=t_func("executor_default_hint", default_executor),
+                          foreground="gray", font=("", 8)).grid(
+                    row=row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
             row += 1
 
         # Effort hours field

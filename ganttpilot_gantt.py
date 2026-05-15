@@ -647,8 +647,13 @@ def open_gantt_in_browser(project, lang="zh"):
 
 
 
-def generate_gantt_markdown(project, lang="zh", png_filename=None):
-    """Generate a comprehensive project report in Markdown."""
+def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=False):
+    """Generate a comprehensive project report in Markdown.
+    
+    Args:
+        summary_only: If True, only include gantt chart, requirement analysis,
+                      and milestones overview (no hours/notes details).
+    """
     zh = lang == "zh"
     lines = [f"# {project['name']}", ""]
 
@@ -719,6 +724,71 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None):
             avg_progress = 0
         lines.append(f"| {ms['name']} | {dl} | {desc} | {plan_count} | {avg_progress:.0f}% |")
     lines.append("")
+
+    # If summary_only, stop here (no hours/notes details)
+    if summary_only:
+        # Include Plan Progress without hours columns
+        has_plans = any(ms.get("plans") for ms in project.get("milestones", []))
+        if has_plans:
+            progress_label = "进度" if zh else "Progress"
+            actual_end_label = "实际完成时间" if zh else "Actual End Date"
+            status_label = "状态" if zh else "Status"
+            ahead_label = "提前完成" if zh else "Ahead of Schedule"
+            behind_label = "延期完成" if zh else "Behind Schedule"
+            on_time_label = "按时完成" if zh else "On Time"
+            lines.append(h2("计划进度详情" if zh else "Plan Progress Details"))
+            lines.append("")
+            lines.append(f"| {'里程碑' if zh else 'Milestone'} | {'计划' if zh else 'Plan'} | {'执行者' if zh else 'Executor'} | {progress_label} | {'结束日期' if zh else 'End Date'} | {actual_end_label} | {status_label} |")
+            lines.append("|---|---|---|---|---|---|---|")
+            for ms in project.get("milestones", []):
+                for plan in ms.get("plans", []):
+                    p_progress = plan.get("progress", 0)
+                    p_actual = plan.get("actual_end_date", "")
+                    p_end = plan.get("end_date", "")
+                    schedule_note = ""
+                    if p_actual and p_end:
+                        if p_actual < p_end:
+                            schedule_note = ahead_label
+                        elif p_actual > p_end:
+                            schedule_note = behind_label
+                        else:
+                            schedule_note = on_time_label
+                    lines.append(f"| {ms['name']} | {plan.get('content', '')} | {plan.get('executor', '')} | {p_progress}% | {p_end} | {p_actual or '-'} | {schedule_note} |")
+            lines.append("")
+
+        # Include Requirement Tracking without hours column
+        if has_requirements:
+            req_tracking_label = "需求跟踪" if zh else "Requirement Tracking"
+            lines.append(h2(req_tracking_label))
+            lines.append("")
+            lines.append(f"| {'需求类别' if zh else 'Category'} | {'需求主题' if zh else 'Requirement'} | {'任务主题' if zh else 'Task'} | {'工作量(人日)' if zh else 'Effort(days)'} | {'关联计划' if zh else 'Linked Plan'} | {'计划进度' if zh else 'Progress'} |")
+            lines.append("|---|---|---|---|---|---|")
+            task_plan_map = {}
+            for ms in project.get("milestones", []):
+                for plan in ms.get("plans", []):
+                    linked = plan.get("linked_task_id", "")
+                    if linked:
+                        task_plan_map[linked] = (plan.get("content", ""), plan.get("progress", 0))
+            for req in project.get("requirements", []):
+                cat = req.get("category", "")
+                subj = req.get("subject", "")
+                tasks = req.get("tasks", [])
+                if not tasks:
+                    lines.append(f"| {cat} | {subj} | - | - | - | - |")
+                else:
+                    for i, task in enumerate(tasks):
+                        r_cat = cat if i == 0 else ""
+                        r_subj = subj if i == 0 else ""
+                        t_subj = task.get("subject", "")
+                        effort = task.get("effort_days", 0)
+                        effort_str = f"{effort}" if effort else "-"
+                        plan_info = task_plan_map.get(task.get("id", ""))
+                        linked_plan = plan_info[0] if plan_info else "-"
+                        plan_progress = f"{plan_info[1]}%" if plan_info else "-"
+                        lines.append(f"| {r_cat} | {r_subj} | {t_subj} | {effort_str} | {linked_plan} | {plan_progress} |")
+            lines.append("")
+
+        return "\n".join(lines)
 
     # Plan progress details table
     progress_label = "进度" if zh else "Progress"

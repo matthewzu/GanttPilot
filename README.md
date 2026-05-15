@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.3.2-blue.svg)
+![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -80,7 +80,7 @@ Project
 4. **Create plans** — under each milestone, add plans with executor, date range, and optionally link to a task
 5. **Log activities** — under each plan, record daily work with hours and content
 6. **Track progress** — view the Gantt chart, check the Requirement Tracking tab, set plan progress (0-100%)
-7. **Generate reports** — right-click project → Generate Report (Markdown with embedded Gantt chart PNG)
+7. **Generate reports** — right-click project → Generate Report (choose Summary or Detail mode)
 8. **Collaborate** — push/pull via Git, each team member works on their private branch, merge via PR
 
 ### Interface Guide
@@ -248,10 +248,16 @@ After rebase, the remote tracking branch is automatically updated — no manual 
 
 - On startup, all projects auto-fetch from remote (pull only, no push)
 - A periodic background check (default: every 5 minutes, configurable) detects remote updates
+- On exit, a dialog prompts whether to push your private branch to remote
 
 ### Reports
 
-Right-click a project → Generate Report. The Markdown report includes:
+Right-click a project → Generate Report. A dialog lets you choose the report type:
+
+- **Summary** — includes Gantt chart, requirement analysis, milestones, and plan progress overview (no hours data)
+- **Detail** — full report with all hours, executor details, tag breakdowns, etc.
+
+The Markdown report (detail mode) includes:
 
 1. **Gantt Chart** — embedded PNG image (rendered locally, no external dependencies)
 2. **Requirement Analysis** — requirements table with task counts
@@ -355,7 +361,7 @@ python main.py --version    # 显示版本
 4. **创建计划** — 在里程碑下添加计划，指定执行者、日期范围，可选关联任务
 5. **记录活动** — 在计划下记录每日工作，填写工时和内容
 6. **跟踪进度** — 查看甘特图，检查需求跟踪标签页，设置计划进度（0-100%）
-7. **生成报告** — 项目右键 → 生成报告（Markdown 格式，内嵌甘特图 PNG）
+7. **生成报告** — 项目右键 → 生成报告（可选概况或细节模式）
 8. **团队协作** — 通过 Git 推送/拉取，每人在私有分支上工作，通过 PR 合并
 
 ### 界面指南
@@ -523,10 +529,16 @@ python main.py --version    # 显示版本
 
 - 启动时自动拉取所有项目的远端更新（仅拉取，不推送）
 - 定期后台检测远端更新（默认每 5 分钟，可在配置中调整）
+- 退出时弹窗提示是否推送私有分支到远端
 
 ### 报告
 
-项目右键 → 生成报告。Markdown 报告包含：
+项目右键 → 生成报告。弹出对话框选择报告类型：
+
+- **概况** — 包含甘特图、需求分析、里程碑、计划进度概览（不含工时数据）
+- **细节** — 完整报告，包含所有工时、执行者明细、标签汇总等
+
+Markdown 报告（细节模式）包含：
 
 1. **甘特图** — 内嵌 PNG 图片（本地渲染，无需外部依赖）
 2. **需求分析** — 需求表格及任务数

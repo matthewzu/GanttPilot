@@ -244,7 +244,7 @@ TEXTS = {
             "2. 展开「需求分析」→ 添加需求 → 拆解为任务\n"
             "3. 展开「计划执行」→ 添加里程碑 → 创建计划\n"
             "4. 在计划下记录活动（工时和内容）\n"
-            "5. 项目右键 → 生成报告\n\n"
+            "5. 项目右键 → 生成报告（可选概况/细节）\n\n"
             "【项目结构】\n"
             "📋 需求分析 → 需求 → 任务（定义做什么）\n"
             "📊 计划执行 → 里程碑 → 计划 → 活动（规划怎么做）\n"
@@ -270,13 +270,19 @@ TEXTS = {
             "• 时间段：0900/1200,1400/1700（自动算工时）\n"
             "• 直接填写小时数：3.5\n\n"
             "【活动描述】\n"
-            "• 活动支持多行描述字段，记录背景和补充说明\n\n"
+            "• 活动支持多行描述字段，记录背景和补充说明\n"
+            "• 添加活动时执行者默认使用提交者名称（项目级 > 全局）\n\n"
+            "【报告生成】\n"
+            "• 概况模式：甘特图 + 需求 + 里程碑 + 进度（不含工时）\n"
+            "• 细节模式：完整报告含所有工时明细\n\n"
             "【跳过日期】\n"
             "• 20260501 → 跳过（节假日）\n"
             "• -20260510 → 取消跳过（周末变工作日）\n\n"
             "【Git协作】Ctrl+S 推送 / 右键拉取\n"
             "• 每人私有分支，通过 PR 合并到主线\n"
-            "• 启动时自动拉取，后台定期检测更新\n"
+            "• 启动时自动拉取主线，后台定期检测更新\n"
+            "• 退出时提示推送私有分支，确认即推送\n"
+            "• 提交仅包含 project.json，排除其他文件\n"
             "• 拉取后自动更新本地 main，提示 rebase（变基后自动推送）\n"
             "• 项目右键 → 同步主线：手动将私有分支变基到最新 main\n"
             "• 私有分支名不能为 \"priv\" 或与主分支同名\n\n"
@@ -313,6 +319,17 @@ TEXTS = {
         "confirm_revert": "确认撤销此提交？将生成一个反向提交。\n\n{}",
         "revert_done": "已撤销提交: {}",
         "revert_failed": "撤销失败: {}",
+        # ── Report type dialog / 报告类型 ──
+        "report_type_title": "选择报告类型",
+        "report_type_summary": "概况",
+        "report_type_detail": "细节",
+        "report_type_summary_desc": "包含甘特图、需求分析、里程碑、进度概览（不含工时）",
+        "report_type_detail_desc": "包含完整工时、备注等详细信息",
+        # ── Exit push prompt / 退出推送提示 ──
+        "exit_push_prompt": "是否推送私有分支到远端？",
+        "exit_push_title": "退出前推送",
+        # ── Executor default hint / 执行者默认提示 ──
+        "executor_default_hint": "默认使用提交者名称: {}（优先级: 活动 > 项目 > 全局）",
         # ── Project creation modes / 项目创建模式 ──
         "mode_local": "本地模式",
         "mode_collab": "协作模式",
@@ -574,7 +591,7 @@ TEXTS = {
             "2. Expand Requirement Analysis → Add requirements → Break into tasks\n"
             "3. Expand Plan Execution → Add milestones → Create plans\n"
             "4. Log activities under plans (hours and content)\n"
-            "5. Right-click project → Generate Report\n\n"
+            "5. Right-click project → Generate Report (Summary or Detail)\n\n"
             "[Project Structure]\n"
             "📋 Requirement Analysis → Requirement → Task (define what)\n"
             "📊 Plan Execution → Milestone → Plan → Activity (plan how)\n"
@@ -599,14 +616,20 @@ TEXTS = {
             "[Work Hours] Choose one\n"
             "• Time Slots: 0900/1200,1400/1700 (auto-calculated)\n"
             "• Direct hours: 3.5\n\n"
-            "[Activity Description]\n"
-            "• Activities support multi-line description for background notes\n\n"
+            "[Activity]\n"
+            "• Activities support multi-line description for background notes\n"
+            "• Executor defaults to committer name (project > global)\n\n"
+            "[Reports]\n"
+            "• Summary: Gantt + requirements + milestones + progress (no hours)\n"
+            "• Detail: Full report with all hour breakdowns\n\n"
             "[Skip Dates]\n"
             "• 20260501 → Skip (holiday)\n"
             "• -20260510 → Un-skip (make weekend a workday)\n\n"
             "[Git Collaboration] Ctrl+S Push / Right-click Pull\n"
             "• Each user on private branch, merge via PR\n"
-            "• Auto-fetch on startup, periodic background check\n"
+            "• Auto-fetch main on startup, periodic background check\n"
+            "• Prompts to push private branch on exit\n"
+            "• Commits only include project.json (other files excluded)\n"
             "• Pull auto-updates local main, prompts rebase (auto-pushes after)\n"
             "• Right-click project → Sync Main: manually rebase to latest main\n"
             "• Private branch name cannot be \"priv\" or same as main\n\n"
@@ -643,6 +666,17 @@ TEXTS = {
         "confirm_revert": "Revert this commit? A new inverse commit will be created.\n\n{}",
         "revert_done": "Reverted: {}",
         "revert_failed": "Revert failed: {}",
+        # ── Report type dialog ──
+        "report_type_title": "Select Report Type",
+        "report_type_summary": "Summary",
+        "report_type_detail": "Detail",
+        "report_type_summary_desc": "Gantt chart, requirements, milestones, progress overview (no hours)",
+        "report_type_detail_desc": "Full details including hours, notes, etc.",
+        # ── Exit push prompt ──
+        "exit_push_prompt": "Push private branch to remote before exit?",
+        "exit_push_title": "Push Before Exit",
+        # ── Executor default hint ──
+        "executor_default_hint": "Default from committer: {} (priority: activity > project > global)",
         # ── Project creation modes ──
         "mode_local": "Local Mode",
         "mode_collab": "Collaboration Mode",
