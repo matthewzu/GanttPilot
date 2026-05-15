@@ -2892,12 +2892,14 @@ class GanttPilotGUI:
             self._prompt_rebase([proj])
 
     def on_close(self):
-        # Prompt to push private branch for projects with remote
+        # Prompt to push private branch for projects with unpushed changes
         for proj in self.store.list_projects():
             if proj.get("remote_url"):
                 try:
                     gs = self._get_project_git(proj)
                     if not gs.is_repo():
+                        continue
+                    if not gs.has_unpushed_commits():
                         continue
                     answer = messagebox.askyesno(
                         self._t("exit_push_title"),

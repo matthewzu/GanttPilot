@@ -485,6 +485,31 @@ class GitSync:
         except Exception:
             return False
 
+    def has_unpushed_commits(self):
+        """Check if the private branch has local commits not yet pushed to remote.
+
+        Returns:
+            bool: True if there are unpushed commits or uncommitted project.json changes.
+        """
+        if not self.remote_url or not self.is_repo():
+            return False
+        try:
+            # Check for uncommitted changes to project.json
+            status = self._run("status", "--porcelain", "project.json", check=False)
+            if status.stdout.strip():
+                return True
+            # Check if local priv branch is ahead of origin/priv_branch
+            result = self._run("rev-list", "--count",
+                               f"origin/{self.priv_branch}..{self.priv_branch}", check=False)
+            if result.returncode != 0:
+                # Remote branch doesn't exist yet — local has unpushed commits
+                local_commits = self._run("rev-list", "--count", self.priv_branch, check=False)
+                return local_commits.returncode == 0 and int(local_commits.stdout.strip() or "0") > 0
+            count = int(result.stdout.strip() or "0")
+            return count > 0
+        except Exception:
+            return False
+
 
     def manual_rebase(self):
         """手动将私有分支 rebase 到远端主分支最新提交。
