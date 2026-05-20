@@ -47,19 +47,25 @@ jobs:
 
           **工时管理 / Time Tracking**
           - 时间段（0900/1200,1400/1700）或直接填写小时数，按项目/里程碑/计划/标签四维统计
+          - 已完结计划自动显示超出/少用工时差异
           - Time slots or direct hours, 4 view modes: by project/milestone/plan/tag
+          - Overtime/undertime display for finished plans
 
           **Git 协作 / Git Collaboration**
           - 每项目独立 Git 仓库，私有分支 + PR 工作流，后台自动检测远端更新
           - Per-project Git repos, private branches + PR workflow, background update detection
 
           **报告 / Reports**
-          - Markdown 报告内嵌 PNG 甘特图，含需求分析、进度详情、工时明细
-          - Markdown reports with embedded PNG Gantt chart, requirement analysis, progress details
+          - Markdown 报告内嵌 PNG 甘特图，含需求分析、进度详情、工时明细、超出/少用统计
+          - 导出文件名自动添加 _summary 或 _detail 后缀
+          - Markdown reports with embedded PNG Gantt chart, requirement analysis, progress details, overtime/undertime stats
+          - Export filename auto-appends _summary or _detail suffix
 
           **效率工具 / Productivity**
-          - 键盘快捷键（可自定义）、复制/粘贴/克隆、撤销/恢复、中英文双语
-          - Customizable shortcuts, copy/paste/duplicate, undo/redo, bilingual (EN/ZH)
+          - 键盘快捷键（可自定义）、复制/剪切/粘贴/克隆、撤销/恢复、中英文双语
+          - 剪切或粘贴时插入到选中节点后面，而非追加到末尾
+          - Customizable shortcuts, copy/cut/paste/duplicate, undo/redo, bilingual (EN/ZH)
+          - Cut/paste inserts after selected item, not at end
 
           📖 详细文档 / Documentation: [README.md](https://github.com/${{ github.repository }})
         draft: false
