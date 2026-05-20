@@ -228,15 +228,20 @@ TEXTS = {
         "task_count": "任务数",
         "duplicate": "克隆",
         "copy": "复制",
+        "cut": "剪切",
         "paste": "粘贴",
         "duplicate_tooltip": "克隆选中节点",
         "copy_tooltip": "复制 (Ctrl+C)",
+        "cut_tooltip": "剪切 (Ctrl+X)",
         "paste_tooltip": "粘贴 (Ctrl+V)",
         "nothing_to_paste": "剪贴板为空",
         "paste_type_mismatch": "无法在此处粘贴该类型的节点",
         "duplicated": "已克隆: {}",
         "copied": "已复制: {}",
+        "cut_done": "已剪切: {}",
         "pasted": "已粘贴: {}",
+        "overtime": "超出",
+        "undertime": "少用",
         "help_text": (
             "GanttPilot - 协作式项目管理器\n\n"
             "【快速上手】\n"
@@ -251,19 +256,19 @@ TEXTS = {
             "🔗 计划可关联任务，形成需求→任务→计划跟踪链\n\n"
             "【工具栏】根据选中节点自动启用/禁用\n"
             "• 添加(Ctrl+N) / 编辑(F2) / 删除(Delete)\n"
-            "• 复制(Ctrl+C) / 粘贴(Ctrl+V) / 克隆(Ctrl+D)\n"
+            "• 复制(Ctrl+C) / 剪切(Ctrl+X) / 粘贴(Ctrl+V) / 克隆(Ctrl+D)\n"
             "• 上移(Alt+↑) / 下移(Alt+↓)\n"
             "• ⟳ 检查更新 / ⚙ 配置\n\n"
             "【右键菜单】所有操作的主要入口\n"
             "• 空白处 → 添加项目、推送、拉取、刷新\n"
             "• 项目 → 编辑、Git配置、报告、推送、拉取、删除\n"
-            "• 需求/任务 → 添加、编辑、复制、克隆、删除\n"
+            "• 需求/任务 → 添加、编辑、复制、剪切、克隆、删除\n"
             "• 里程碑 → 添加计划、编辑、颜色、删除\n"
             "• 计划 → 添加活动、编辑、颜色、进度、完结/重开、删除\n"
-            "• 活动 → 编辑、复制、克隆、删除\n\n"
+            "• 活动 → 编辑、复制、剪切、克隆、删除\n\n"
             "【右侧标签页】\n"
             "• 甘特图 — 可视化项目进度，🔍+/- 独立缩放\n"
-            "• 工时统计 — 按项目/里程碑/计划/标签四种模式查看\n"
+            "• 工时统计 — 按项目/里程碑/计划/标签四种模式查看，已完结计划显示超出/少用\n"
             "• 需求跟踪 — 需求→任务→计划→进度完整链条\n"
             "• 历史记录 — Git提交日志，可切换分支、回退、撤销\n\n"
             "【工时记录】二选一\n"
@@ -299,6 +304,7 @@ TEXTS = {
         "shortcut_move_down": "下移",
         "shortcut_duplicate": "克隆",
         "shortcut_copy": "复制",
+        "shortcut_cut": "剪切",
         "shortcut_paste": "粘贴",
         "shortcut_undo": "撤销",
         "shortcut_redo": "恢复",
@@ -575,15 +581,20 @@ TEXTS = {
         "task_count": "Tasks",
         "duplicate": "Duplicate",
         "copy": "Copy",
+        "cut": "Cut",
         "paste": "Paste",
         "duplicate_tooltip": "Duplicate selected node",
         "copy_tooltip": "Copy (Ctrl+C)",
+        "cut_tooltip": "Cut (Ctrl+X)",
         "paste_tooltip": "Paste (Ctrl+V)",
         "nothing_to_paste": "Nothing to paste",
         "paste_type_mismatch": "Cannot paste this type of node here",
         "duplicated": "Duplicated: {}",
         "copied": "Copied: {}",
+        "cut_done": "Cut: {}",
         "pasted": "Pasted: {}",
+        "overtime": "Overtime",
+        "undertime": "Undertime",
         "help_text": (
             "GanttPilot - Collaborative Project Manager\n\n"
             "[Quick Start]\n"
@@ -598,19 +609,19 @@ TEXTS = {
             "🔗 Plans can link to tasks for requirement traceability\n\n"
             "[Toolbar] Auto-enabled based on selected node\n"
             "• Add(Ctrl+N) / Edit(F2) / Delete(Delete)\n"
-            "• Copy(Ctrl+C) / Paste(Ctrl+V) / Duplicate(Ctrl+D)\n"
+            "• Copy(Ctrl+C) / Cut(Ctrl+X) / Paste(Ctrl+V) / Duplicate(Ctrl+D)\n"
             "• Move Up(Alt+↑) / Move Down(Alt+↓)\n"
             "• ⟳ Check Updates / ⚙ Config\n\n"
             "[Right-Click Menus] Primary entry for all operations\n"
             "• Empty area → Add Project, Push, Pull, Refresh\n"
             "• Project → Edit, Git Config, Report, Push, Pull, Delete\n"
-            "• Requirement/Task → Add, Edit, Copy, Duplicate, Delete\n"
+            "• Requirement/Task → Add, Edit, Copy, Cut, Duplicate, Delete\n"
             "• Milestone → Add Plan, Edit, Color, Delete\n"
             "• Plan → Add Activity, Edit, Color, Progress, Finish/Reopen, Delete\n"
-            "• Activity → Edit, Copy, Duplicate, Delete\n\n"
+            "• Activity → Edit, Copy, Cut, Duplicate, Delete\n\n"
             "[Right Panel Tabs]\n"
             "• Gantt Chart — Visualize progress, 🔍+/- to zoom\n"
-            "• Time Statistics — View by project/milestone/plan/tag\n"
+            "• Time Statistics — View by project/milestone/plan/tag, overtime/undertime for finished plans\n"
             "• Requirement Tracking — Requirement→Task→Plan→Progress chain\n"
             "• History — Git log, switch branches, reset, revert\n\n"
             "[Work Hours] Choose one\n"
@@ -646,6 +657,7 @@ TEXTS = {
         "shortcut_move_down": "Move Down",
         "shortcut_duplicate": "Duplicate",
         "shortcut_copy": "Copy",
+        "shortcut_cut": "Cut",
         "shortcut_paste": "Paste",
         "shortcut_undo": "Undo",
         "shortcut_redo": "Redo",

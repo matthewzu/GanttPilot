@@ -716,39 +716,77 @@ class DataStore:
 
     def get_time_report_by_milestone(self, project_name):
         """按里程碑分组返回工时报告。
-        Returns: {milestone_name: {executor: {"hours": float, "days": float}}}
+        Returns: {milestone_name: {"executors": {executor: {"hours": float, "days": float}}, "planned_hours": float}}
+        planned_hours only counts finished plans.
         """
         report = {}
-        for ms_name, plan in self.get_all_plans_for_project(project_name):
+        proj = self.get_project(project_name)
+        if not proj:
+            return report
+        # Build task_id -> effort_days lookup for fallback planned hours
+        task_effort_map = {}
+        for req in proj.get("requirements", []):
+            for task in req.get("tasks", []):
+                task_effort_map[task.get("id", "")] = task.get("effort_days", 0)
+        for ms in proj.get("milestones", []):
+            ms_name = ms["name"]
             if ms_name not in report:
-                report[ms_name] = {}
-            for act in plan.get("activities", []):
-                ex = act["executor"]
-                if ex not in report[ms_name]:
-                    report[ms_name][ex] = {"hours": 0.0, "days": 0.0}
-                report[ms_name][ex]["hours"] += act.get("hours", 0)
+                report[ms_name] = {"executors": {}, "planned_hours": 0.0}
+            for plan in ms.get("plans", []):
+                # Only accumulate planned hours for finished plans
+                if plan.get("status") == "finished":
+                    p_hours = plan.get("planned_hours", 0)
+                    if not p_hours:
+                        linked_tid = plan.get("linked_task_id", "")
+                        if linked_tid:
+                            p_hours = task_effort_map.get(linked_tid, 0) * 8
+                    report[ms_name]["planned_hours"] += p_hours
+                for act in plan.get("activities", []):
+                    ex = act["executor"]
+                    if ex not in report[ms_name]["executors"]:
+                        report[ms_name]["executors"][ex] = {"hours": 0.0, "days": 0.0}
+                    report[ms_name]["executors"][ex]["hours"] += act.get("hours", 0)
         for ms_name in report:
-            for ex in report[ms_name]:
-                report[ms_name][ex]["days"] = round(report[ms_name][ex]["hours"] / 8.0, 2)
+            for ex in report[ms_name]["executors"]:
+                report[ms_name]["executors"][ex]["days"] = round(report[ms_name]["executors"][ex]["hours"] / 8.0, 2)
         return report
 
     def get_time_report_by_plan(self, project_name):
         """按计划分组返回工时报告。
-        Returns: {plan_content: {executor: {"hours": float, "days": float}}}
+        Returns: {plan_content: {"executors": {executor: {"hours": float, "days": float}}, "planned_hours": float, "finished": bool}}
+        planned_hours and overtime/undertime only apply to finished plans.
         """
         report = {}
-        for ms_name, plan in self.get_all_plans_for_project(project_name):
-            plan_content = plan.get("content", "")
-            if plan_content not in report:
-                report[plan_content] = {}
-            for act in plan.get("activities", []):
-                ex = act["executor"]
-                if ex not in report[plan_content]:
-                    report[plan_content][ex] = {"hours": 0.0, "days": 0.0}
-                report[plan_content][ex]["hours"] += act.get("hours", 0)
+        proj = self.get_project(project_name)
+        if not proj:
+            return report
+        # Build task_id -> effort_days lookup for fallback planned hours
+        task_effort_map = {}
+        for req in proj.get("requirements", []):
+            for task in req.get("tasks", []):
+                task_effort_map[task.get("id", "")] = task.get("effort_days", 0)
+        for ms in proj.get("milestones", []):
+            for plan in ms.get("plans", []):
+                plan_content = plan.get("content", "")
+                if plan_content not in report:
+                    report[plan_content] = {"executors": {}, "planned_hours": 0.0, "finished": True}
+                # Accumulate planned hours
+                p_hours = plan.get("planned_hours", 0)
+                if not p_hours:
+                    linked_tid = plan.get("linked_task_id", "")
+                    if linked_tid:
+                        p_hours = task_effort_map.get(linked_tid, 0) * 8
+                report[plan_content]["planned_hours"] += p_hours
+                if plan.get("status") != "finished":
+                    report[plan_content]["finished"] = False
+                for act in plan.get("activities", []):
+                    ex = act["executor"]
+                    if ex not in report[plan_content]["executors"]:
+                        report[plan_content]["executors"][ex] = {"hours": 0.0, "days": 0.0}
+                    report[plan_content]["executors"][ex]["hours"] += act.get("hours", 0)
         for plan_content in report:
-            for ex in report[plan_content]:
-                report[plan_content][ex]["days"] = round(report[plan_content][ex]["hours"] / 8.0, 2)
+            for ex in report[plan_content]["executors"]:
+                report[plan_content]["executors"][ex]["days"] = round(report[plan_content]["executors"][ex]["hours"] / 8.0, 2)
         return report
 
     def get_time_report_by_tag(self, project_name):
@@ -917,7 +955,7 @@ class DataStore:
         """Return clipboard content or None."""
         return self._clipboard
 
-    def clipboard_paste(self, target_project_name, target_parent_ids=None):
+    def clipboard_paste(self, target_project_name, target_parent_ids=None, after_id=None):
         """Paste clipboard content into the target location.
         target_parent_ids varies by type:
           project     → None
@@ -926,12 +964,18 @@ class DataStore:
           milestone   → None (appends to project milestones)
           plan        → (ms_name,)
           activity    → (ms_name, plan_id)
+        after_id: if provided, insert after the item with this id instead of appending.
         Returns the pasted node or None.
         """
         if not self._clipboard:
             return None
         node_type = self._clipboard["type"]
-        cloned = self._deep_copy_with_new_ids(self._clipboard["data"])
+        is_cut = self._clipboard.get("cut", False)
+        if is_cut:
+            # For cut, use the data directly (already removed from source)
+            cloned = self._deep_copy_with_new_ids(self._clipboard["data"])
+        else:
+            cloned = self._deep_copy_with_new_ids(self._clipboard["data"])
         target_parent_ids = target_parent_ids or ()
 
         if node_type == "project":
@@ -954,35 +998,59 @@ class DataStore:
             return None
 
         if node_type == "requirement":
-            cloned["subject"] = cloned.get("subject", "") + " (Copy)"
-            proj.setdefault("requirements", []).append(cloned)
+            if not is_cut:
+                cloned["subject"] = cloned.get("subject", "") + " (Copy)"
+            lst = proj.setdefault("requirements", [])
+            self._insert_after(lst, cloned, after_id, "id")
         elif node_type == "task":
             req = self.get_requirement(target_project_name, target_parent_ids[0])
             if not req:
                 return None
-            cloned["subject"] = cloned.get("subject", "") + " (Copy)"
-            req.setdefault("tasks", []).append(cloned)
+            if not is_cut:
+                cloned["subject"] = cloned.get("subject", "") + " (Copy)"
+            lst = req.setdefault("tasks", [])
+            self._insert_after(lst, cloned, after_id, "id")
         elif node_type == "milestone":
-            base = cloned["name"] + " (Copy)"
-            name = base
-            i = 2
-            while any(m["name"] == name for m in proj.get("milestones", [])):
-                name = f"{base} {i}"
-                i += 1
-            cloned["name"] = name
-            proj.setdefault("milestones", []).append(cloned)
+            if not is_cut:
+                base = cloned["name"] + " (Copy)"
+                name = base
+                i = 2
+                while any(m["name"] == name for m in proj.get("milestones", [])):
+                    name = f"{base} {i}"
+                    i += 1
+                cloned["name"] = name
+            lst = proj.setdefault("milestones", [])
+            self._insert_after(lst, cloned, after_id, "name")
         elif node_type == "plan":
             ms = self._find_milestone(target_project_name, target_parent_ids[0])
             if not ms:
                 return None
-            cloned["content"] = cloned.get("content", "") + " (Copy)"
-            ms.setdefault("plans", []).append(cloned)
+            if not is_cut:
+                cloned["content"] = cloned.get("content", "") + " (Copy)"
+            lst = ms.setdefault("plans", [])
+            self._insert_after(lst, cloned, after_id, "id")
         elif node_type == "activity":
             plan = self._find_plan(target_project_name, target_parent_ids[0], target_parent_ids[1])
             if not plan:
                 return None
-            plan.setdefault("activities", []).append(cloned)
+            lst = plan.setdefault("activities", [])
+            self._insert_after(lst, cloned, after_id, "id")
         else:
             return None
+        # Clear cut flag after paste
+        if is_cut:
+            self._clipboard["cut"] = False
         self.save()
         return cloned
+
+    def _insert_after(self, lst, item, after_id, key_field):
+        """Insert item into lst after the element whose key_field matches after_id.
+        If after_id is None or not found, append to end."""
+        if after_id is None:
+            lst.append(item)
+            return
+        for i, existing in enumerate(lst):
+            if existing.get(key_field) == after_id:
+                lst.insert(i + 1, item)
+                return
+        lst.append(item)

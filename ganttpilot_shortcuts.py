@@ -101,6 +101,7 @@ class ShortcutManager:
         "undo":      "<Control-z>",
         "redo":      "<Control-y>",
         "copy":      "<Control-c>",
+        "cut":       "<Control-x>",
         "paste":     "<Control-v>",
         "add":       "<Control-n>",
         "edit":      "<F2>",
@@ -121,6 +122,7 @@ class ShortcutManager:
         "move_down": "down",
         "duplicate": "dup",
         "copy":      "copy",
+        "cut":       "cut",
         "paste":     "paste",
     }
 
@@ -280,6 +282,7 @@ class ShortcutManager:
             "down":   getattr(gui, "tb_down_btn", None),
             "dup":    getattr(gui, "tb_dup_btn", None),
             "copy":   getattr(gui, "tb_copy_btn", None),
+            "cut":    getattr(gui, "tb_cut_btn", None),
             "paste":  getattr(gui, "tb_paste_btn", None),
         }
         btn = btn_map.get(toolbar_key)

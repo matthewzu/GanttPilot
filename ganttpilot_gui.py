@@ -32,15 +32,15 @@ GITHUB_REPO = "matthewzu/GanttPilot"
 
 # ── Toolbar button state mapping ─────────────────────────────
 TOOLBAR_STATE = {
-    None:                  {"add": False, "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "paste": False},
-    "project":             {"add": False, "edit": True,  "delete": False, "up": False, "down": False, "dup": True,  "copy": True,  "paste": False},
-    "req_analysis":        {"add": True,  "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "paste": True},
-    "requirement":         {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": True},
-    "task":                {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": False},
-    "plan_execution":      {"add": True,  "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "paste": True},
-    "milestone":           {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": True},
-    "plan":                {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": True},
-    "activity":            {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "paste": False},
+    None:                  {"add": False, "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": False},
+    "project":             {"add": False, "edit": True,  "delete": False, "up": False, "down": False, "dup": True,  "copy": True,  "cut": False, "paste": False},
+    "req_analysis":        {"add": True,  "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": True},
+    "requirement":         {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
+    "task":                {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": False},
+    "plan_execution":      {"add": True,  "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": True},
+    "milestone":           {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
+    "plan":                {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
+    "activity":            {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": False},
 }
 
 
@@ -380,6 +380,7 @@ class GanttPilotGUI:
         self.shortcut_manager.set_action_handler("move_down", self.toolbar_move_down)
         self.shortcut_manager.set_action_handler("duplicate", self.toolbar_duplicate)
         self.shortcut_manager.set_action_handler("copy", self.toolbar_copy)
+        self.shortcut_manager.set_action_handler("cut", self.toolbar_cut)
         self.shortcut_manager.set_action_handler("paste", self.toolbar_paste)
         self.shortcut_manager.set_action_handler("undo", self.do_undo)
         self.shortcut_manager.set_action_handler("redo", self.do_redo)
@@ -391,12 +392,13 @@ class GanttPilotGUI:
         # directly so their special focus-aware handlers take precedence.
         self.shortcut_manager.register_all()
 
-        # Direct bindings for undo/redo/copy/paste — these override
+        # Direct bindings for undo/redo/copy/cut/paste — these override
         # ShortcutManager's bindings because do_undo/do_redo have their own
         # focus detection (they handle tk.Text edit_undo/edit_redo specially).
         self.root.bind("<Control-z>", self.do_undo)
         self.root.bind("<Control-y>", self.do_redo)
         self.root.bind("<Control-c>", self.toolbar_copy)
+        self.root.bind("<Control-x>", self.toolbar_cut)
         self.root.bind("<Control-v>", self.toolbar_paste)
 
         # Focus restoration: bring modal dialog back to front when main window gets focus
@@ -780,6 +782,8 @@ class GanttPilotGUI:
         self.tb_delete_btn.pack(side=tk.LEFT, padx=1)
         self.tb_copy_btn = ttk.Button(toolbar, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED)
         self.tb_copy_btn.pack(side=tk.LEFT, padx=1)
+        self.tb_cut_btn = ttk.Button(toolbar, text="✂", command=self.toolbar_cut, width=4, state=tk.DISABLED)
+        self.tb_cut_btn.pack(side=tk.LEFT, padx=1)
         self.tb_paste_btn = ttk.Button(toolbar, text="📌", command=self.toolbar_paste, width=4, state=tk.DISABLED)
         self.tb_paste_btn.pack(side=tk.LEFT, padx=1)
         self.tb_dup_btn = ttk.Button(toolbar, text="⧉", command=self.toolbar_duplicate, width=4, state=tk.DISABLED)
@@ -1023,6 +1027,7 @@ class GanttPilotGUI:
                 menu.add_command(label=f"✏ {self._t('edit_requirement')}", command=self.edit_requirement, accelerator=self._accel("edit"))
                 menu.add_separator()
                 menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
+                menu.add_command(label=f"✂ {self._t('cut')}", command=self.toolbar_cut, accelerator=self._accel("cut"))
                 if self._can_paste_here(kind):
                     menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste, accelerator=self._accel("paste"))
                 menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
@@ -1033,6 +1038,7 @@ class GanttPilotGUI:
                 menu.add_command(label=f"✏ {self._t('edit_task')}", command=self.edit_task, accelerator=self._accel("edit"))
                 menu.add_separator()
                 menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
+                menu.add_command(label=f"✂ {self._t('cut')}", command=self.toolbar_cut, accelerator=self._accel("cut"))
                 menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
                 menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
@@ -1050,6 +1056,7 @@ class GanttPilotGUI:
                 menu.add_command(label="🎨 " + self._t("color"), command=self.pick_color_milestone)
                 menu.add_separator()
                 menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
+                menu.add_command(label=f"✂ {self._t('cut')}", command=self.toolbar_cut, accelerator=self._accel("cut"))
                 if self._can_paste_here(kind):
                     menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste, accelerator=self._accel("paste"))
                 menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
@@ -1063,6 +1070,7 @@ class GanttPilotGUI:
                 menu.add_command(label="🎨 " + self._t("color"), command=self.pick_color_plan)
                 menu.add_separator()
                 menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
+                menu.add_command(label=f"✂ {self._t('cut')}", command=self.toolbar_cut, accelerator=self._accel("cut"))
                 if self._can_paste_here(kind):
                     menu.add_command(label=f"📌 {self._t('paste')}", command=self.toolbar_paste, accelerator=self._accel("paste"))
                 menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
@@ -1077,6 +1085,7 @@ class GanttPilotGUI:
                 menu.add_command(label=f"✏ {self._t('edit_activity')}", command=self.edit_activity, accelerator=self._accel("edit"))
                 menu.add_separator()
                 menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
+                menu.add_command(label=f"✂ {self._t('cut')}", command=self.toolbar_cut, accelerator=self._accel("cut"))
                 menu.add_command(label=f"⧉ {self._t('duplicate')}", command=self.toolbar_duplicate, accelerator=self._accel("duplicate"))
                 menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
@@ -1201,9 +1210,10 @@ class GanttPilotGUI:
         self.tb_up_btn.configure(state=tk.NORMAL if up_enabled else tk.DISABLED)
         self.tb_down_btn.configure(state=tk.NORMAL if down_enabled else tk.DISABLED)
 
-        # Duplicate / Copy / Paste
+        # Duplicate / Copy / Cut / Paste
         self.tb_dup_btn.configure(state=tk.NORMAL if state["dup"] else tk.DISABLED)
         self.tb_copy_btn.configure(state=tk.NORMAL if state["copy"] else tk.DISABLED)
+        self.tb_cut_btn.configure(state=tk.NORMAL if state["cut"] else tk.DISABLED)
         # Paste enabled only if clipboard type is compatible with current selection
         paste_enabled = state["paste"] and self._can_paste_here(kind)
         self.tb_paste_btn.configure(state=tk.NORMAL if paste_enabled else tk.DISABLED)
@@ -1284,14 +1294,33 @@ class GanttPilotGUI:
             else:
                 report = self.store.get_time_report_by_tag(self.current_project)
 
-            for group_name, executors in sorted(report.items()):
+            for group_name, group_data in sorted(report.items()):
                 label = group_name if group_name else "-"
+                # mode 1 and 2 return {"executors": {...}, "planned_hours": float}
+                # mode 3 (by tag) returns {executor: {"hours", "days"}}
+                if mode_idx in (1, 2):
+                    executors = group_data.get("executors", {})
+                    planned_hours = group_data.get("planned_hours", 0)
+                    is_finished = group_data.get("finished", True) if mode_idx == 2 else True
+                else:
+                    executors = group_data
+                    planned_hours = 0
+                    is_finished = False
                 # Calculate group total
                 group_total_hours = sum(data['hours'] for data in executors.values())
                 group_total_days = round(group_total_hours / 8.0, 2)
+                # Build overtime/undertime info (only for finished items with planned hours)
+                diff_str = ""
+                if mode_idx in (1, 2) and planned_hours > 0 and is_finished:
+                    diff = group_total_hours - planned_hours
+                    if diff > 0:
+                        diff_str = f" ({self._t('overtime')} {diff:.1f}h)"
+                    elif diff < 0:
+                        diff_str = f" ({self._t('undertime')} {abs(diff):.1f}h)"
                 # Group header row with total
+                header_hours_str = f"{group_total_hours:.1f}{diff_str}"
                 self.report_tree.insert("", tk.END,
-                                        values=(label, self._t("group_total"), f"{group_total_hours:.1f}", f"{group_total_days:.2f}", ""),
+                                        values=(label, self._t("group_total"), header_hours_str, f"{group_total_days:.2f}", ""),
                                         tags=("group_header",))
                 for ex, data in sorted(executors.items()):
                     pct = f"{data['hours'] / group_total_hours * 100:.1f}%" if group_total_hours > 0 else "0.0%"
@@ -2247,9 +2276,10 @@ class GanttPilotGUI:
 
         summary_only = result["mode"] == "summary"
 
+        suffix = "_summary" if summary_only else "_detail"
         path = filedialog.asksaveasfilename(
             defaultextension=".md", filetypes=[("Markdown", "*.md")],
-            initialfile=f"{self.current_project}_report.md",
+            initialfile=f"{self.current_project}{suffix}.md",
         )
         if not path:
             return
@@ -2508,8 +2538,56 @@ class GanttPilotGUI:
         # Refresh toolbar state so paste button updates
         self._update_toolbar_state(kind, sel[0])
 
+    def toolbar_cut(self, event=None):
+        """Cut the selected node (copy to clipboard then delete)."""
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values:
+            return
+        kind = values[0]
+        label = ""
+        if kind == "task":
+            self.store.clipboard_copy("task", values[1], values[2], values[3])
+            label = values[3]
+        elif kind == "plan":
+            self.store.clipboard_copy("plan", values[1], values[2], values[3])
+            label = values[3]
+        elif kind == "activity":
+            self.store.clipboard_copy("activity", values[1], values[2], values[3], values[4])
+            label = values[4]
+        elif kind == "requirement":
+            self.store.clipboard_copy("requirement", values[1], values[2])
+            label = values[2]
+        elif kind == "milestone":
+            self.store.clipboard_copy("milestone", values[1], values[2])
+            label = values[2]
+        else:
+            return
+        # Mark clipboard as cut operation
+        self.store._clipboard["cut"] = True
+        # Delete the source node
+        self.undo_manager.save_snapshot()
+        if kind == "task":
+            self.store.delete_task(values[1], values[2], values[3])
+        elif kind == "plan":
+            self.store.delete_plan(values[1], values[2], values[3])
+        elif kind == "activity":
+            self.store.delete_activity(values[1], values[2], values[3], values[4])
+        elif kind == "requirement":
+            self.store.delete_requirement(values[1], values[2])
+        elif kind == "milestone":
+            self.store.delete_milestone(values[1], values[2])
+        self._commit(f"Cut {kind}: {label}")
+        self.refresh_project_list()
+        self.refresh_gantt()
+        self.refresh_time_report()
+        self.status_var.set(self._t("cut_done", label))
+        self._update_undo_redo_buttons()
+
     def toolbar_paste(self, event=None):
-        """Paste clipboard content at the selected location."""
+        """Paste clipboard content at the selected location (inserted after selected item)."""
         cb = self.store.clipboard_get()
         if not cb:
             self.status_var.set(self._t("nothing_to_paste"))
@@ -2528,29 +2606,34 @@ class GanttPilotGUI:
         proj_name = values[1] if len(values) >= 2 else None
         self.undo_manager.save_snapshot()
         result = None
-        # Determine target parent IDs based on current selection and clipboard type
+        # Determine target parent IDs and after_id based on current selection
+        # When pasting at a sibling node, insert after that sibling
         if cb_type == "project":
             result = self.store.clipboard_paste(None)
         elif cb_type == "requirement":
-            result = self.store.clipboard_paste(proj_name)
+            # If selected is a requirement, insert after it
+            after_id = values[2] if kind == "requirement" else None
+            result = self.store.clipboard_paste(proj_name, after_id=after_id)
         elif cb_type == "task":
             # Pasting task: target must be a requirement node
             if kind == "requirement":
                 result = self.store.clipboard_paste(proj_name, (values[2],))
         elif cb_type == "milestone":
-            result = self.store.clipboard_paste(proj_name)
+            # If selected is a milestone, insert after it
+            after_id = values[2] if kind == "milestone" else None
+            result = self.store.clipboard_paste(proj_name, after_id=after_id)
         elif cb_type == "plan":
-            # Pasting plan: target must be a milestone node
+            # Pasting plan: target must be a milestone or plan node
             if kind == "milestone":
                 result = self.store.clipboard_paste(proj_name, (values[2],))
             elif kind == "plan":
-                result = self.store.clipboard_paste(proj_name, (values[2],))
+                result = self.store.clipboard_paste(proj_name, (values[2],), after_id=values[3])
         elif cb_type == "activity":
-            # Pasting activity: target must be a plan node
+            # Pasting activity: target must be a plan or activity node
             if kind == "plan":
                 result = self.store.clipboard_paste(proj_name, (values[2], values[3]))
             elif kind == "activity":
-                result = self.store.clipboard_paste(proj_name, (values[2], values[3]))
+                result = self.store.clipboard_paste(proj_name, (values[2], values[3]), after_id=values[4])
         if result:
             label = result.get("name", result.get("subject", result.get("content", "item")))
             self._commit(f"Paste {cb_type}: {label}")

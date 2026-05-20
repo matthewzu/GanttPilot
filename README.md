@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.4.1-blue.svg)
+![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -107,7 +107,8 @@ The toolbar at the top provides quick access to common actions. Buttons are cont
 | Edit | Edit selected node | `F2` |
 | Delete | Delete selected node | `Delete` |
 | Copy | Copy node to clipboard | `Ctrl+C` |
-| Paste | Paste from clipboard | `Ctrl+V` |
+| Cut | Cut node (copy + delete) | `Ctrl+X` |
+| Paste | Paste from clipboard (inserts after selected) | `Ctrl+V` |
 | Duplicate | Clone node with all children | `Ctrl+D` |
 | Move Up | Reorder node up among siblings | `Alt+Up` |
 | Move Down | Reorder node down among siblings | `Alt+Down` |
@@ -126,12 +127,12 @@ Right-click is the primary way to access all operations. What you see depends on
 | Empty area | Add Project, Load Example, Push, Pull, Refresh |
 | Project | Edit, Git Config, Copy, Duplicate, Generate Report, Push, Pull, Sync Main, Refresh, Delete |
 | Requirement Analysis | Add Requirement, Paste |
-| Requirement | Add Task, Edit, Copy, Paste, Duplicate, Move Up/Down, Delete |
-| Task | Edit, Copy, Duplicate, Move Up/Down, Delete |
+| Requirement | Add Task, Edit, Copy, Cut, Paste, Duplicate, Move Up/Down, Delete |
+| Task | Edit, Copy, Cut, Duplicate, Move Up/Down, Delete |
 | Plan Execution | Add Milestone, Paste |
-| Milestone | Add Plan, Edit, Color, Copy, Paste, Duplicate, Move Up/Down, Delete |
-| Plan | Add Activity, Edit, Color, Copy, Paste, Duplicate, Finish/Reopen, Set Progress, Move Up/Down, Delete |
-| Activity | Edit, Copy, Duplicate, Delete |
+| Milestone | Add Plan, Edit, Color, Copy, Cut, Paste, Duplicate, Move Up/Down, Delete |
+| Plan | Add Activity, Edit, Color, Copy, Cut, Paste, Duplicate, Finish/Reopen, Set Progress, Move Up/Down, Delete |
+| Activity | Edit, Copy, Cut, Duplicate, Delete |
 
 #### Gantt Chart Tab
 
@@ -150,7 +151,7 @@ Shows work hours logged across activities, with four view modes:
 - **By Plan** — hours grouped by plan
 - **By Tag** — hours grouped by activity tag
 
-Each view shows group totals and per-executor percentage.
+Each view shows group totals and per-executor percentage. For "By Milestone" and "By Plan" modes, overtime/undertime hours are displayed for finished plans (comparing planned vs actual hours).
 
 #### Requirement Tracking Tab
 
@@ -263,11 +264,17 @@ The Markdown report (detail mode) includes:
 2. **Requirement Analysis** — requirements table with task counts
 3. **Milestones** — deadline, completion rate
 4. **Plan Progress** — per-plan details with planned vs actual hours, ahead/behind schedule detection
-5. **Requirement Tracking** — full traceability from requirement to plan progress
-6. **Project Total Hours** — per-executor breakdown with percentages
-7. **Time Details** — by project, by milestone, by plan, and by tag
+5. **Requirement Tracking** — full traceability from requirement to plan progress, with overtime/undertime for finished tasks
+6. **Project Total Hours** — per-executor breakdown with percentages, overtime/undertime summary for finished plans
+7. **Executor Details** — per-executor activity breakdown
+8. **Tag Summary** — hours grouped by tag
+9. **Hours by Milestone** — per-milestone breakdown with overtime/undertime for finished plans
+10. **Hours by Plan** — per-plan breakdown with overtime/undertime for finished plans
+11. **Hours by Tag** — per-tag breakdown
 
 Long projects auto-compress the day width in report images (configurable threshold).
+
+The default export filename includes `_summary` or `_detail` suffix based on the selected report type.
 
 ### Configuration
 
@@ -388,7 +395,8 @@ python main.py --version    # 显示版本
 | 编辑 | 编辑选中节点 | `F2` |
 | 删除 | 删除选中节点 | `Delete` |
 | 复制 | 复制节点到剪贴板 | `Ctrl+C` |
-| 粘贴 | 从剪贴板粘贴 | `Ctrl+V` |
+| 剪切 | 剪切节点（复制+删除） | `Ctrl+X` |
+| 粘贴 | 从剪贴板粘贴（插入到选中节点后面） | `Ctrl+V` |
 | 克隆 | 复制节点及其所有子节点 | `Ctrl+D` |
 | 上移 | 在同级节点中上移 | `Alt+Up` |
 | 下移 | 在同级节点中下移 | `Alt+Down` |
@@ -407,12 +415,12 @@ python main.py --version    # 显示版本
 | 空白处 | 添加项目、加载示例、推送、拉取、刷新 |
 | 项目 | 编辑、Git 配置、复制、克隆、生成报告、推送、拉取、同步主线、刷新、删除 |
 | 需求分析 | 添加需求、粘贴 |
-| 需求 | 添加任务、编辑、复制、粘贴、克隆、上移/下移、删除 |
-| 任务 | 编辑、复制、克隆、上移/下移、删除 |
+| 需求 | 添加任务、编辑、复制、剪切、粘贴、克隆、上移/下移、删除 |
+| 任务 | 编辑、复制、剪切、克隆、上移/下移、删除 |
 | 计划执行 | 添加里程碑、粘贴 |
-| 里程碑 | 添加计划、编辑、设置颜色、复制、粘贴、克隆、上移/下移、删除 |
-| 计划 | 添加活动、编辑、设置颜色、复制、粘贴、克隆、完结/重开、设置进度、上移/下移、删除 |
-| 活动 | 编辑、复制、克隆、删除 |
+| 里程碑 | 添加计划、编辑、设置颜色、复制、剪切、粘贴、克隆、上移/下移、删除 |
+| 计划 | 添加活动、编辑、设置颜色、复制、剪切、粘贴、克隆、完结/重开、设置进度、上移/下移、删除 |
+| 活动 | 编辑、复制、剪切、克隆、删除 |
 
 #### 甘特图标签页
 
@@ -431,7 +439,7 @@ python main.py --version    # 显示版本
 - **按计划** — 按计划分组的工时
 - **按标签** — 按活动标签分组的工时
 
-每种模式都显示分组合计和每位执行者的占比。
+每种模式都显示分组合计和每位执行者的占比。按里程碑和按计划模式下，已完结计划会显示超出/少用工时（对比计划工时与实际工时）。
 
 #### 需求跟踪标签页
 
@@ -544,11 +552,17 @@ Markdown 报告（细节模式）包含：
 2. **需求分析** — 需求表格及任务数
 3. **里程碑** — 截止日期、完成率
 4. **计划进度详情** — 每个计划的计划工时 vs 实际工时、提前/延期检测
-5. **需求跟踪** — 从需求到计划进度的完整跟踪链
-6. **项目总工时** — 每位执行者的工时明细和占比
-7. **工时明细** — 按项目、按里程碑、按计划、按标签四个维度
+5. **需求跟踪** — 从需求到计划进度的完整跟踪链，已完结任务显示超出/少用工时
+6. **项目总工时** — 每位执行者的工时明细和占比，已完结计划的超出/少用汇总
+7. **执行者工时明细** — 每位执行者的活动详情
+8. **标签工时汇总** — 按标签分组的工时
+9. **按里程碑工时统计** — 每个里程碑的工时明细，已完结计划显示超出/少用
+10. **按计划工时统计** — 每个计划的工时明细，已完结计划显示超出/少用
+11. **按标签工时统计** — 按标签分组的工时明细
 
 长周期项目会自动压缩报告图片的日宽度（可配置阈值）。
+
+导出报告时默认文件名根据报告类型添加 `_summary` 或 `_detail` 后缀。
 
 ### 配置
 

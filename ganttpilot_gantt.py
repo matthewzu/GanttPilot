@@ -799,20 +799,26 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
     on_time_label = "按时完成" if zh else "On Time"
 
     has_plans = any(ms.get("plans") for ms in project.get("milestones", []))
+
+    # Build task_id -> effort_days lookup for fallback planned hours (used in multiple sections)
+    task_effort_map = {}
+    for req in project.get("requirements", []):
+        for task in req.get("tasks", []):
+            task_effort_map[task.get("id", "")] = task.get("effort_days", 0)
+
     if has_plans:
         actual_hours_label = "实际工时" if zh else "Actual Hours"
         lines.append(h2("计划进度详情" if zh else "Plan Progress Details"))
         lines.append("")
         lines.append(f"| {'里程碑' if zh else 'Milestone'} | {'计划' if zh else 'Plan'} | {'执行者' if zh else 'Executor'} | {'计划工时' if zh else 'Planned Hours'} | {actual_hours_label} | {progress_label} | {'结束日期' if zh else 'End Date'} | {actual_end_label} | {status_label} |")
         lines.append("|---|---|---|---|---|---|---|---|---|")
-        # Build task_id -> effort_days lookup for fallback planned hours
-        task_effort_map = {}
-        for req in project.get("requirements", []):
-            for task in req.get("tasks", []):
-                task_effort_map[task.get("id", "")] = task.get("effort_days", 0)
         total_planned_h = 0.0
         total_actual_h = 0.0
+        # Track per-milestone totals
+        ms_totals = {}
         for ms in project.get("milestones", []):
+            ms_planned = 0.0
+            ms_actual = 0.0
             for plan in ms.get("plans", []):
                 p_progress = plan.get("progress", 0)
                 p_actual = plan.get("actual_end_date", "")
@@ -825,6 +831,8 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
                 a_hours = sum(a.get("hours", 0) for a in plan.get("activities", []))
                 total_planned_h += p_hours
                 total_actual_h += a_hours
+                ms_planned += p_hours
+                ms_actual += a_hours
                 schedule_note = ""
                 if p_actual and p_end:
                     if p_actual < p_end:
@@ -836,35 +844,66 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
                 hours_str = f"{p_hours:.1f}h" if p_hours else "-"
                 actual_str = f"{a_hours:.1f}h" if a_hours else "-"
                 lines.append(f"| {ms['name']} | {plan.get('content', '')} | {plan.get('executor', '')} | {hours_str} | {actual_str} | {p_progress}% | {p_end} | {p_actual or '-'} | {schedule_note} |")
+            ms_totals[ms['name']] = {"planned": ms_planned, "actual": ms_actual}
         # Summary row
         total_planned_label = "总计划工时" if zh else "Total Planned Hours"
         total_actual_label = "总实际工时" if zh else "Total Actual Hours"
+        overtime_label = "超出" if zh else "Overtime"
+        undertime_label = "少用" if zh else "Undertime"
         lines.append("")
-        lines.append(f"{total_planned_label}: **{total_planned_h:.1f}h** / {total_actual_label}: **{total_actual_h:.1f}h**")
+        # Per-milestone summary
+        ms_summary_label = "里程碑工时汇总" if zh else "Milestone Hours Summary"
+        if len(ms_totals) > 1:
+            lines.append(f"**{ms_summary_label}:**")
+            lines.append("")
+            for ms_name, ms_data in ms_totals.items():
+                ms_diff = ms_data["actual"] - ms_data["planned"]
+                ms_diff_str = ""
+                if ms_data["planned"] > 0:
+                    if ms_diff > 0:
+                        ms_diff_str = f" ({overtime_label}: {ms_diff:.1f}h)"
+                    elif ms_diff < 0:
+                        ms_diff_str = f" ({undertime_label}: {abs(ms_diff):.1f}h)"
+                lines.append(f"- {ms_name}: {ms_data['planned']:.1f}h → {ms_data['actual']:.1f}h{ms_diff_str}")
+            lines.append("")
+        diff = total_actual_h - total_planned_h
+        diff_str = ""
+        if total_planned_h > 0:
+            if diff > 0:
+                diff_str = f" | {overtime_label}: **{diff:.1f}h**"
+            elif diff < 0:
+                diff_str = f" | {undertime_label}: **{abs(diff):.1f}h**"
+        lines.append(f"{total_planned_label}: **{total_planned_h:.1f}h** / {total_actual_label}: **{total_actual_h:.1f}h**{diff_str}")
         lines.append("")
 
     # Requirement Tracking section (after plan progress details, skip if no requirements)
     if has_requirements:
         req_tracking_label = "需求跟踪" if zh else "Requirement Tracking"
         actual_hours_label = "实际工时" if zh else "Actual Hours"
+        variance_label = "差异" if zh else "Variance"
+        overtime_label_req = "超出" if zh else "Overtime"
+        undertime_label_req = "少用" if zh else "Undertime"
         lines.append(h2(req_tracking_label))
         lines.append("")
-        lines.append(f"| {'需求类别' if zh else 'Category'} | {'需求主题' if zh else 'Requirement'} | {'任务主题' if zh else 'Task'} | {'工作量(人日)' if zh else 'Effort(days)'} | {'关联计划' if zh else 'Linked Plan'} | {'计划进度' if zh else 'Progress'} | {actual_hours_label} |")
-        lines.append("|---|---|---|---|---|---|---|")
-        # Build task_id -> plan mapping
+        lines.append(f"| {'需求类别' if zh else 'Category'} | {'需求主题' if zh else 'Requirement'} | {'任务主题' if zh else 'Task'} | {'工作量(人日)' if zh else 'Effort(days)'} | {'关联计划' if zh else 'Linked Plan'} | {'计划进度' if zh else 'Progress'} | {actual_hours_label} | {variance_label} |")
+        lines.append("|---|---|---|---|---|---|---|---|")
+        # Build task_id -> plan mapping (include status and planned_hours)
         task_plan_map = {}
         for ms in project.get("milestones", []):
             for plan in ms.get("plans", []):
                 linked = plan.get("linked_task_id", "")
                 if linked:
                     actual_h = sum(a.get("hours", 0) for a in plan.get("activities", []))
-                    task_plan_map[linked] = (plan.get("content", ""), plan.get("progress", 0), actual_h)
+                    p_hours = plan.get("planned_hours", 0)
+                    if not p_hours:
+                        p_hours = task_effort_map.get(linked, 0) * 8
+                    task_plan_map[linked] = (plan.get("content", ""), plan.get("progress", 0), actual_h, plan.get("status", ""), p_hours)
         for req in project.get("requirements", []):
             cat = req.get("category", "")
             subj = req.get("subject", "")
             tasks = req.get("tasks", [])
             if not tasks:
-                lines.append(f"| {cat} | {subj} | - | - | - | - | - |")
+                lines.append(f"| {cat} | {subj} | - | - | - | - | - | - |")
             else:
                 for i, task in enumerate(tasks):
                     r_cat = cat if i == 0 else ""
@@ -876,7 +915,17 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
                     linked_plan = plan_info[0] if plan_info else "-"
                     plan_progress = f"{plan_info[1]}%" if plan_info else "-"
                     actual_hours = f"{plan_info[2]:.1f}h" if plan_info else "-"
-                    lines.append(f"| {r_cat} | {r_subj} | {t_subj} | {effort_str} | {linked_plan} | {plan_progress} | {actual_hours} |")
+                    # Variance only for finished plans
+                    variance_str = "-"
+                    if plan_info and plan_info[3] == "finished" and plan_info[4] > 0:
+                        v_diff = plan_info[2] - plan_info[4]
+                        if v_diff > 0:
+                            variance_str = f"{overtime_label_req} {v_diff:.1f}h"
+                        elif v_diff < 0:
+                            variance_str = f"{undertime_label_req} {abs(v_diff):.1f}h"
+                        else:
+                            variance_str = "-"
+                    lines.append(f"| {r_cat} | {r_subj} | {t_subj} | {effort_str} | {linked_plan} | {plan_progress} | {actual_hours} | {variance_str} |")
         lines.append("")
 
     # Collect all activities grouped by executor
@@ -901,9 +950,31 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
         grand_total_hours = sum(sum(a["hours"] for a in acts) for acts in executor_activities.values())
         grand_total_days = round(grand_total_hours / 8.0, 2)
         pct_label = "占比" if zh else "Percentage"
+        overtime_label = "超出" if zh else "Overtime"
+        undertime_label = "少用" if zh else "Undertime"
+        # Calculate project-level overtime/undertime (only finished plans)
+        proj_planned_finished = 0.0
+        proj_actual_finished = 0.0
+        for ms in project.get("milestones", []):
+            for plan in ms.get("plans", []):
+                if plan.get("status") == "finished":
+                    p_hours = plan.get("planned_hours", 0)
+                    if not p_hours:
+                        linked_tid = plan.get("linked_task_id", "")
+                        if linked_tid:
+                            p_hours = task_effort_map.get(linked_tid, 0) * 8
+                    proj_planned_finished += p_hours
+                    proj_actual_finished += sum(a.get("hours", 0) for a in plan.get("activities", []))
         lines.append(h2("项目总工时" if zh else "Project Total Hours"))
         lines.append("")
         lines.append(f"{'合计' if zh else 'Total'}: **{grand_total_hours:.1f}** {'小时' if zh else 'hours'} / **{grand_total_days}** {'天' if zh else 'days'}")
+        # Show project overtime/undertime for finished plans
+        if proj_planned_finished > 0:
+            proj_diff = proj_actual_finished - proj_planned_finished
+            if proj_diff > 0:
+                lines.append(f"\n{'已完结计划' if zh else 'Finished plans'}: {overtime_label} **{proj_diff:.1f}h** ({'计划' if zh else 'Planned'}: {proj_planned_finished:.1f}h, {'实际' if zh else 'Actual'}: {proj_actual_finished:.1f}h)")
+            elif proj_diff < 0:
+                lines.append(f"\n{'已完结计划' if zh else 'Finished plans'}: {undertime_label} **{abs(proj_diff):.1f}h** ({'计划' if zh else 'Planned'}: {proj_planned_finished:.1f}h, {'实际' if zh else 'Actual'}: {proj_actual_finished:.1f}h)")
         lines.append("")
         lines.append(f"| {'执行者' if zh else 'Executor'} | {'总小时数' if zh else 'Hours'} | {'总天数' if zh else 'Days'} | {pct_label} |")
         lines.append("|---|---|---|---|")
@@ -983,6 +1054,8 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
 
     if ms_executor_hours:
         pct_label = "占比" if zh else "Percentage"
+        overtime_label = "超出" if zh else "Overtime"
+        undertime_label = "少用" if zh else "Undertime"
         lines.append(h2("按里程碑工时统计" if zh else "Hours by Milestone"))
         lines.append("")
         for ms_name in ms_executor_hours:
@@ -991,6 +1064,26 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
             group_total = sum(ms_executor_hours[ms_name].values())
             group_days = round(group_total / 8.0, 2)
             lines.append(f"{'合计' if zh else 'Total'}: **{group_total:.1f}** {'小时' if zh else 'hours'} / **{group_days}** {'天' if zh else 'days'}")
+            # Calculate overtime/undertime for finished plans in this milestone
+            ms_obj = next((m for m in project.get("milestones", []) if m["name"] == ms_name), None)
+            if ms_obj:
+                ms_planned_finished = 0.0
+                ms_actual_finished = 0.0
+                for plan in ms_obj.get("plans", []):
+                    if plan.get("status") == "finished":
+                        p_hours = plan.get("planned_hours", 0)
+                        if not p_hours:
+                            linked_tid = plan.get("linked_task_id", "")
+                            if linked_tid:
+                                p_hours = task_effort_map.get(linked_tid, 0) * 8
+                        ms_planned_finished += p_hours
+                        ms_actual_finished += sum(a.get("hours", 0) for a in plan.get("activities", []))
+                if ms_planned_finished > 0:
+                    ms_diff = ms_actual_finished - ms_planned_finished
+                    if ms_diff > 0:
+                        lines.append(f"\n{'已完结计划' if zh else 'Finished plans'}: {overtime_label} **{ms_diff:.1f}h** ({'计划' if zh else 'Planned'}: {ms_planned_finished:.1f}h, {'实际' if zh else 'Actual'}: {ms_actual_finished:.1f}h)")
+                    elif ms_diff < 0:
+                        lines.append(f"\n{'已完结计划' if zh else 'Finished plans'}: {undertime_label} **{abs(ms_diff):.1f}h** ({'计划' if zh else 'Planned'}: {ms_planned_finished:.1f}h, {'实际' if zh else 'Actual'}: {ms_actual_finished:.1f}h)")
             lines.append("")
             lines.append(f"| {executor_label} | {hours_label} | {days_label} | {pct_label} |")
             lines.append("|---|---|---|---|")
@@ -1017,6 +1110,23 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
 
     if plan_executor_hours:
         pct_label = "占比" if zh else "Percentage"
+        overtime_label = "超出" if zh else "Overtime"
+        undertime_label = "少用" if zh else "Undertime"
+        # Build plan_content -> (planned_hours, status) lookup
+        plan_info_map = {}  # {plan_content: {"planned_hours": float, "finished": bool}}
+        for ms in project.get("milestones", []):
+            for plan in ms.get("plans", []):
+                pc = plan.get("content", "")
+                p_hours = plan.get("planned_hours", 0)
+                if not p_hours:
+                    linked_tid = plan.get("linked_task_id", "")
+                    if linked_tid:
+                        p_hours = task_effort_map.get(linked_tid, 0) * 8
+                if pc not in plan_info_map:
+                    plan_info_map[pc] = {"planned_hours": 0.0, "finished": True}
+                plan_info_map[pc]["planned_hours"] += p_hours
+                if plan.get("status") != "finished":
+                    plan_info_map[pc]["finished"] = False
         lines.append(h2("按计划工时统计" if zh else "Hours by Plan"))
         lines.append("")
         for plan_content in plan_executor_hours:
@@ -1025,6 +1135,14 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
             group_total = sum(plan_executor_hours[plan_content].values())
             group_days = round(group_total / 8.0, 2)
             lines.append(f"{'合计' if zh else 'Total'}: **{group_total:.1f}** {'小时' if zh else 'hours'} / **{group_days}** {'天' if zh else 'days'}")
+            # Show overtime/undertime only for finished plans
+            pi = plan_info_map.get(plan_content)
+            if pi and pi["finished"] and pi["planned_hours"] > 0:
+                plan_diff = group_total - pi["planned_hours"]
+                if plan_diff > 0:
+                    lines.append(f"\n{overtime_label} **{plan_diff:.1f}h** ({'计划' if zh else 'Planned'}: {pi['planned_hours']:.1f}h)")
+                elif plan_diff < 0:
+                    lines.append(f"\n{undertime_label} **{abs(plan_diff):.1f}h** ({'计划' if zh else 'Planned'}: {pi['planned_hours']:.1f}h)")
             lines.append("")
             lines.append(f"| {executor_label} | {hours_label} | {days_label} | {pct_label} |")
             lines.append("|---|---|---|---|")
