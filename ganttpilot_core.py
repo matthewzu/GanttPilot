@@ -716,8 +716,9 @@ class DataStore:
 
     def get_time_report_by_milestone(self, project_name):
         """按里程碑分组返回工时报告。
-        Returns: {milestone_name: {"executors": {executor: {"hours": float, "days": float}}, "planned_hours": float}}
-        planned_hours only counts finished plans.
+        Returns: {milestone_name: {"executors": {executor: {"hours": float, "days": float}}, "planned_hours": float, "finished_actual_hours": float}}
+        planned_hours and finished_actual_hours only count finished plans (for overtime/undertime).
+        executors includes all activities (for display).
         """
         report = {}
         proj = self.get_project(project_name)
@@ -731,9 +732,9 @@ class DataStore:
         for ms in proj.get("milestones", []):
             ms_name = ms["name"]
             if ms_name not in report:
-                report[ms_name] = {"executors": {}, "planned_hours": 0.0}
+                report[ms_name] = {"executors": {}, "planned_hours": 0.0, "finished_actual_hours": 0.0}
             for plan in ms.get("plans", []):
-                # Only accumulate planned hours for finished plans
+                # Only accumulate planned hours and actual hours for finished plans
                 if plan.get("status") == "finished":
                     p_hours = plan.get("planned_hours", 0)
                     if not p_hours:
@@ -741,6 +742,8 @@ class DataStore:
                         if linked_tid:
                             p_hours = task_effort_map.get(linked_tid, 0) * 8
                     report[ms_name]["planned_hours"] += p_hours
+                    report[ms_name]["finished_actual_hours"] += sum(a.get("hours", 0) for a in plan.get("activities", []))
+                # All activities count toward executor totals (for display)
                 for act in plan.get("activities", []):
                     ex = act["executor"]
                     if ex not in report[ms_name]["executors"]:

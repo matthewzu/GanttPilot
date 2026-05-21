@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.5.1-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -151,11 +151,11 @@ Shows work hours logged across activities, with four view modes:
 - **By Plan** — hours grouped by plan
 - **By Tag** — hours grouped by activity tag
 
-Each view shows group totals and per-executor percentage. For "By Milestone" and "By Plan" modes, overtime/undertime hours are displayed for finished plans (comparing planned vs actual hours).
+Each view shows group totals and per-executor percentage. For "By Project" mode, a project-level overtime/undertime summary is shown for finished plans. For "By Milestone" and "By Plan" modes, overtime/undertime hours are displayed for finished plans (comparing planned vs actual hours).
 
 #### Requirement Tracking Tab
 
-Displays the full traceability chain: Requirement → Task → Linked Plan → Progress → Actual Hours. This is where you verify that every requirement has been planned and track its completion status.
+Displays the full traceability chain: Requirement → Task → Linked Plan → Progress → Actual Hours → Variance. This is where you verify that every requirement has been planned and track its completion status. For finished plans, the variance column shows overtime (+) or undertime (-) hours.
 
 #### History Tab
 
@@ -439,11 +439,11 @@ python main.py --version    # 显示版本
 - **按计划** — 按计划分组的工时
 - **按标签** — 按活动标签分组的工时
 
-每种模式都显示分组合计和每位执行者的占比。按里程碑和按计划模式下，已完结计划会显示超出/少用工时（对比计划工时与实际工时）。
+每种模式都显示分组合计和每位执行者的占比。按项目模式下显示项目级已完结计划的超出/少用工时汇总。按里程碑和按计划模式下，已完结计划会显示超出/少用工时（对比计划工时与实际工时）。
 
 #### 需求跟踪标签页
 
-展示完整的跟踪链条：需求 → 任务 → 关联计划 → 进度 → 实际工时。在这里可以验证每个需求是否已被规划，并跟踪其完成状态。
+展示完整的跟踪链条：需求 → 任务 → 关联计划 → 进度 → 实际工时 → 差异。在这里可以验证每个需求是否已被规划，并跟踪其完成状态。已完结计划会显示超出(+)或少用(-)的工时差异。
 
 #### 历史记录标签页
 

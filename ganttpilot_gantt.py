@@ -814,7 +814,7 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
         lines.append("|---|---|---|---|---|---|---|---|---|")
         total_planned_h = 0.0
         total_actual_h = 0.0
-        # Track per-milestone totals
+        # Track per-milestone totals (only finished plans for overtime/undertime)
         ms_totals = {}
         for ms in project.get("milestones", []):
             ms_planned = 0.0
@@ -831,8 +831,10 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
                 a_hours = sum(a.get("hours", 0) for a in plan.get("activities", []))
                 total_planned_h += p_hours
                 total_actual_h += a_hours
-                ms_planned += p_hours
-                ms_actual += a_hours
+                # Only count finished plans for milestone overtime/undertime
+                if plan.get("status") == "finished":
+                    ms_planned += p_hours
+                    ms_actual += a_hours
                 schedule_note = ""
                 if p_actual and p_end:
                     if p_actual < p_end:

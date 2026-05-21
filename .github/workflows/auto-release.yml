@@ -43,13 +43,17 @@ jobs:
 
           **需求跟踪 / Requirement Tracking**
           - 计划关联任务，形成需求→任务→计划→进度完整跟踪链
+          - 已完结计划显示工时差异（超出/少用），GUI 和报告保持一致
           - Link plans to tasks for full requirement → task → plan → progress traceability
+          - Finished plans show hours variance (overtime/undertime), consistent between GUI and reports
 
           **工时管理 / Time Tracking**
           - 时间段（0900/1200,1400/1700）或直接填写小时数，按项目/里程碑/计划/标签四维统计
-          - 已完结计划自动显示超出/少用工时差异
+          - 已完结计划自动显示超出/少用工时差异（里程碑统计仅计算已完结计划）
+          - 按项目查看模式显示项目级超出/少用工时汇总
           - Time slots or direct hours, 4 view modes: by project/milestone/plan/tag
-          - Overtime/undertime display for finished plans
+          - Overtime/undertime display for finished plans (milestone stats only count finished plans)
+          - Project-level overtime/undertime summary in "By Project" view
 
           **Git 协作 / Git Collaboration**
           - 每项目独立 Git 仓库，私有分支 + PR 工作流，后台自动检测远端更新

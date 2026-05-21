@@ -223,8 +223,11 @@ TEXTS = {
         "report_req_analysis": "需求分析",
         "report_req_tracking": "需求跟踪",
         "actual_hours": "实际工时",
+        "planned_hours": "计划工时",
+        "variance": "差异",
         "total_planned_hours": "总计划工时",
         "total_actual_hours": "总实际工时",
+        "project_overtime_summary": "项目工时统计（已完结计划）",
         "task_count": "任务数",
         "duplicate": "克隆",
         "copy": "复制",
@@ -269,7 +272,7 @@ TEXTS = {
             "【右侧标签页】\n"
             "• 甘特图 — 可视化项目进度，🔍+/- 独立缩放\n"
             "• 工时统计 — 按项目/里程碑/计划/标签四种模式查看，已完结计划显示超出/少用\n"
-            "• 需求跟踪 — 需求→任务→计划→进度完整链条\n"
+            "• 需求跟踪 — 需求→任务→计划→进度→差异完整链条，已完结计划显示工时差异\n"
             "• 历史记录 — Git提交日志，可切换分支、回退、撤销\n\n"
             "【工时记录】二选一\n"
             "• 时间段：0900/1200,1400/1700（自动算工时）\n"
@@ -576,8 +579,11 @@ TEXTS = {
         "report_req_analysis": "Requirement Analysis",
         "report_req_tracking": "Requirement Tracking",
         "actual_hours": "Actual Hours",
+        "planned_hours": "Planned Hours",
+        "variance": "Variance",
         "total_planned_hours": "Total Planned Hours",
         "total_actual_hours": "Total Actual Hours",
+        "project_overtime_summary": "Project Hours (Finished Plans)",
         "task_count": "Tasks",
         "duplicate": "Duplicate",
         "copy": "Copy",
@@ -622,7 +628,7 @@ TEXTS = {
             "[Right Panel Tabs]\n"
             "• Gantt Chart — Visualize progress, 🔍+/- to zoom\n"
             "• Time Statistics — View by project/milestone/plan/tag, overtime/undertime for finished plans\n"
-            "• Requirement Tracking — Requirement→Task→Plan→Progress chain\n"
+            "• Requirement Tracking — Requirement→Task→Plan→Progress→Variance chain, shows hours variance for finished plans\n"
             "• History — Git log, switch branches, reset, revert\n\n"
             "[Work Hours] Choose one\n"
             "• Time Slots: 0900/1200,1400/1700 (auto-calculated)\n"

@@ -73,14 +73,23 @@ def build_tracking_data(project):
     if not project:
         return rows
 
-    # Build a lookup: task_id -> (plan_content, plan_progress, actual_hours)
-    task_plan_map = {}  # task_id -> (plan_content, progress, actual_hours)
+    # Build task_id -> effort_days lookup for fallback planned hours
+    task_effort_map = {}
+    for req in project.get("requirements", []):
+        for task in req.get("tasks", []):
+            task_effort_map[task.get("id", "")] = task.get("effort_days", 0)
+
+    # Build a lookup: task_id -> (plan_content, plan_progress, actual_hours, status, planned_hours)
+    task_plan_map = {}  # task_id -> (plan_content, progress, actual_hours, status, planned_hours)
     for ms in project.get("milestones", []):
         for plan in ms.get("plans", []):
             linked = plan.get("linked_task_id", "")
             if linked:
                 actual_h = sum(a.get("hours", 0) for a in plan.get("activities", []))
-                task_plan_map[linked] = (plan.get("content", ""), plan.get("progress", 0), actual_h)
+                p_hours = plan.get("planned_hours", 0)
+                if not p_hours:
+                    p_hours = task_effort_map.get(linked, 0) * 8
+                task_plan_map[linked] = (plan.get("content", ""), plan.get("progress", 0), actual_h, plan.get("status", ""), p_hours)
 
     for req in project.get("requirements", []):
         # Requirement group header row
@@ -93,6 +102,7 @@ def build_tracking_data(project):
             "linked_plan": "",
             "plan_progress": "",
             "actual_hours": "",
+            "variance": "",
         })
         for task in req.get("tasks", []):
             task_id = task.get("id", "")
@@ -102,6 +112,14 @@ def build_tracking_data(project):
             actual_hours = f"{plan_info[2]:.1f}h" if plan_info else ""
             effort_d = task.get("effort_days", 0) or 0
             effort_h_str = f"{effort_d * 8:.1f}h" if effort_d else ""
+            # Variance only for finished plans with planned hours
+            variance_str = ""
+            if plan_info and plan_info[3] == "finished" and plan_info[4] > 0:
+                v_diff = plan_info[2] - plan_info[4]
+                if v_diff > 0:
+                    variance_str = f"+{v_diff:.1f}h"
+                elif v_diff < 0:
+                    variance_str = f"{v_diff:.1f}h"
             rows.append({
                 "kind": "task",
                 "req_category": "",
@@ -111,6 +129,7 @@ def build_tracking_data(project):
                 "linked_plan": linked_plan,
                 "plan_progress": plan_progress,
                 "actual_hours": actual_hours,
+                "variance": variance_str,
             })
     return rows
 
@@ -874,7 +893,7 @@ class GanttPilotGUI:
         tracking_tab_frame = ttk.Frame(self.right_notebook)
         self.right_notebook.add(tracking_tab_frame, text=self._t("tracking_tab"))
 
-        tracking_cols = ("req_category", "req_subject", "task_subject", "effort_days", "linked_plan", "plan_progress", "actual_hours")
+        tracking_cols = ("req_category", "req_subject", "task_subject", "effort_days", "linked_plan", "plan_progress", "actual_hours", "variance")
         self.tracking_tree = ttk.Treeview(tracking_tab_frame, columns=tracking_cols, show="headings")
         self.tracking_tree.heading("req_category", text=self._t("req_category"))
         self.tracking_tree.heading("req_subject", text=self._t("req_subject"))
@@ -883,6 +902,7 @@ class GanttPilotGUI:
         self.tracking_tree.heading("linked_plan", text=self._t("linked_plan"))
         self.tracking_tree.heading("plan_progress", text=self._t("plan_progress"))
         self.tracking_tree.heading("actual_hours", text=self._t("actual_hours"))
+        self.tracking_tree.heading("variance", text=self._t("variance"))
         self.tracking_tree.column("req_category", width=100, anchor="center")
         self.tracking_tree.column("req_subject", width=150, anchor="center")
         self.tracking_tree.column("task_subject", width=150, anchor="center")
@@ -890,6 +910,7 @@ class GanttPilotGUI:
         self.tracking_tree.column("linked_plan", width=150, anchor="center")
         self.tracking_tree.column("plan_progress", width=100, anchor="center")
         self.tracking_tree.column("actual_hours", width=100, anchor="center")
+        self.tracking_tree.column("variance", width=100, anchor="center")
         tracking_sb = ttk.Scrollbar(tracking_tab_frame, orient=tk.VERTICAL, command=self.tracking_tree.yview)
         self.tracking_tree.configure(yscrollcommand=tracking_sb.set)
         tracking_sb.pack(side=tk.RIGHT, fill=tk.Y)
@@ -1276,10 +1297,41 @@ class GanttPilotGUI:
             # Calculate project total
             proj_total_hours = sum(data['hours'] for ex, data in report.items() if ex != "by_tag")
             proj_total_days = round(proj_total_hours / 8.0, 2)
+            # Calculate project-level overtime/undertime (only finished plans)
+            proj = self.store.get_project(self.current_project)
+            proj_planned_finished = 0.0
+            proj_actual_finished = 0.0
+            if proj:
+                task_effort_map = {}
+                for req in proj.get("requirements", []):
+                    for task in req.get("tasks", []):
+                        task_effort_map[task.get("id", "")] = task.get("effort_days", 0)
+                for ms in proj.get("milestones", []):
+                    for plan in ms.get("plans", []):
+                        if plan.get("status") == "finished":
+                            p_hours = plan.get("planned_hours", 0)
+                            if not p_hours:
+                                linked_tid = plan.get("linked_task_id", "")
+                                if linked_tid:
+                                    p_hours = task_effort_map.get(linked_tid, 0) * 8
+                            proj_planned_finished += p_hours
+                            proj_actual_finished += sum(a.get("hours", 0) for a in plan.get("activities", []))
             # Insert total row first
             self.report_tree.insert("", tk.END,
                                     values=("", self._t("group_total"), f"{proj_total_hours:.1f}", f"{proj_total_days:.2f}", ""),
                                     tags=("group_header",))
+            # Insert project overtime/undertime summary row (only finished plans)
+            if proj_planned_finished > 0:
+                proj_diff = proj_actual_finished - proj_planned_finished
+                diff_str = ""
+                if proj_diff > 0:
+                    diff_str = f"{self._t('overtime')} {proj_diff:.1f}h"
+                elif proj_diff < 0:
+                    diff_str = f"{self._t('undertime')} {abs(proj_diff):.1f}h"
+                summary_str = f"{self._t('project_overtime_summary')}: {proj_planned_finished:.1f}h → {proj_actual_finished:.1f}h"
+                self.report_tree.insert("", tk.END,
+                                        values=("", summary_str, diff_str, "", ""),
+                                        tags=("group_header",))
             for ex, data in sorted(report.items()):
                 if ex == "by_tag":
                     continue
@@ -1312,7 +1364,12 @@ class GanttPilotGUI:
                 # Build overtime/undertime info (only for finished items with planned hours)
                 diff_str = ""
                 if mode_idx in (1, 2) and planned_hours > 0 and is_finished:
-                    diff = group_total_hours - planned_hours
+                    # For milestone mode, use finished_actual_hours for accurate comparison
+                    if mode_idx == 1:
+                        actual_for_diff = group_data.get("finished_actual_hours", group_total_hours)
+                    else:
+                        actual_for_diff = group_total_hours
+                    diff = actual_for_diff - planned_hours
                     if diff > 0:
                         diff_str = f" ({self._t('overtime')} {diff:.1f}h)"
                     elif diff < 0:
@@ -1341,7 +1398,7 @@ class GanttPilotGUI:
             if row["kind"] == "requirement":
                 self.tracking_tree.insert(
                     "", tk.END,
-                    values=(row["req_category"], row["req_subject"], "", "", "", "", ""),
+                    values=(row["req_category"], row["req_subject"], "", "", "", "", "", ""),
                     tags=("req_header",),
                 )
             else:
@@ -1349,7 +1406,7 @@ class GanttPilotGUI:
                     "", tk.END,
                     values=("", "", row["task_subject"], row["effort_days"],
                             row["linked_plan"], row["plan_progress"],
-                            row["actual_hours"]),
+                            row["actual_hours"], row["variance"]),
                 )
 
     # ── History tab ─────────────────────────────────────────
