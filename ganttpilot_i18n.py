@@ -190,6 +190,33 @@ TEXTS = {
         "downloading_update": "正在下载更新...",
         "checking_update": "正在检查更新...",
         "check_update_fail": "检查更新失败",
+        # ── View detail / 查看详情 ──
+        "view": "查看",
+        "view_detail": "查看详情",
+        "shortcut_view": "查看",
+        "view_project": "查看项目",
+        "view_requirement": "查看需求",
+        "view_task": "查看任务",
+        "view_milestone": "查看里程碑",
+        "view_plan": "查看计划",
+        "view_activity": "查看活动",
+        # ── MCP Server / MCP 服务 ──
+        "mcp_server": "MCP 服务",
+        "mcp_enabled": "MCP 服务已启用",
+        "mcp_disabled": "MCP 服务已停止",
+        "mcp_start": "启动",
+        "mcp_stop": "停止",
+        "mcp_status_running": "运行中",
+        "mcp_status_stopped": "已停止",
+        "mcp_config_title": "MCP Server 配置",
+        "mcp_config_desc": "GanttPilot MCP Server 允许 AI 助手（如 Kiro、Claude）直接管理你的项目数据。",
+        "mcp_copy_config": "复制配置",
+        "mcp_copied": "已复制到剪贴板",
+        "mcp_template_kiro": "Kiro 配置模板",
+        "mcp_template_claude": "Claude Desktop 配置模板",
+        "mcp_template_generic": "通用 MCP 配置模板",
+        "mcp_data_dir_label": "数据目录",
+        "mcp_script_path_label": "脚本路径",
         # ── Requirement tracking / 需求跟踪 ──
         "requirement_analysis": "需求分析",
         "plan_execution": "计划执行",
@@ -258,10 +285,10 @@ TEXTS = {
             "📊 计划执行 → 里程碑 → 计划 → 活动（规划怎么做）\n"
             "🔗 计划可关联任务，形成需求→任务→计划跟踪链\n\n"
             "【工具栏】根据选中节点自动启用/禁用\n"
-            "• 添加(Ctrl+N) / 编辑(F2) / 删除(Delete)\n"
+            "• 添加(Ctrl+N) / 编辑(F2) / 查看(F3) / 删除(Delete)\n"
             "• 复制(Ctrl+C) / 剪切(Ctrl+X) / 粘贴(Ctrl+V) / 克隆(Ctrl+D)\n"
             "• 上移(Alt+↑) / 下移(Alt+↓)\n"
-            "• ⟳ 检查更新 / ⚙ 配置\n\n"
+            "• 🔌 MCP服务 / ⟳ 检查更新 / ⚙ 配置\n\n"
             "【右键菜单】所有操作的主要入口\n"
             "• 空白处 → 添加项目、推送、拉取、刷新\n"
             "• 项目 → 编辑、Git配置、报告、推送、拉取、删除\n"
@@ -298,6 +325,10 @@ TEXTS = {
             "• 获取顺序：手动输入 → 全局配置(⚙) → 系统 git config\n"
             "• 全部获取不到则阻止创建，请先配置\n\n"
             "【其他】Ctrl+Z 撤销 / Ctrl+Y 恢复 / 快捷键可自定义\n\n"
+            "【MCP Server】AI 助手集成\n"
+            "• 点击 🔌 按钮打开 MCP 配置，启动/停止服务\n"
+            "• 支持 Kiro、Claude Desktop 等 AI 工具直接管理项目\n"
+            "• 提供配置模板一键复制，粘贴到对应工具的配置文件即可\n\n"
         ),
         # ── Keyboard shortcuts / 键盘快捷键 ──
         "shortcut_add": "添加",
@@ -546,6 +577,33 @@ TEXTS = {
         "downloading_update": "Downloading update...",
         "checking_update": "Checking for updates...",
         "check_update_fail": "Update check failed",
+        # ── View detail ──
+        "view": "View",
+        "view_detail": "View Detail",
+        "shortcut_view": "View",
+        "view_project": "View Project",
+        "view_requirement": "View Requirement",
+        "view_task": "View Task",
+        "view_milestone": "View Milestone",
+        "view_plan": "View Plan",
+        "view_activity": "View Activity",
+        # ── MCP Server ──
+        "mcp_server": "MCP Server",
+        "mcp_enabled": "MCP Server enabled",
+        "mcp_disabled": "MCP Server stopped",
+        "mcp_start": "Start",
+        "mcp_stop": "Stop",
+        "mcp_status_running": "Running",
+        "mcp_status_stopped": "Stopped",
+        "mcp_config_title": "MCP Server Config",
+        "mcp_config_desc": "GanttPilot MCP Server allows AI assistants (Kiro, Claude, etc.) to manage your project data directly.",
+        "mcp_copy_config": "Copy Config",
+        "mcp_copied": "Copied to clipboard",
+        "mcp_template_kiro": "Kiro Config Template",
+        "mcp_template_claude": "Claude Desktop Config Template",
+        "mcp_template_generic": "Generic MCP Config Template",
+        "mcp_data_dir_label": "Data Directory",
+        "mcp_script_path_label": "Script Path",
         # ── Requirement tracking ──
         "requirement_analysis": "Requirement Analysis",
         "plan_execution": "Plan Execution",
@@ -614,10 +672,10 @@ TEXTS = {
             "📊 Plan Execution → Milestone → Plan → Activity (plan how)\n"
             "🔗 Plans can link to tasks for requirement traceability\n\n"
             "[Toolbar] Auto-enabled based on selected node\n"
-            "• Add(Ctrl+N) / Edit(F2) / Delete(Delete)\n"
+            "• Add(Ctrl+N) / Edit(F2) / View(F3) / Delete(Delete)\n"
             "• Copy(Ctrl+C) / Cut(Ctrl+X) / Paste(Ctrl+V) / Duplicate(Ctrl+D)\n"
             "• Move Up(Alt+↑) / Move Down(Alt+↓)\n"
-            "• ⟳ Check Updates / ⚙ Config\n\n"
+            "• 🔌 MCP Server / ⟳ Check Updates / ⚙ Config\n\n"
             "[Right-Click Menus] Primary entry for all operations\n"
             "• Empty area → Add Project, Push, Pull, Refresh\n"
             "• Project → Edit, Git Config, Report, Push, Pull, Delete\n"
@@ -654,10 +712,15 @@ TEXTS = {
             "• Fallback order: manual input → global config(⚙) → system git config\n"
             "• Blocks creation if none found; configure first\n\n"
             "[Other] Ctrl+Z Undo / Ctrl+Y Redo / Shortcuts customizable\n\n"
+            "[MCP Server] AI Assistant Integration\n"
+            "• Click 🔌 to open MCP config, start/stop the server\n"
+            "• Supports Kiro, Claude Desktop, and other AI tools\n"
+            "• Copy config templates with one click, paste into your tool's config file\n\n"
         ),
         # ── Keyboard shortcuts ──
         "shortcut_add": "Add",
         "shortcut_edit": "Edit",
+        "shortcut_view": "View",
         "shortcut_delete": "Delete",
         "shortcut_move_up": "Move Up",
         "shortcut_move_down": "Move Down",

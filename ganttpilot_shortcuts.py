@@ -105,6 +105,7 @@ class ShortcutManager:
         "paste":     "<Control-v>",
         "add":       "<Control-n>",
         "edit":      "<F2>",
+        "view":      "<F3>",
         "delete":    "<Delete>",
         "move_up":   "<Alt-Up>",
         "move_down": "<Alt-Down>",
@@ -117,6 +118,7 @@ class ShortcutManager:
     _ACTION_TO_TOOLBAR_KEY = {
         "add":       "add",
         "edit":      "edit",
+        "view":      "view",
         "delete":    "delete",
         "move_up":   "up",
         "move_down": "down",
@@ -277,6 +279,7 @@ class ShortcutManager:
         btn_map = {
             "add":    getattr(gui, "tb_add_btn", None),
             "edit":   getattr(gui, "tb_edit_btn", None),
+            "view":   getattr(gui, "tb_view_btn", None),
             "delete": getattr(gui, "tb_delete_btn", None),
             "up":     getattr(gui, "tb_up_btn", None),
             "down":   getattr(gui, "tb_down_btn", None),

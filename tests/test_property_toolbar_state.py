@@ -20,22 +20,22 @@ from ganttpilot_gui import TOOLBAR_STATE
 
 # Expected state mapping from the design document
 EXPECTED_STATES = {
-    None:             {"add": False, "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": False},
-    "project":        {"add": False, "edit": True,  "delete": False, "up": False, "down": False, "dup": True,  "copy": True,  "cut": False, "paste": False},
-    "req_analysis":   {"add": True,  "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": True},
-    "requirement":    {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
-    "task":           {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": False},
-    "plan_execution": {"add": True,  "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": True},
-    "milestone":      {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
-    "plan":           {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
-    "activity":       {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": False},
+    None:             {"add": False, "edit": False, "view": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": False},
+    "project":        {"add": False, "edit": True,  "view": True,  "delete": False, "up": False, "down": False, "dup": True,  "copy": True,  "cut": False, "paste": False},
+    "req_analysis":   {"add": True,  "edit": False, "view": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": True},
+    "requirement":    {"add": True,  "edit": True,  "view": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
+    "task":           {"add": False, "edit": True,  "view": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": False},
+    "plan_execution": {"add": True,  "edit": False, "view": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": True},
+    "milestone":      {"add": True,  "edit": True,  "view": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
+    "plan":           {"add": True,  "edit": True,  "view": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
+    "activity":       {"add": False, "edit": True,  "view": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": False},
 }
 
 # Strategy: sample from all valid node types (including None)
 node_type_strategy = st.sampled_from(list(EXPECTED_STATES.keys()))
 
 # Strategy: sample from button names
-button_strategy = st.sampled_from(["add", "edit", "delete", "up", "down", "dup", "copy", "cut", "paste"])
+button_strategy = st.sampled_from(["add", "edit", "view", "delete", "up", "down", "dup", "copy", "cut", "paste"])
 
 
 @given(node_type=node_type_strategy, button=button_strategy)
@@ -58,8 +58,8 @@ def test_all_node_types_covered():
 
 
 def test_all_buttons_present():
-    """Each entry in TOOLBAR_STATE has all 9 button keys."""
-    buttons = {"add", "edit", "delete", "up", "down", "dup", "copy", "cut", "paste"}
+    """Each entry in TOOLBAR_STATE has all 10 button keys."""
+    buttons = {"add", "edit", "view", "delete", "up", "down", "dup", "copy", "cut", "paste"}
     for node_type, state in TOOLBAR_STATE.items():
         assert set(state.keys()) == buttons, (
             f"Node type {node_type!r} has keys {set(state.keys())}, expected {buttons}"

@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.5.1-blue.svg)
+![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -105,6 +105,7 @@ The toolbar at the top provides quick access to common actions. Buttons are cont
 | A- | Decrease font size | — |
 | Add | Add child node (requirement/task/milestone/plan/activity) | `Ctrl+N` |
 | Edit | Edit selected node | `F2` |
+| View | View node details (read-only, scrollable, zoomable) | `F3` |
 | Delete | Delete selected node | `Delete` |
 | Copy | Copy node to clipboard | `Ctrl+C` |
 | Cut | Cut node (copy + delete) | `Ctrl+X` |
@@ -112,6 +113,7 @@ The toolbar at the top provides quick access to common actions. Buttons are cont
 | Duplicate | Clone node with all children | `Ctrl+D` |
 | Move Up | Reorder node up among siblings | `Alt+Up` |
 | Move Down | Reorder node down among siblings | `Alt+Down` |
+| 🔌 | MCP Server config (start/stop, copy config templates) | — |
 | ? | Show help | — |
 | ⟳ | Check for updates | — |
 | ⚙ | Open settings | — |
@@ -125,14 +127,14 @@ Right-click is the primary way to access all operations. What you see depends on
 | Right-click on | Available actions |
 | --- | --- |
 | Empty area | Add Project, Load Example, Push, Pull, Refresh |
-| Project | Edit, Git Config, Copy, Duplicate, Generate Report, Push, Pull, Sync Main, Refresh, Delete |
+| Project | View, Edit, Git Config, Copy, Duplicate, Generate Report, Push, Pull, Sync Main, Refresh, Delete |
 | Requirement Analysis | Add Requirement, Paste |
-| Requirement | Add Task, Edit, Copy, Cut, Paste, Duplicate, Move Up/Down, Delete |
-| Task | Edit, Copy, Cut, Duplicate, Move Up/Down, Delete |
+| Requirement | View, Add Task, Edit, Copy, Cut, Paste, Duplicate, Move Up/Down, Delete |
+| Task | View, Edit, Copy, Cut, Duplicate, Move Up/Down, Delete |
 | Plan Execution | Add Milestone, Paste |
-| Milestone | Add Plan, Edit, Color, Copy, Cut, Paste, Duplicate, Move Up/Down, Delete |
-| Plan | Add Activity, Edit, Color, Copy, Cut, Paste, Duplicate, Finish/Reopen, Set Progress, Move Up/Down, Delete |
-| Activity | Edit, Copy, Cut, Duplicate, Delete |
+| Milestone | View, Add Plan, Edit, Color, Copy, Cut, Paste, Duplicate, Move Up/Down, Delete |
+| Plan | View, Add Activity, Edit, Color, Copy, Cut, Paste, Duplicate, Finish/Reopen, Set Progress, Move Up/Down, Delete |
+| Activity | View, Edit, Copy, Cut, Duplicate, Delete |
 
 #### Gantt Chart Tab
 
@@ -296,6 +298,59 @@ Language is toggled via the `EN/中` toolbar button. Font size is adjusted via `
 ### Project Tags
 
 Define tags at the project level (Edit Project → Tags field, comma-separated). When adding activities, the tag dropdown only shows project-defined tags. Tags are used to group hours in Time Statistics and Reports.
+
+### MCP Server (AI Integration)
+
+GanttPilot includes a built-in MCP (Model Context Protocol) server that allows AI assistants like Kiro, Claude, and others to directly manage your project data.
+
+#### Quick Setup
+
+1. Click the 🔌 button in the toolbar to open the MCP config dialog
+2. Click "Start" to enable the MCP server
+3. Switch to the config template tab for your AI tool (Kiro / Claude Desktop / Generic)
+4. Click "Copy Config" and paste into your tool's MCP configuration file
+
+#### Manual Setup
+
+```bash
+# Install dependency
+pip install mcp
+
+# Run standalone
+python ganttpilot_mcp.py
+
+# Or with custom data directory
+python ganttpilot_mcp.py --data-dir /path/to/data
+```
+
+#### Kiro Configuration
+
+Add to `.kiro/settings/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "ganttpilot": {
+      "command": "python",
+      "args": ["/path/to/ganttpilot_mcp.py"],
+      "env": {"GANTTPILOT_DATA_DIR": "/path/to/.ganttpilot/data"},
+      "autoApprove": ["list_projects", "get_project", "get_tracking"]
+    }
+  }
+}
+```
+
+#### Available Tools (25)
+
+| Category | Tools |
+| --- | --- |
+| Project | list_projects, get_project, add_project, delete_project |
+| Requirement | list_requirements, add_requirement, update_requirement, delete_requirement |
+| Task | list_tasks, add_task, update_task, delete_task |
+| Milestone | list_milestones, add_milestone, delete_milestone |
+| Plan | list_plans, add_plan, finish_plan, reopen_plan, set_plan_progress, delete_plan |
+| Activity | add_activity, delete_activity |
+| Report | get_time_report, get_tracking |
 
 ### License
 

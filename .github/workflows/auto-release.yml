@@ -71,6 +71,12 @@ jobs:
           - Customizable shortcuts, copy/cut/paste/duplicate, undo/redo, bilingual (EN/ZH)
           - Cut/paste inserts after selected item, not at end
 
+          **MCP Server (AI 集成 / AI Integration)**
+          - 内置 MCP Server，支持 Kiro、Claude 等 AI 助手直接管理项目数据（25 个工具）
+          - GUI 内一键启停 MCP 服务，提供 Kiro/Claude/通用配置模板一键复制
+          - Built-in MCP Server allows AI assistants (Kiro, Claude, etc.) to manage project data (25 tools)
+          - One-click start/stop in GUI, with copyable config templates for Kiro/Claude/Generic
+
           📖 详细文档 / Documentation: [README.md](https://github.com/${{ github.repository }})
         draft: false
         prerelease: false

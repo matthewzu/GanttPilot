@@ -32,15 +32,15 @@ GITHUB_REPO = "matthewzu/GanttPilot"
 
 # ── Toolbar button state mapping ─────────────────────────────
 TOOLBAR_STATE = {
-    None:                  {"add": False, "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": False},
-    "project":             {"add": False, "edit": True,  "delete": False, "up": False, "down": False, "dup": True,  "copy": True,  "cut": False, "paste": False},
-    "req_analysis":        {"add": True,  "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": True},
-    "requirement":         {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
-    "task":                {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": False},
-    "plan_execution":      {"add": True,  "edit": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": True},
-    "milestone":           {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
-    "plan":                {"add": True,  "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
-    "activity":            {"add": False, "edit": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": False},
+    None:                  {"add": False, "edit": False, "view": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": False},
+    "project":             {"add": False, "edit": True,  "view": True,  "delete": False, "up": False, "down": False, "dup": True,  "copy": True,  "cut": False, "paste": False},
+    "req_analysis":        {"add": True,  "edit": False, "view": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": True},
+    "requirement":         {"add": True,  "edit": True,  "view": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
+    "task":                {"add": False, "edit": True,  "view": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": False},
+    "plan_execution":      {"add": True,  "edit": False, "view": False, "delete": False, "up": False, "down": False, "dup": False, "copy": False, "cut": False, "paste": True},
+    "milestone":           {"add": True,  "edit": True,  "view": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
+    "plan":                {"add": True,  "edit": True,  "view": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": True},
+    "activity":            {"add": False, "edit": True,  "view": True,  "delete": True,  "up": True,  "down": True,  "dup": True,  "copy": True,  "cut": True,  "paste": False},
 }
 
 
@@ -394,6 +394,7 @@ class GanttPilotGUI:
         # Register all action handlers
         self.shortcut_manager.set_action_handler("add", self.toolbar_add)
         self.shortcut_manager.set_action_handler("edit", self.toolbar_edit)
+        self.shortcut_manager.set_action_handler("view", self.toolbar_view)
         self.shortcut_manager.set_action_handler("delete", self.toolbar_delete)
         self.shortcut_manager.set_action_handler("move_up", self.toolbar_move_up)
         self.shortcut_manager.set_action_handler("move_down", self.toolbar_move_down)
@@ -430,6 +431,7 @@ class GanttPilotGUI:
         # Tooltips for unified toolbar buttons
         self._show_tooltip(self.tb_add_btn, self._tooltip_with_shortcut(self._t("add"), "add"))
         self._show_tooltip(self.tb_edit_btn, self._tooltip_with_shortcut(self._t("edit"), "edit"))
+        self._show_tooltip(self.tb_view_btn, self._tooltip_with_shortcut(self._t("view"), "view"))
         self._show_tooltip(self.tb_delete_btn, self._tooltip_with_shortcut(self._t("delete"), "delete"))
         self._show_tooltip(self.tb_copy_btn, self._tooltip_with_shortcut(self._t("copy"), "copy"))
         self._show_tooltip(self.tb_paste_btn, self._tooltip_with_shortcut(self._t("paste"), "paste"))
@@ -439,6 +441,12 @@ class GanttPilotGUI:
         self._show_tooltip(self.update_check_btn, self._t("update_check"))
         self._show_tooltip(self.help_btn, self._t("help"))
         self._show_tooltip(self.config_btn, self._t("config"))
+        self._show_tooltip(self.mcp_btn, self._t("mcp_server"))
+
+        # MCP server process handle
+        self._mcp_process = None
+        if self.config.get("mcp_enabled", False):
+            self._start_mcp_server()
 
         # Start background fetch for all projects with remote_url
         threading.Thread(target=self._startup_sync, daemon=True).start()
@@ -797,6 +805,8 @@ class GanttPilotGUI:
         self.tb_add_btn.pack(side=tk.LEFT, padx=1)
         self.tb_edit_btn = ttk.Button(toolbar, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED)
         self.tb_edit_btn.pack(side=tk.LEFT, padx=1)
+        self.tb_view_btn = ttk.Button(toolbar, text="👁", command=self.toolbar_view, width=4, state=tk.DISABLED)
+        self.tb_view_btn.pack(side=tk.LEFT, padx=1)
         self.tb_delete_btn = ttk.Button(toolbar, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED)
         self.tb_delete_btn.pack(side=tk.LEFT, padx=1)
         self.tb_copy_btn = ttk.Button(toolbar, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED)
@@ -814,6 +824,8 @@ class GanttPilotGUI:
 
         self.config_btn = ttk.Button(toolbar, text="⚙", command=self.open_config_dialog, width=3)
         self.config_btn.pack(side=tk.RIGHT, padx=1)
+        self.mcp_btn = ttk.Button(toolbar, text="🔌", command=self.open_mcp_dialog, width=3)
+        self.mcp_btn.pack(side=tk.RIGHT, padx=1)
         self.update_check_btn = ttk.Button(toolbar, text="⟳", command=self.manual_update_check, width=3)
         self.update_check_btn.pack(side=tk.RIGHT, padx=1)
         self.help_btn = ttk.Button(toolbar, text="?", command=self.show_help, width=3)
@@ -916,6 +928,12 @@ class GanttPilotGUI:
         tracking_sb.pack(side=tk.RIGHT, fill=tk.Y)
         self.tracking_tree.pack(fill=tk.BOTH, expand=True)
         self.tracking_tree.tag_configure("req_header", font=("", self.config.font_size, "bold"), background="#d0d0e8")
+
+        # Tracking tree hover tooltip (scrollable & zoomable)
+        self._tracking_tooltip = None
+        self._tracking_tooltip_after_id = None
+        self.tracking_tree.bind("<Motion>", self._on_tracking_motion)
+        self.tracking_tree.bind("<Leave>", self._on_tracking_leave)
 
         # Tab 3: History
         history_tab_frame = ttk.Frame(self.right_notebook)
@@ -1022,6 +1040,7 @@ class GanttPilotGUI:
 
             if kind == "project":
                 proj_name = values[1]
+                menu.add_command(label=f"👁 {self._t('view_detail')}", command=self.toolbar_view, accelerator=self._accel("view"))
                 menu.add_command(label=f"✏ {self._t('edit_project')}", command=self.edit_project, accelerator=self._accel("edit"))
                 menu.add_command(label=f"🔗 {self._t('git_config')}", command=self.config_project_git)
                 menu.add_separator()
@@ -1045,6 +1064,7 @@ class GanttPilotGUI:
             elif kind == "requirement":
                 menu.add_command(label=f"+ {self._t('add_task')}", command=self.add_task, accelerator=self._accel("add"))
                 menu.add_separator()
+                menu.add_command(label=f"👁 {self._t('view_detail')}", command=self.toolbar_view, accelerator=self._accel("view"))
                 menu.add_command(label=f"✏ {self._t('edit_requirement')}", command=self.edit_requirement, accelerator=self._accel("edit"))
                 menu.add_separator()
                 menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
@@ -1056,6 +1076,7 @@ class GanttPilotGUI:
                 menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
 
             elif kind == "task":
+                menu.add_command(label=f"👁 {self._t('view_detail')}", command=self.toolbar_view, accelerator=self._accel("view"))
                 menu.add_command(label=f"✏ {self._t('edit_task')}", command=self.edit_task, accelerator=self._accel("edit"))
                 menu.add_separator()
                 menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
@@ -1073,6 +1094,7 @@ class GanttPilotGUI:
             elif kind == "milestone":
                 menu.add_command(label=f"+ {self._t('plan')}", command=self.add_plan, accelerator=self._accel("add"))
                 menu.add_separator()
+                menu.add_command(label=f"👁 {self._t('view_detail')}", command=self.toolbar_view, accelerator=self._accel("view"))
                 menu.add_command(label=f"✏ {self._t('edit_milestone')}", command=self.edit_milestone, accelerator=self._accel("edit"))
                 menu.add_command(label="🎨 " + self._t("color"), command=self.pick_color_milestone)
                 menu.add_separator()
@@ -1087,6 +1109,7 @@ class GanttPilotGUI:
             elif kind == "plan":
                 menu.add_command(label=f"+ {self._t('activity')}", command=self.add_activity, accelerator=self._accel("add"))
                 menu.add_separator()
+                menu.add_command(label=f"👁 {self._t('view_detail')}", command=self.toolbar_view, accelerator=self._accel("view"))
                 menu.add_command(label=f"✏ {self._t('content')}", command=self.edit_plan, accelerator=self._accel("edit"))
                 menu.add_command(label="🎨 " + self._t("color"), command=self.pick_color_plan)
                 menu.add_separator()
@@ -1103,6 +1126,7 @@ class GanttPilotGUI:
                 menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
 
             elif kind == "activity":
+                menu.add_command(label=f"👁 {self._t('view_detail')}", command=self.toolbar_view, accelerator=self._accel("view"))
                 menu.add_command(label=f"✏ {self._t('edit_activity')}", command=self.edit_activity, accelerator=self._accel("edit"))
                 menu.add_separator()
                 menu.add_command(label=f"📋 {self._t('copy')}", command=self.toolbar_copy, accelerator=self._accel("copy"))
@@ -1214,6 +1238,7 @@ class GanttPilotGUI:
         state = TOOLBAR_STATE.get(kind, TOOLBAR_STATE[None])
         self.tb_add_btn.configure(state=tk.NORMAL if state["add"] else tk.DISABLED)
         self.tb_edit_btn.configure(state=tk.NORMAL if state["edit"] else tk.DISABLED)
+        self.tb_view_btn.configure(state=tk.NORMAL if state["view"] else tk.DISABLED)
         self.tb_delete_btn.configure(state=tk.NORMAL if state["delete"] else tk.DISABLED)
 
         # For up/down, check if node is first/last among siblings
@@ -1408,6 +1433,96 @@ class GanttPilotGUI:
                             row["linked_plan"], row["plan_progress"],
                             row["actual_hours"], row["variance"]),
                 )
+
+    def _on_tracking_motion(self, event):
+        """Show a scrollable/zoomable tooltip when hovering over tracking tree items."""
+        item = self.tracking_tree.identify_row(event.y)
+        if not item:
+            self._hide_tracking_tooltip()
+            return
+        # Avoid re-creating tooltip for the same item
+        if self._tracking_tooltip and getattr(self._tracking_tooltip, "_item_id", None) == item:
+            return
+        self._hide_tracking_tooltip()
+        # Delay showing tooltip slightly to avoid flicker
+        self._tracking_tooltip_after_id = self.root.after(
+            300, lambda: self._show_tracking_tooltip(item, event.x_root, event.y_root))
+
+    def _on_tracking_leave(self, event):
+        """Hide tracking tooltip when mouse leaves the tree."""
+        self._hide_tracking_tooltip()
+
+    def _hide_tracking_tooltip(self):
+        """Destroy the tracking tooltip if it exists."""
+        if self._tracking_tooltip_after_id:
+            self.root.after_cancel(self._tracking_tooltip_after_id)
+            self._tracking_tooltip_after_id = None
+        if self._tracking_tooltip:
+            self._tracking_tooltip.destroy()
+            self._tracking_tooltip = None
+
+    def _show_tracking_tooltip(self, item, x, y):
+        """Create a scrollable, zoomable tooltip for the tracking tree item."""
+        if not self.tracking_tree.exists(item):
+            return
+        values = self.tracking_tree.item(item, "values")
+        if not values:
+            return
+
+        # Build tooltip content from row values
+        cols = ("req_category", "req_subject", "task_subject", "effort_days",
+                "linked_plan", "plan_progress", "actual_hours", "variance")
+        headers = [self._t(c) for c in cols]
+        lines = []
+        for h, v in zip(headers, values):
+            if v:
+                lines.append(f"{h}: {v}")
+        if not lines:
+            return
+
+        content = "\n".join(lines)
+
+        tip = tk.Toplevel(self.root)
+        tip.wm_overrideredirect(True)
+        tip.wm_geometry(f"+{x + 15}+{y + 15}")
+        tip.configure(background="#ffffe0")
+        tip._item_id = item
+
+        font_size = [self.config.font_size]
+
+        # Frame with border
+        frame = tk.Frame(tip, background="#ffffe0", highlightbackground="#999",
+                         highlightthickness=1)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        text_widget = tk.Text(frame, wrap=tk.WORD, background="#ffffe0",
+                              font=("", font_size[0]), borderwidth=0,
+                              width=40, height=min(len(lines) + 1, 10))
+        text_widget.insert("1.0", content)
+        text_widget.configure(state=tk.DISABLED)
+
+        # Scrollbar for long content
+        vsb = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=text_widget.yview)
+        text_widget.configure(yscrollcommand=vsb.set)
+        if len(lines) > 6:
+            vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4, pady=4)
+
+        # Zoom with Ctrl+MouseWheel
+        def _zoom(event):
+            if event.delta > 0:
+                font_size[0] = min(font_size[0] + 1, 30)
+            else:
+                font_size[0] = max(font_size[0] - 1, 8)
+            text_widget.configure(font=("", font_size[0]))
+        text_widget.bind("<Control-MouseWheel>", _zoom)
+
+        # Allow scrolling with mouse wheel
+        def _scroll(event):
+            text_widget.yview_scroll(-1 * (event.delta // 120), "units")
+        text_widget.bind("<MouseWheel>", _scroll)
+
+        self._tracking_tooltip = tip
 
     # ── History tab ─────────────────────────────────────────
     def _on_tab_changed(self, event):
@@ -2440,6 +2555,159 @@ class GanttPilotGUI:
         elif kind == "activity":
             self.edit_activity()
 
+    def toolbar_view(self):
+        """Show a read-only detail view for the selected node."""
+        sel = self.tree.selection()
+        if not sel:
+            return
+        values = self.tree.item(sel[0], "values")
+        if not values:
+            return
+        kind = values[0]
+        proj_name = values[1] if len(values) >= 2 else None
+        proj = self.store.get_project(proj_name) if proj_name else None
+        if not proj:
+            return
+
+        title = ""
+        content = ""
+
+        if kind == "project":
+            title = self._t("view_project")
+            desc = proj.get("description", "")
+            tags = ", ".join(proj.get("tags", []))
+            content = (
+                f"{self._t('project_name')}: {proj['name']}\n"
+                f"{self._t('description')}: {desc}\n"
+                f"{self._t('project_tags')}: {tags}\n"
+            )
+        elif kind == "requirement":
+            req_id = values[2] if len(values) >= 3 else None
+            req = self.store.get_requirement(proj_name, req_id)
+            if not req:
+                return
+            title = self._t("view_requirement")
+            content = (
+                f"{self._t('category')}: {req.get('category', '')}\n"
+                f"{self._t('subject')}: {req.get('subject', '')}\n"
+                f"{self._t('description')}: {req.get('description', '')}\n"
+            )
+        elif kind == "task":
+            req_id = values[2] if len(values) >= 3 else None
+            task_id = values[3] if len(values) >= 4 else None
+            req = self.store.get_requirement(proj_name, req_id)
+            if not req:
+                return
+            task = None
+            for t in req.get("tasks", []):
+                if t["id"] == task_id:
+                    task = t
+                    break
+            if not task:
+                return
+            title = self._t("view_task")
+            content = (
+                f"{self._t('subject')}: {task.get('subject', '')}\n"
+                f"{self._t('effort_days')}: {task.get('effort_days', 0)}\n"
+                f"{self._t('description')}: {task.get('description', '')}\n"
+            )
+        elif kind == "milestone":
+            ms_name = values[2] if len(values) >= 3 else None
+            ms = self.store._find_milestone(proj_name, ms_name)
+            if not ms:
+                return
+            title = self._t("view_milestone")
+            content = (
+                f"{self._t('milestone_name')}: {ms.get('name', '')}\n"
+                f"{self._t('description')}: {ms.get('description', '')}\n"
+                f"{self._t('end_date')}: {ms.get('deadline', '')}\n"
+                f"{self._t('color')}: {ms.get('color', '')}\n"
+            )
+        elif kind == "plan":
+            ms_name = values[2] if len(values) >= 3 else None
+            plan_id = values[3] if len(values) >= 4 else None
+            plan = self.store._find_plan(proj_name, ms_name, plan_id)
+            if not plan:
+                return
+            title = self._t("view_plan")
+            linked = ", ".join(plan.get("linked_tasks", []))
+            content = (
+                f"{self._t('content')}: {plan.get('content', '')}\n"
+                f"{self._t('executor')}: {plan.get('executor', '')}\n"
+                f"{self._t('start_date')}: {plan.get('start_date', '')}\n"
+                f"{self._t('end_date')}: {plan.get('end_date', '')}\n"
+                f"{self._t('progress')}: {plan.get('progress', 0)}%\n"
+                f"{self._t('linked_task')}: {linked}\n"
+                f"{self._t('description')}: {plan.get('description', '')}\n"
+            )
+        elif kind == "activity":
+            ms_name = values[2] if len(values) >= 3 else None
+            plan_id = values[3] if len(values) >= 4 else None
+            act_id = values[4] if len(values) >= 5 else None
+            plan = self.store._find_plan(proj_name, ms_name, plan_id)
+            if not plan:
+                return
+            act = None
+            for a in plan.get("activities", []):
+                if a["id"] == act_id:
+                    act = a
+                    break
+            if not act:
+                return
+            title = self._t("view_activity")
+            content = (
+                f"{self._t('date')}: {act.get('date', '')}\n"
+                f"{self._t('executor')}: {act.get('executor', '')}\n"
+                f"{self._t('hours')}: {act.get('hours', 0)}\n"
+                f"{self._t('content')}: {act.get('content', '')}\n"
+                f"{self._t('tag')}: {act.get('tag', '')}\n"
+                f"{self._t('description')}: {act.get('description', '')}\n"
+            )
+        else:
+            return
+
+        self._show_view_detail_dialog(title, content)
+
+    def _show_view_detail_dialog(self, title, content):
+        """Show a scrollable, zoomable read-only detail dialog."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title(title)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        _center_dialog(dialog, self.root, 500, 400)
+
+        font_size = [self.config.font_size]
+
+        text_widget = tk.Text(dialog, wrap=tk.WORD, state=tk.NORMAL,
+                              font=("", font_size[0]))
+        text_widget.insert("1.0", content)
+        text_widget.configure(state=tk.DISABLED)
+
+        # Scrollbars
+        vsb = ttk.Scrollbar(dialog, orient=tk.VERTICAL, command=text_widget.yview)
+        hsb = ttk.Scrollbar(dialog, orient=tk.HORIZONTAL, command=text_widget.xview)
+        text_widget.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        hsb.pack(side=tk.BOTTOM, fill=tk.X)
+        text_widget.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+
+        # Zoom with Ctrl+MouseWheel
+        def _zoom(event):
+            if event.delta > 0:
+                font_size[0] = min(font_size[0] + 1, 40)
+            else:
+                font_size[0] = max(font_size[0] - 1, 8)
+            text_widget.configure(font=("", font_size[0]))
+        text_widget.bind("<Control-MouseWheel>", _zoom)
+
+        # Close button
+        btn_frame = ttk.Frame(dialog)
+        btn_frame.pack(fill=tk.X, pady=(0, 4))
+        ttk.Button(btn_frame, text="OK", command=dialog.destroy).pack(side=tk.RIGHT, padx=8)
+
+        dialog.bind("<Escape>", lambda e: dialog.destroy())
+
     def toolbar_delete(self):
         """Dispatch delete action based on selected node type."""
         self.delete_selected()
@@ -2930,6 +3198,52 @@ class GanttPilotGUI:
 
         ttk.Button(dlg, text="OK", command=dlg.destroy).pack(pady=(0, 8))
 
+    # ── MCP Server management ───────────────────────────────
+    def _start_mcp_server(self):
+        """Start the MCP server as a background subprocess."""
+        import subprocess
+        if self._mcp_process and self._mcp_process.poll() is None:
+            return  # Already running
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ganttpilot_mcp.py")
+        env = os.environ.copy()
+        if self.config.data_dir:
+            env["GANTTPILOT_DATA_DIR"] = self.config.data_dir
+        try:
+            self._mcp_process = subprocess.Popen(
+                [sys.executable, script],
+                env=env,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            self.status_var.set(self._t("mcp_enabled"))
+        except Exception as e:
+            self.status_var.set(f"MCP: {e}")
+
+    def _stop_mcp_server(self):
+        """Stop the MCP server subprocess."""
+        if self._mcp_process and self._mcp_process.poll() is None:
+            self._mcp_process.terminate()
+            try:
+                self._mcp_process.wait(timeout=3)
+            except Exception:
+                self._mcp_process.kill()
+        self._mcp_process = None
+        self.status_var.set(self._t("mcp_disabled"))
+
+    def _is_mcp_running(self):
+        """Check if MCP server process is alive."""
+        return self._mcp_process is not None and self._mcp_process.poll() is None
+
+    def open_mcp_dialog(self):
+        """Open the MCP Server configuration dialog."""
+        if self._has_active_dialog():
+            return
+        dlg = MCPConfigDialog(self.root, self.config, self._t, self.lang, self)
+        self._active_dialog = dlg.top
+        self.root.wait_window(dlg.top)
+        self._active_dialog = None
+
     def do_sync(self):
         if not self.current_project:
             self.status_var.set(self._t("select_project"))
@@ -3062,6 +3376,9 @@ class GanttPilotGUI:
             except Exception:
                 pass
         self.config.save()
+        # Stop MCP server if running
+        if self._is_mcp_running():
+            self._stop_mcp_server()
         self.root.destroy()
 
     def _bg_sync_project(self, proj_name):
@@ -4689,6 +5006,162 @@ class ProgressDialog:
         except ValueError:
             pass
         messagebox.showwarning(self.t_func("warning"), self.t_func("invalid_progress"))
+
+
+class MCPConfigDialog:
+    """Dialog for MCP Server configuration with enable/disable toggle and config templates."""
+
+    def __init__(self, parent, config, t_func, lang, gui):
+        self.config = config
+        self.t_func = t_func
+        self.lang = lang
+        self.gui = gui
+        self.top = tk.Toplevel(parent)
+        self.top.title(t_func("mcp_config_title"))
+        _center_dialog(self.top, parent, 620, 520)
+        self.top.transient(parent)
+        self.top.grab_set()
+        self.top.focus_set()
+        self.top.bind("<Escape>", lambda e: self.top.destroy())
+
+        # Description
+        desc_label = ttk.Label(self.top, text=t_func("mcp_config_desc"), wraplength=580)
+        desc_label.pack(padx=12, pady=(12, 8), anchor=tk.W)
+
+        # Status and toggle frame
+        status_frame = ttk.LabelFrame(self.top, text=t_func("mcp_server"))
+        status_frame.pack(fill=tk.X, padx=12, pady=(0, 8))
+
+        self.status_label = ttk.Label(status_frame, text="")
+        self.status_label.pack(side=tk.LEFT, padx=8, pady=8)
+
+        self.toggle_btn = ttk.Button(status_frame, text="", command=self._toggle_mcp)
+        self.toggle_btn.pack(side=tk.RIGHT, padx=8, pady=8)
+
+        self._update_status_display()
+
+        # Info frame
+        info_frame = ttk.Frame(self.top)
+        info_frame.pack(fill=tk.X, padx=12, pady=(0, 8))
+
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ganttpilot_mcp.py")
+        data_dir = config.data_dir or os.path.join(os.path.expanduser("~"), ".ganttpilot", "data")
+
+        ttk.Label(info_frame, text=t_func("mcp_script_path_label") + ":").grid(row=0, column=0, sticky=tk.W, pady=2)
+        script_entry = ttk.Entry(info_frame, width=60)
+        script_entry.insert(0, script_path)
+        script_entry.configure(state="readonly")
+        script_entry.grid(row=0, column=1, padx=4, pady=2, sticky=tk.EW)
+
+        ttk.Label(info_frame, text=t_func("mcp_data_dir_label") + ":").grid(row=1, column=0, sticky=tk.W, pady=2)
+        data_entry = ttk.Entry(info_frame, width=60)
+        data_entry.insert(0, data_dir)
+        data_entry.configure(state="readonly")
+        data_entry.grid(row=1, column=1, padx=4, pady=2, sticky=tk.EW)
+        info_frame.columnconfigure(1, weight=1)
+
+        # Config templates notebook
+        template_frame = ttk.LabelFrame(self.top, text=t_func("mcp_copy_config"))
+        template_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 8))
+
+        self.template_notebook = ttk.Notebook(template_frame)
+        self.template_notebook.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+
+        # Normalize paths for JSON (use forward slashes)
+        script_json = script_path.replace("\\", "/")
+        data_json = data_dir.replace("\\", "/")
+        python_path = sys.executable.replace("\\", "/")
+
+        # Kiro template
+        kiro_config = json.dumps({
+            "mcpServers": {
+                "ganttpilot": {
+                    "command": python_path,
+                    "args": [script_json],
+                    "env": {"GANTTPILOT_DATA_DIR": data_json},
+                    "disabled": False,
+                    "autoApprove": [
+                        "list_projects", "get_project", "list_requirements",
+                        "list_tasks", "list_milestones", "list_plans",
+                        "get_time_report", "get_tracking"
+                    ]
+                }
+            }
+        }, indent=2, ensure_ascii=False)
+        self._add_template_tab(t_func("mcp_template_kiro"), kiro_config,
+                               "Kiro: .kiro/settings/mcp.json")
+
+        # Claude Desktop template
+        claude_config = json.dumps({
+            "mcpServers": {
+                "ganttpilot": {
+                    "command": python_path,
+                    "args": [script_json],
+                    "env": {"GANTTPILOT_DATA_DIR": data_json}
+                }
+            }
+        }, indent=2, ensure_ascii=False)
+        self._add_template_tab(t_func("mcp_template_claude"), claude_config,
+                               "Claude: claude_desktop_config.json")
+
+        # Generic template
+        generic_config = json.dumps({
+            "command": python_path,
+            "args": [script_json],
+            "env": {"GANTTPILOT_DATA_DIR": data_json},
+            "transport": "stdio"
+        }, indent=2, ensure_ascii=False)
+        self._add_template_tab(t_func("mcp_template_generic"), generic_config,
+                               "Generic stdio MCP server config")
+
+        # Close button
+        ttk.Button(self.top, text="OK", command=self.top.destroy).pack(pady=(0, 8))
+
+    def _add_template_tab(self, tab_title, config_text, hint):
+        """Add a tab with a copyable config template."""
+        frame = ttk.Frame(self.template_notebook)
+        self.template_notebook.add(frame, text=tab_title)
+
+        hint_label = ttk.Label(frame, text=hint, foreground="gray")
+        hint_label.pack(anchor=tk.W, padx=4, pady=(4, 2))
+
+        text_widget = tk.Text(frame, wrap=tk.NONE, height=8, font=("Consolas", 9))
+        text_widget.insert("1.0", config_text)
+        text_widget.configure(state=tk.DISABLED)
+
+        hsb = ttk.Scrollbar(frame, orient=tk.HORIZONTAL, command=text_widget.xview)
+        text_widget.configure(xscrollcommand=hsb.set)
+        text_widget.pack(fill=tk.BOTH, expand=True, padx=4, pady=(0, 2))
+        hsb.pack(fill=tk.X, padx=4)
+
+        def _copy():
+            self.top.clipboard_clear()
+            self.top.clipboard_append(config_text)
+            self.gui.status_var.set(self.t_func("mcp_copied"))
+
+        ttk.Button(frame, text=self.t_func("mcp_copy_config"), command=_copy).pack(pady=4)
+
+    def _toggle_mcp(self):
+        """Toggle MCP server on/off."""
+        if self.gui._is_mcp_running():
+            self.gui._stop_mcp_server()
+            self.config.set("mcp_enabled", False)
+        else:
+            self.gui._start_mcp_server()
+            self.config.set("mcp_enabled", True)
+        self.config.save()
+        self._update_status_display()
+
+    def _update_status_display(self):
+        """Update the status label and toggle button text."""
+        if self.gui._is_mcp_running():
+            self.status_label.configure(
+                text=f"● {self.t_func('mcp_status_running')}", foreground="green")
+            self.toggle_btn.configure(text=self.t_func("mcp_stop"))
+        else:
+            self.status_label.configure(
+                text=f"○ {self.t_func('mcp_status_stopped')}", foreground="gray")
+            self.toggle_btn.configure(text=self.t_func("mcp_start"))
 
 
 def main():

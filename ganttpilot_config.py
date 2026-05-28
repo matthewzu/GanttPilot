@@ -21,6 +21,7 @@ DEFAULT_CONFIG = {
     "compress_threshold": 300,
     "max_chart_width": 4000,
     "pull_interval": 5,
+    "mcp_enabled": False,
 }
 
 
