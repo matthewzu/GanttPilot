@@ -105,7 +105,7 @@ class ShortcutManager:
         "paste":     "<Control-v>",
         "add":       "<Control-n>",
         "edit":      "<F2>",
-        "view":      "<F3>",
+        "view":      "<Control-Shift-f>",
         "delete":    "<Delete>",
         "move_up":   "<Alt-Up>",
         "move_down": "<Alt-Down>",

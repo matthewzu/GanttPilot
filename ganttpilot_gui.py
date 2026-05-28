@@ -730,7 +730,13 @@ class GanttPilotGUI:
             exe_path = sys.executable
         try:
             if sys.platform == "win32":
-                os.startfile(exe_path)
+                # Use subprocess with a delay to allow the current process to exit
+                # before the new one starts, avoiding _MEI temp directory lock issues
+                import subprocess
+                subprocess.Popen(
+                    f'ping -n 2 127.0.0.1 >nul & "{exe_path}"',
+                    shell=True, creationflags=0x00000008  # DETACHED_PROCESS
+                )
             else:
                 subprocess.Popen([exe_path], start_new_session=True)
         except Exception:
@@ -3201,20 +3207,23 @@ class GanttPilotGUI:
     # ── MCP Server management ───────────────────────────────
     def _start_mcp_server(self):
         """Start the MCP server as a background subprocess."""
-        import subprocess
+        import subprocess as _sp
         if self._mcp_process and self._mcp_process.poll() is None:
             return  # Already running
-        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ganttpilot_mcp.py")
         env = os.environ.copy()
         if self.config.data_dir:
             env["GANTTPILOT_DATA_DIR"] = self.config.data_dir
         try:
-            self._mcp_process = subprocess.Popen(
-                [sys.executable, script],
-                env=env,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+            if getattr(sys, 'frozen', False):
+                # Frozen app: use the exe with --mcp flag
+                cmd = [sys.executable, "--mcp"]
+            else:
+                # Running from source
+                script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ganttpilot_mcp.py")
+                cmd = [sys.executable, script]
+            self._mcp_process = _sp.Popen(
+                cmd, env=env,
+                stdin=_sp.PIPE, stdout=_sp.PIPE, stderr=_sp.PIPE,
             )
             self.status_var.set(self._t("mcp_enabled"))
         except Exception as e:
@@ -3788,6 +3797,7 @@ class ConfigDialog:
     _ACTION_I18N_KEYS = {
         "add": "shortcut_add",
         "edit": "shortcut_edit",
+        "view": "shortcut_view",
         "delete": "shortcut_delete",
         "move_up": "shortcut_move_up",
         "move_down": "shortcut_move_down",
@@ -5044,7 +5054,16 @@ class MCPConfigDialog:
         info_frame = ttk.Frame(self.top)
         info_frame.pack(fill=tk.X, padx=12, pady=(0, 8))
 
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ganttpilot_mcp.py")
+        # Determine correct paths for MCP server
+        if getattr(sys, 'frozen', False):
+            # PyInstaller frozen app: exe is the command, mcp script is next to exe
+            app_dir = os.path.dirname(sys.executable)
+            script_path = os.path.join(app_dir, "ganttpilot_mcp.py")
+            python_cmd = sys.executable
+        else:
+            # Running from source
+            script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ganttpilot_mcp.py")
+            python_cmd = sys.executable
         data_dir = config.data_dir or os.path.join(os.path.expanduser("~"), ".ganttpilot", "data")
 
         ttk.Label(info_frame, text=t_func("mcp_script_path_label") + ":").grid(row=0, column=0, sticky=tk.W, pady=2)
@@ -5070,14 +5089,23 @@ class MCPConfigDialog:
         # Normalize paths for JSON (use forward slashes)
         script_json = script_path.replace("\\", "/")
         data_json = data_dir.replace("\\", "/")
-        python_path = sys.executable.replace("\\", "/")
+        python_json = python_cmd.replace("\\", "/")
+
+        # For frozen apps, command is the exe itself with --mcp flag
+        # For source, command is python with the script as arg
+        if getattr(sys, 'frozen', False):
+            mcp_command = python_json
+            mcp_args = ["--mcp"]
+        else:
+            mcp_command = python_json
+            mcp_args = [script_json]
 
         # Kiro template
         kiro_config = json.dumps({
             "mcpServers": {
                 "ganttpilot": {
-                    "command": python_path,
-                    "args": [script_json],
+                    "command": mcp_command,
+                    "args": mcp_args,
                     "env": {"GANTTPILOT_DATA_DIR": data_json},
                     "disabled": False,
                     "autoApprove": [
@@ -5095,8 +5123,8 @@ class MCPConfigDialog:
         claude_config = json.dumps({
             "mcpServers": {
                 "ganttpilot": {
-                    "command": python_path,
-                    "args": [script_json],
+                    "command": mcp_command,
+                    "args": mcp_args,
                     "env": {"GANTTPILOT_DATA_DIR": data_json}
                 }
             }
@@ -5106,8 +5134,8 @@ class MCPConfigDialog:
 
         # Generic template
         generic_config = json.dumps({
-            "command": python_path,
-            "args": [script_json],
+            "command": mcp_command,
+            "args": mcp_args,
             "env": {"GANTTPILOT_DATA_DIR": data_json},
             "transport": "stdio"
         }, indent=2, ensure_ascii=False)

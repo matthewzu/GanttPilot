@@ -23,6 +23,8 @@ def main():
     )
     parser.add_argument('--cli', action='store_true',
                         help='Launch CLI mode / 启动命令行模式')
+    parser.add_argument('--mcp', action='store_true',
+                        help='Launch MCP server mode / 启动 MCP 服务模式')
     parser.add_argument('--lang', '-l', choices=['zh', 'en'], default=None,
                         help='Language / 语言 (zh: 中文, en: English)')
     parser.add_argument('--version', '-v', action='version',
@@ -35,6 +37,9 @@ def main():
     if args.zhihu:
         from temp.ganttpilot_zhihu import generate_zhihu_article
         generate_zhihu_article(args.lang or "zh")
+    elif args.mcp:
+        from ganttpilot_mcp import mcp
+        mcp.run()
     elif args.cli:
         from ganttpilot_cli import main as cli_main
         cli_main(language=args.lang)
