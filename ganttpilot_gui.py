@@ -730,19 +730,29 @@ class GanttPilotGUI:
             exe_path = sys.executable
         try:
             if sys.platform == "win32":
-                # Use a batch command with longer delay (5 seconds) to ensure
-                # the current process fully exits and releases _MEI temp directory
-                # before the new instance starts.
-                import subprocess
-                subprocess.Popen(
-                    f'ping -n 6 127.0.0.1 >nul & "{exe_path}"',
-                    shell=True, creationflags=0x00000008  # DETACHED_PROCESS
+                # Write a temporary VBS script that waits then launches the new exe.
+                # VBS runs invisibly (no console flash) and waits long enough for
+                # the PyInstaller bootloader to fully release the _MEI temp directory.
+                import tempfile
+                vbs_content = (
+                    'WScript.Sleep 5000\n'
+                    f'Set ws = CreateObject("WScript.Shell")\n'
+                    f'ws.Run """{exe_path}""", 1, False\n'
                 )
+                vbs_path = os.path.join(tempfile.gettempdir(), "ganttpilot_restart.vbs")
+                with open(vbs_path, "w", encoding="utf-8") as f:
+                    f.write(vbs_content)
+                os.startfile(vbs_path)
             else:
-                subprocess.Popen([exe_path], start_new_session=True)
+                import subprocess
+                # On Unix, use a shell with sleep
+                subprocess.Popen(
+                    f'sleep 3 && "{exe_path}" &',
+                    shell=True, start_new_session=True
+                )
         except Exception:
             pass
-        # Force cleanup before exit
+        # Force immediate process termination
         self.root.destroy()
         os._exit(0)
 
