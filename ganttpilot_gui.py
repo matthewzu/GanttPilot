@@ -2679,8 +2679,9 @@ class GanttPilotGUI:
         dialog = tk.Toplevel(self.root)
         dialog.title(title)
         dialog.transient(self.root)
-        dialog.grab_set()
         _center_dialog(dialog, self.root, 500, 400)
+        self._active_dialog = dialog
+        dialog.after(100, lambda: dialog.grab_set() if dialog.winfo_exists() else None)
 
         font_size = [self.config.font_size]
 
@@ -2708,11 +2709,15 @@ class GanttPilotGUI:
         text_widget.bind("<Control-MouseWheel>", _zoom)
 
         # Close button
+        def _close():
+            self._active_dialog = None
+            dialog.destroy()
         btn_frame = ttk.Frame(dialog)
         btn_frame.pack(fill=tk.X, pady=(0, 4))
-        ttk.Button(btn_frame, text="OK", command=dialog.destroy).pack(side=tk.RIGHT, padx=8)
+        ttk.Button(btn_frame, text="OK", command=_close).pack(side=tk.RIGHT, padx=8)
 
-        dialog.bind("<Escape>", lambda e: dialog.destroy())
+        dialog.bind("<Escape>", lambda e: _close())
+        dialog.protocol("WM_DELETE_WINDOW", _close)
 
     def toolbar_delete(self):
         """Dispatch delete action based on selected node type."""
@@ -5030,9 +5035,11 @@ class MCPConfigDialog:
         self.top.title(t_func("mcp_config_title"))
         _center_dialog(self.top, parent, 620, 520)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
         self.top.bind("<Escape>", lambda e: self.top.destroy())
+
+        # Deferred grab to work with focus restoration mechanism
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
 
         # Description
         desc_label = ttk.Label(self.top, text=t_func("mcp_config_desc"), wraplength=580)
