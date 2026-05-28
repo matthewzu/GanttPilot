@@ -730,19 +730,21 @@ class GanttPilotGUI:
             exe_path = sys.executable
         try:
             if sys.platform == "win32":
-                # Use subprocess with a delay to allow the current process to exit
-                # before the new one starts, avoiding _MEI temp directory lock issues
+                # Use a batch command with longer delay (5 seconds) to ensure
+                # the current process fully exits and releases _MEI temp directory
+                # before the new instance starts.
                 import subprocess
                 subprocess.Popen(
-                    f'ping -n 2 127.0.0.1 >nul & "{exe_path}"',
+                    f'ping -n 6 127.0.0.1 >nul & "{exe_path}"',
                     shell=True, creationflags=0x00000008  # DETACHED_PROCESS
                 )
             else:
                 subprocess.Popen([exe_path], start_new_session=True)
         except Exception:
             pass
+        # Force cleanup before exit
         self.root.destroy()
-        sys.exit(0)
+        os._exit(0)
 
     def _commit(self, message):
         """Commit changes for the current project's git repo."""
@@ -3211,31 +3213,44 @@ class GanttPilotGUI:
 
     # ── MCP Server management ───────────────────────────────
     def _start_mcp_server(self):
-        """Start the MCP server as a background subprocess."""
+        """Start the MCP server as a background subprocess or thread."""
         import subprocess as _sp
         if self._mcp_process and self._mcp_process.poll() is None:
-            return  # Already running
+            return  # Already running (subprocess mode)
+        if getattr(self, '_mcp_thread', None) and self._mcp_thread.is_alive():
+            return  # Already running (thread mode)
+
         env = os.environ.copy()
         if self.config.data_dir:
             env["GANTTPILOT_DATA_DIR"] = self.config.data_dir
-        try:
-            if getattr(sys, 'frozen', False):
-                # Frozen app: use the exe with --mcp flag
-                cmd = [sys.executable, "--mcp"]
-            else:
-                # Running from source
-                script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ganttpilot_mcp.py")
-                cmd = [sys.executable, script]
-            self._mcp_process = _sp.Popen(
-                cmd, env=env,
-                stdin=_sp.PIPE, stdout=_sp.PIPE, stderr=_sp.PIPE,
-            )
+
+        if getattr(sys, 'frozen', False):
+            # Frozen app: cannot spawn another exe instance for MCP.
+            # Run MCP server in a background thread instead.
+            def _run_mcp():
+                import os as _os
+                if self.config.data_dir:
+                    _os.environ["GANTTPILOT_DATA_DIR"] = self.config.data_dir
+                from ganttpilot_mcp import mcp
+                mcp.run()
+            self._mcp_thread = threading.Thread(target=_run_mcp, daemon=True)
+            self._mcp_thread.start()
             self.status_var.set(self._t("mcp_enabled"))
-        except Exception as e:
-            self.status_var.set(f"MCP: {e}")
+        else:
+            # Running from source: spawn subprocess
+            script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ganttpilot_mcp.py")
+            cmd = [sys.executable, script]
+            try:
+                self._mcp_process = _sp.Popen(
+                    cmd, env=env,
+                    stdin=_sp.PIPE, stdout=_sp.PIPE, stderr=_sp.PIPE,
+                )
+                self.status_var.set(self._t("mcp_enabled"))
+            except Exception as e:
+                self.status_var.set(f"MCP: {e}")
 
     def _stop_mcp_server(self):
-        """Stop the MCP server subprocess."""
+        """Stop the MCP server subprocess or thread."""
         if self._mcp_process and self._mcp_process.poll() is None:
             self._mcp_process.terminate()
             try:
@@ -3243,11 +3258,18 @@ class GanttPilotGUI:
             except Exception:
                 self._mcp_process.kill()
         self._mcp_process = None
+        # Thread mode: daemon thread will die with the app; just clear reference
+        if getattr(self, '_mcp_thread', None):
+            self._mcp_thread = None
         self.status_var.set(self._t("mcp_disabled"))
 
     def _is_mcp_running(self):
-        """Check if MCP server process is alive."""
-        return self._mcp_process is not None and self._mcp_process.poll() is None
+        """Check if MCP server process or thread is alive."""
+        if self._mcp_process is not None and self._mcp_process.poll() is None:
+            return True
+        if getattr(self, '_mcp_thread', None) and self._mcp_thread.is_alive():
+            return True
+        return False
 
     def open_mcp_dialog(self):
         """Open the MCP Server configuration dialog."""
