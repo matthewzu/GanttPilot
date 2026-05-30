@@ -1,5 +1,13 @@
 # 更新日志 / Changelog
 
+## [1.7.1] - 2026-05-30
+
+### 修复 / Fixed
+- 🛠️ 修复更新后重启报错 `Failed to load Python DLL _MEI*\python39.dll` 的问题
+  - 根本原因：VBS 重启脚本的 `ws.Run` 继承了旧进程的 `_MEIPASS2` 环境变量，导致新 exe 去已删除的 `_MEI` 临时目录查找 DLL
+  - 修复：改用 PowerShell 重启（与 CalcPaper 方案一致），在启动新进程前显式清除 `_MEIPASS2` 和 `_MEIPASS` 环境变量
+  - 启动时自动清理上次更新遗留的 `.old` 文件
+
 ## [1.7.0] - 2026-05-30
 
 ### 新增 / Added
