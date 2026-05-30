@@ -368,6 +368,9 @@ class GanttPilotGUI:
         self.config = Config()
         self.lang = self.config.language
 
+        # Clean up leftover .old file from a previous update
+        self._cleanup_old_executable()
+
         if not self.config.data_dir:
             self.config.data_dir = os.path.join(os.path.expanduser("~"), ".ganttpilot", "data")
         os.makedirs(self.config.data_dir, exist_ok=True)
@@ -725,36 +728,79 @@ class GanttPilotGUI:
             self.root.after(0, lambda: self.status_var.set(f"Update failed: {e}"))
 
     def _restart_app(self, exe_path=None):
-        """Restart the application after update."""
+        """Restart the application after update.
+        
+        Critical: Must clear _MEIPASS2 environment variable to prevent the new
+        process from inheriting the old PyInstaller temp directory path, which
+        causes "Failed to load Python DLL" errors.
+        """
         if exe_path is None:
             exe_path = sys.executable
         try:
+            import subprocess
+            env = os.environ.copy()
+            env.pop('_MEIPASS2', None)
+            env.pop('_MEIPASS', None)
+
             if sys.platform == "win32":
-                # Write a temporary VBS script that waits then launches the new exe.
-                # VBS runs invisibly (no console flash) and waits long enough for
-                # the PyInstaller bootloader to fully release the _MEI temp directory.
-                import tempfile
-                vbs_content = (
-                    'WScript.Sleep 5000\n'
-                    f'Set ws = CreateObject("WScript.Shell")\n'
-                    f'ws.Run """{exe_path}""", 1, False\n'
+                # Use PowerShell for a completely silent delay (no window flash).
+                # Explicitly clear _MEIPASS2 inside PowerShell before launching
+                # the new process to prevent DLL load errors.
+                ps_cmd = (
+                    f'powershell -WindowStyle Hidden -Command "'
+                    f'[Environment]::SetEnvironmentVariable(\'_MEIPASS2\', $null); '
+                    f'[Environment]::SetEnvironmentVariable(\'_MEIPASS\', $null); '
+                    f'$env:_MEIPASS2 = $null; '
+                    f'$env:_MEIPASS = $null; '
+                    f'Start-Sleep -Seconds 5; '
+                    f'Remove-Item -Force -ErrorAction SilentlyContinue \'{exe_path}.old\'; '
+                    f'Start-Process \'{exe_path}\'"'
                 )
-                vbs_path = os.path.join(tempfile.gettempdir(), "ganttpilot_restart.vbs")
-                with open(vbs_path, "w", encoding="utf-8") as f:
-                    f.write(vbs_content)
-                os.startfile(vbs_path)
-            else:
-                import subprocess
-                # On Unix, use a shell with sleep
                 subprocess.Popen(
-                    f'sleep 3 && "{exe_path}" &',
-                    shell=True, start_new_session=True
+                    ps_cmd,
+                    shell=True,
+                    env=env,
+                    creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+                    close_fds=True
+                )
+            elif sys.platform == "darwin":
+                current_pid = os.getpid()
+                subprocess.Popen(
+                    f'while kill -0 {current_pid} 2>/dev/null; do sleep 0.5; done; '
+                    f'sleep 1; '
+                    f'rm -f "{exe_path}.old" 2>/dev/null; '
+                    f'open "{exe_path}"',
+                    shell=True,
+                    env=env,
+                    start_new_session=True,
+                    close_fds=True
+                )
+            else:
+                current_pid = os.getpid()
+                subprocess.Popen(
+                    f'while kill -0 {current_pid} 2>/dev/null; do sleep 0.5; done; '
+                    f'sleep 1; '
+                    f'rm -f "{exe_path}.old" 2>/dev/null; '
+                    f'"{exe_path}" &',
+                    shell=True,
+                    env=env,
+                    start_new_session=True,
+                    close_fds=True
                 )
         except Exception:
             pass
-        # Force immediate process termination
         self.root.destroy()
         os._exit(0)
+
+    def _cleanup_old_executable(self):
+        """Remove leftover .old file from a previous update."""
+        if getattr(sys, 'frozen', False):
+            old_path = sys.executable + ".old"
+            try:
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            except OSError:
+                pass
 
     def _commit(self, message):
         """Commit changes for the current project's git repo."""
