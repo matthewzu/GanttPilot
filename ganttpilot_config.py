@@ -18,8 +18,8 @@ DEFAULT_CONFIG = {
     "remote_password": "",
     "committer_name": "",
     "committer_email": "",
-    "compress_threshold": 300,
-    "max_chart_width": 4000,
+    "max_segment_days": 90,
+    "export_scale": 2.0,
     "pull_interval": 5,
     "mcp_enabled": False,
 }

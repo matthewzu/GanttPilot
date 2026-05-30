@@ -60,9 +60,9 @@ jobs:
           - Per-project Git repos, private branches + PR workflow, background update detection
 
           **报告 / Reports**
-          - Markdown 报告内嵌 PNG 甘特图，含需求分析、进度详情、工时明细、超出/少用统计
+          - Markdown 报告内嵌 PNG 甘特图（长项目自动分段），含需求分析、进度详情、工时明细、超出/少用统计
           - 导出文件名自动添加 _summary 或 _detail 后缀
-          - Markdown reports with embedded PNG Gantt chart, requirement analysis, progress details, overtime/undertime stats
+          - Markdown reports with embedded PNG Gantt chart (auto-segmented for long projects), requirement analysis, progress details, overtime/undertime stats
           - Export filename auto-appends _summary or _detail suffix
 
           **效率工具 / Productivity**

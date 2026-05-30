@@ -253,8 +253,8 @@ class GanttRenderer:
     DAY_WIDTH = 28
     HEADER_HEIGHT = 44
     PADDING = 3
-    COMPRESS_THRESHOLD = 300  # auto-compress day_width when total_days exceeds this
-    MAX_CHART_WIDTH = 4000    # max chart pixel width when compressed
+    COMPRESS_THRESHOLD = 300  # legacy, unused
+    MAX_CHART_WIDTH = 4000    # legacy, unused
 
     def __init__(self, backend: DrawBackend, project, lang="zh", font_size=10,
                  compress_threshold=300, max_chart_width=4000):
@@ -327,10 +327,7 @@ class GanttRenderer:
         dates = _date_range(min_date, max_date)
         today = datetime.now().date()
 
-        # Auto-compress day_width for long projects
-        if total_days > self.compress_threshold:
-            max_chart = self.max_chart_width - self.label_width - 10
-            self.day_width = max(4, max_chart // total_days)
+        # No compression — segmented rendering is handled externally via draw_segments()
 
         chart_x = self.label_width
         chart_width = total_days * self.day_width
@@ -354,7 +351,14 @@ class GanttRenderer:
             self.backend.line(x, 0, x, total_height, fill=COLOR_GRID)
 
         # ── Header row 1: weekday names ──────────────────────
+        # Calculate label skip interval based on day_width vs font size
+        # Each weekday label needs roughly font_size_tiny * 1.2 px width
+        _label_min_width = int(self.font_size_tiny * 1.2)
+        _label_skip = max(1, (_label_min_width + self.day_width - 1) // self.day_width)
+
         for i, d in enumerate(dates):
+            if _label_skip > 1 and i % _label_skip != 0:
+                continue
             x = chart_x + i * self.day_width
             wd = _weekday_short(d, self.lang)
             color = "#CC6666" if d.weekday() >= 5 else "#666666"
@@ -365,6 +369,8 @@ class GanttRenderer:
 
         # ── Header row 2: day numbers ────────────────────────
         for i, d in enumerate(dates):
+            if _label_skip > 1 and i % _label_skip != 0:
+                continue
             x = chart_x + i * self.day_width
             color = "#CC6666" if d.weekday() >= 5 else "#333333"
             self.backend.text(
@@ -555,6 +561,128 @@ class GanttRenderer:
         self.backend.line(chart_x, 0, chart_x, total_height, fill=COLOR_BORDER)
 
 
+def render_gantt_segments(project, lang="zh", font_size=10, max_segment_days=90,
+                          output_dir=".", base_name="gantt", export_scale=2.0):
+    """Render gantt chart as multiple PNG segments, each covering max_segment_days.
+
+    Args:
+        export_scale: Scale factor for PNG export (default 2.0 for high-res).
+                      Controls font size and row height for readability.
+                      The chart width is auto-fitted to ~1600px per segment.
+
+    Returns a list of saved PNG filenames (basenames only).
+    If total_days <= max_segment_days, returns a single image (no splitting).
+    """
+
+    if not project:
+        return []
+
+    # Target chart width in pixels (reasonable for document embedding)
+    TARGET_CHART_WIDTH = 1600
+
+    # Apply export scale for high-res PNG output
+    export_font_size = max(10, int(font_size * export_scale))
+
+    # Collect date range
+    all_dates = []
+    for ms in project.get("milestones", []):
+        d = _parse_date(ms.get("deadline", ""))
+        if d:
+            all_dates.append(d)
+        for plan in ms.get("plans", []):
+            s = _parse_date(plan.get("start_date", ""))
+            e = _parse_date(plan.get("end_date", ""))
+            if s:
+                all_dates.append(s)
+            if e:
+                all_dates.append(e)
+
+    if not all_dates:
+        return []
+
+    min_date = min(all_dates) - timedelta(days=2)
+    max_date = max(all_dates) + timedelta(days=2)
+    total_days = (max_date - min_date).days + 1
+
+    def _render_project(proj, seg_days):
+        """Create renderer with day_width auto-fitted to TARGET_CHART_WIDTH."""
+        backend = PillowBackend()
+        renderer = GanttRenderer(backend, proj, lang, export_font_size)
+        # Override day_width to fit target width
+        available_width = TARGET_CHART_WIDTH - renderer.label_width - 10
+        renderer.day_width = max(8, available_width // seg_days)
+        renderer.draw()
+        return backend
+
+    if total_days <= max_segment_days:
+        # Single image, no splitting needed
+        backend = _render_project(project, total_days)
+        filename = f"{base_name}.png"
+        import os
+        backend.save(os.path.join(output_dir, filename))
+        return [filename]
+
+    # Split into segments
+    import os
+    import math
+    num_segments = math.ceil(total_days / max_segment_days)
+    filenames = []
+    file_counter = 0
+
+    for seg_idx in range(num_segments):
+        seg_start = min_date + timedelta(days=seg_idx * max_segment_days)
+        seg_end = min_date + timedelta(days=(seg_idx + 1) * max_segment_days - 1)
+        if seg_end > max_date:
+            seg_end = max_date
+
+        seg_days = (seg_end - seg_start).days + 1
+
+        # Build a project view that keeps ALL milestones/plans but clips dates
+        # to this segment's range. This ensures every task row appears in every
+        # segment (no information loss), with bars naturally clipped to the
+        # visible time window.
+        seg_project = dict(project)
+        seg_milestones = []
+        has_visible_content = False
+        for ms in project.get("milestones", []):
+            ms_deadline = _parse_date(ms.get("deadline", ""))
+            seg_plans = []
+            for plan in ms.get("plans", []):
+                ps = _parse_date(plan.get("start_date", ""))
+                pe = _parse_date(plan.get("end_date", ""))
+                if ps and pe and ps <= seg_end and pe >= seg_start:
+                    # Clip plan dates to segment range
+                    clipped_plan = dict(plan)
+                    if ps < seg_start:
+                        clipped_plan["start_date"] = seg_start.strftime("%Y%m%d")
+                    if pe > seg_end:
+                        clipped_plan["end_date"] = seg_end.strftime("%Y%m%d")
+                    seg_plans.append(clipped_plan)
+                    has_visible_content = True
+            # Always include milestone header if it has plans visible in this segment
+            if seg_plans or (ms_deadline and seg_start <= ms_deadline <= seg_end):
+                seg_ms = dict(ms)
+                seg_ms["plans"] = seg_plans
+                # Clip milestone deadline to segment range to prevent date range explosion
+                if ms_deadline and ms_deadline > seg_end:
+                    seg_ms["deadline"] = ""
+                seg_milestones.append(seg_ms)
+                has_visible_content = True
+
+        if not has_visible_content:
+            continue
+
+        seg_project["milestones"] = seg_milestones
+        file_counter += 1
+
+        backend = _render_project(seg_project, seg_days)
+        filename = f"{base_name}_{file_counter}.png"
+        backend.save(os.path.join(output_dir, filename))
+        filenames.append(filename)
+
+    return filenames
+
+
 
 # ── PlantUML generation (for browser viewing) ───────────────
 
@@ -651,6 +779,7 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
     """Generate a comprehensive project report in Markdown.
     
     Args:
+        png_filename: A single filename (str) or a list of filenames for segmented charts.
         summary_only: If True, only include gantt chart, requirement analysis,
                       and milestones overview (no hours/notes details).
     """
@@ -677,8 +806,15 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
     if png_filename:
         lines.append(h2(chart_label))
         lines.append("")
-        lines.append(f"![{chart_label}]({png_filename})")
-        lines.append("")
+        # Support multiple segment images
+        if isinstance(png_filename, list):
+            for i, fn in enumerate(png_filename):
+                seg_label = f"{chart_label} ({i+1}/{len(png_filename)})" if len(png_filename) > 1 else chart_label
+                lines.append(f"![{seg_label}]({fn})")
+                lines.append("")
+        else:
+            lines.append(f"![{chart_label}]({png_filename})")
+            lines.append("")
     else:
         # Fallback to PlantUML code block
         uml = generate_gantt_uml(project, lang)

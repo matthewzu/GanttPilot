@@ -1303,9 +1303,7 @@ class GanttPilotGUI:
         if not proj:
             return
         backend = CanvasBackend(self.gantt_canvas)
-        renderer = GanttRenderer(backend, proj, self.lang, self.gantt_zoom,
-                                 self.config.get("compress_threshold", 300),
-                                 self.config.get("max_chart_width", 4000))
+        renderer = GanttRenderer(backend, proj, self.lang, self.gantt_zoom)
         renderer.draw()
         self.status_var.set(f"{self._t('gantt_chart')}: {self.current_project}")
 
@@ -1761,9 +1759,7 @@ class GanttPilotGUI:
             branch_proj = json.loads(content)
             # Temporarily replace project data for display
             backend = CanvasBackend(self.gantt_canvas)
-            renderer = GanttRenderer(backend, branch_proj, self.lang, self.gantt_zoom,
-                                     self.config.get("compress_threshold", 300),
-                                     self.config.get("max_chart_width", 4000))
+            renderer = GanttRenderer(backend, branch_proj, self.lang, self.gantt_zoom)
             renderer.draw()
 
             # Refresh history for the selected branch
@@ -2474,18 +2470,23 @@ class GanttPilotGUI:
         if not path:
             return
 
-        # Try to render PNG with PillowBackend
+        # Try to render PNG with segmented gantt charts
         png_filename = None
         try:
-            from ganttpilot_gantt import PillowBackend
-            backend = PillowBackend()
-            renderer = GanttRenderer(backend, proj, self.lang, self.gantt_zoom,
-                                     self.config.get("compress_threshold", 300),
-                                     self.config.get("max_chart_width", 4000))
-            renderer.draw()
-            png_path = os.path.splitext(path)[0] + "_gantt.png"
-            backend.save(png_path)
-            png_filename = os.path.basename(png_path)
+            from ganttpilot_gantt import render_gantt_segments
+            output_dir = os.path.dirname(path)
+            base_name = os.path.splitext(os.path.basename(path))[0] + "_gantt"
+            max_seg_days = self.config.get("max_segment_days", 90)
+            export_scale = self.config.get("export_scale", 2.0)
+            filenames = render_gantt_segments(
+                proj, self.lang, self.gantt_zoom,
+                max_segment_days=max_seg_days,
+                output_dir=output_dir,
+                base_name=base_name,
+                export_scale=export_scale,
+            )
+            if filenames:
+                png_filename = filenames if len(filenames) > 1 else filenames[0]
         except ImportError:
             png_filename = None
         except Exception as e:
@@ -3867,8 +3868,8 @@ class ConfigDialog:
             ("config_dir", t_func("config_dir"), config.config_dir),
             ("committer_name", t_func("committer_name"), config.get("committer_name", "")),
             ("committer_email", t_func("committer_email"), config.get("committer_email", "")),
-            ("compress_threshold", t_func("compress_threshold") if lang == "en" else "报告图片压缩阈值(天)", str(config.get("compress_threshold", 300))),
-            ("max_chart_width", t_func("max_chart_width") if lang == "en" else "报告图片最大宽度(px)", str(config.get("max_chart_width", 4000))),
+            ("max_segment_days", t_func("max_segment_days") if lang == "en" else "甘特图每段最大天数", str(config.get("max_segment_days", 90))),
+            ("export_scale", t_func("export_scale") if lang == "en" else "导出图片缩放倍数", str(config.get("export_scale", 2.0))),
             ("pull_interval", t_func("pull_interval"), str(config.get("pull_interval", 5))),
         ]
         path_fields = {"data_dir", "config_dir"}
@@ -4018,9 +4019,14 @@ class ConfigDialog:
     def _save(self):
         for key, entry in self.entries.items():
             val = entry.get().strip()
-            if key in ("compress_threshold", "max_chart_width", "pull_interval"):
+            if key in ("max_segment_days", "pull_interval"):
                 try:
                     val = int(val)
+                except ValueError:
+                    continue
+            elif key == "export_scale":
+                try:
+                    val = max(1.0, float(val))
                 except ValueError:
                     continue
             self.config.set(key, val)

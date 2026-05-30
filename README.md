@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.6.3-blue.svg)
+![Version](https://img.shields.io/badge/version-1.7.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -274,7 +274,7 @@ The Markdown report (detail mode) includes:
 10. **Hours by Plan** — per-plan breakdown with overtime/undertime for finished plans
 11. **Hours by Tag** — per-tag breakdown
 
-Long projects auto-compress the day width in report images (configurable threshold).
+Long projects are automatically split into multiple Gantt chart segments (configurable max days per segment), each rendered at a readable width.
 
 The default export filename includes `_summary` or `_detail` suffix based on the selected report type.
 
@@ -288,8 +288,8 @@ Toolbar → ⚙ opens the settings dialog:
 | Config Directory | Where configuration files are stored |
 | Committer Name | Global Git committer name (shared across all projects) |
 | Committer Email | Global Git committer email (shared across all projects) |
-| Compress Threshold | Days threshold for auto-compressing report Gantt images |
-| Max Chart Width | Maximum width in pixels for report images |
+| Max Segment Days | Max days per Gantt chart segment in reports (default: 90) |
+| Export Scale | Scale factor for exported PNG images (default: 2.0, higher = larger text) |
 | Pull Interval | Background remote check interval in minutes (default: 5) |
 | Shortcuts | Customize all keyboard shortcuts with conflict detection |
 
@@ -615,7 +615,7 @@ Markdown 报告（细节模式）包含：
 10. **按计划工时统计** — 每个计划的工时明细，已完结计划显示超出/少用
 11. **按标签工时统计** — 按标签分组的工时明细
 
-长周期项目会自动压缩报告图片的日宽度（可配置阈值）。
+长周期项目会自动将甘特图拆分为多段（可配置每段最大天数），每段以合适宽度渲染，确保文字清晰可读。
 
 导出报告时默认文件名根据报告类型添加 `_summary` 或 `_detail` 后缀。
 
@@ -629,8 +629,8 @@ Markdown 报告（细节模式）包含：
 | 本地配置路径 | 配置文件存储位置 |
 | 提交者名称 | 全局 Git 提交者名称（所有项目共享） |
 | 提交者邮箱 | 全局 Git 提交者邮箱（所有项目共享） |
-| 报告图片压缩阈值 | 超过此天数自动压缩甘特图日宽度 |
-| 报告图片最大宽度 | 报告图片最大像素宽度 |
+| 甘特图每段最大天数 | 报告甘特图每段的最大天数（默认 90） |
+| 导出图片缩放倍数 | 导出 PNG 图片的缩放倍数（默认 2.0，越大文字越清晰） |
 | 拉取间隔 | 后台远端检测间隔（分钟，默认 5） |
 | 快捷键配置 | 自定义所有键盘快捷键，支持冲突检测 |
 
