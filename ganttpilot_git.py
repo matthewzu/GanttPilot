@@ -13,13 +13,57 @@ Sync flow:
   NO auto-rebase — use manual_rebase() when needed.
 """
 
+import datetime
+import logging
 import os
 import re
 import subprocess
 import sys
+from logging.handlers import TimedRotatingFileHandler
 
 # Hide console window on Windows when calling git
 _SUBPROCESS_FLAGS = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+
+
+def _setup_git_logger(data_dir, max_days=30):
+    """Create a file logger for git operations, auto-cleaning logs older than max_days."""
+    log_dir = data_dir
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "git_sync.log")
+
+    logger = logging.getLogger(f"ganttpilot_git.{data_dir}")
+    if logger.handlers:
+        return logger
+
+    logger.setLevel(logging.DEBUG)
+    handler = TimedRotatingFileHandler(
+        log_path, when="D", interval=1, backupCount=max_days,
+        encoding="utf-8"
+    )
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    ))
+    logger.addHandler(handler)
+
+    # Clean up stale log files beyond max_days
+    _cleanup_old_logs(log_dir, max_days)
+    return logger
+
+
+def _cleanup_old_logs(log_dir, max_days):
+    """Remove git_sync.log.* files older than max_days."""
+    now = datetime.datetime.now()
+    cutoff = now - datetime.timedelta(days=max_days)
+    for name in os.listdir(log_dir):
+        if not name.startswith("git_sync.log."):
+            continue
+        filepath = os.path.join(log_dir, name)
+        try:
+            mtime = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
+            if mtime < cutoff:
+                os.remove(filepath)
+        except OSError:
+            pass
 
 
 class GitSync:
@@ -28,7 +72,7 @@ class GitSync:
     WORK_BRANCH = "priv"
 
     def __init__(self, data_dir, remote_url="", username="", password="", main_branch="main",
-                 committer_name="", committer_email="", priv_branch=""):
+                 committer_name="", committer_email="", priv_branch="", git_log_max_days=30):
         self.data_dir = data_dir
         self.remote_url = remote_url
         self.username = username
@@ -36,6 +80,7 @@ class GitSync:
         self.main_branch = main_branch or "main"
         self.committer_name = committer_name
         self.committer_email = committer_email
+        self._logger = _setup_git_logger(data_dir, max_days=git_log_max_days)
         if priv_branch:
             self.priv_branch = priv_branch
         elif committer_name:
@@ -91,6 +136,7 @@ class GitSync:
             for k, v in extra_config:
                 cmd += ["-c", f"{k}={v}"]
         cmd += list(args)
+        self._logger.debug("CMD: %s", " ".join(cmd))
         result = subprocess.run(
             cmd,
             cwd=self.data_dir,
@@ -101,8 +147,14 @@ class GitSync:
             timeout=60,
             creationflags=_SUBPROCESS_FLAGS,
         )
-        if check and result.returncode != 0:
-            raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+        if result.returncode != 0:
+            self._logger.warning("FAIL (rc=%d): %s | stderr: %s",
+                                 result.returncode, " ".join(args),
+                                 result.stderr.strip())
+            if check:
+                raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+        else:
+            self._logger.debug("OK: %s", " ".join(args))
         return result
 
     def _auth_url(self):
@@ -245,6 +297,7 @@ class GitSync:
             return False
 
         wb = self.priv_branch
+        self._logger.info("=== sync start === branch=%s remote=%s", wb, self.remote_url)
 
         # 1. Commit pending on priv_branch (only project.json)
         self._run("checkout", wb, check=False)
@@ -262,11 +315,18 @@ class GitSync:
         # 3. Push priv_branch to origin (fallback to credential helper on auth failure)
         try:
             self._run("push", "-u", "origin", wb)
-        except RuntimeError:
+            self._logger.info("=== sync OK (push succeeded) ===")
+        except RuntimeError as e:
+            self._logger.warning("push failed with embedded creds, retrying plain: %s", e)
             # Auth with embedded credentials failed; retry with plain URL
             # so that system credential helpers (e.g. Windows Credential Manager) can work.
             self._restore_plain_remote()
-            self._run("push", "-u", "origin", wb)
+            try:
+                self._run("push", "-u", "origin", wb)
+                self._logger.info("=== sync OK (push succeeded via plain remote) ===")
+            except RuntimeError as e2:
+                self._logger.error("=== sync FAILED: push error: %s ===", e2)
+                raise
         return True
 
     def fetch_remote(self):

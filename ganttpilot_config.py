@@ -21,6 +21,7 @@ DEFAULT_CONFIG = {
     "max_segment_days": 90,
     "export_scale": 2.0,
     "pull_interval": 5,
+    "git_log_max_days": 30,
     "mcp_enabled": False,
 }
 

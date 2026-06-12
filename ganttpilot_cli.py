@@ -29,6 +29,7 @@ class CLI:
             self.config.remote_url,
             self.config.remote_username,
             self.config.remote_password,
+            git_log_max_days=self.config.get("git_log_max_days", 30),
         )
         # Init data repo
         self.git.init_repo()

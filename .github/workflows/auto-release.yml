@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.8.0 / v1.8.0 新增
+          - 📝 Git sync log — all git operations (push/fetch/etc.) are logged to `git_sync.log` in the project data directory for troubleshooting / Git 操作日志 — 所有 git 命令记录到项目数据目录下的 `git_sync.log`，方便排查推送失败问题
+          - ⚙️ Git Log Retention Days config — configurable max days to keep logs (default: 30) / Git日志保留天数配置 — 可配置日志保留最大天数（默认 30）
+
           ### 🛠️ Fixed in v1.7.1 / v1.7.1 修复
           - Fix "Failed to load Python DLL _MEI*" error after update restart / 修复更新重启报错
             - Root cause: VBS restart script inherits _MEIPASS2 env var / VBS 脚本继承旧环境变量

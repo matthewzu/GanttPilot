@@ -842,6 +842,7 @@ class GanttPilotGUI:
             committer_name=committer_name,
             committer_email=committer_email,
             priv_branch=priv_branch,
+            git_log_max_days=self.config.get("git_log_max_days", 30),
         )
 
     # ── Widgets ──────────────────────────────────────────────
@@ -1999,7 +2000,8 @@ class GanttPilotGUI:
                              main_branch=remote_branch,
                              committer_name=committer_name,
                              committer_email=committer_email,
-                             priv_branch=priv_branch)
+                             priv_branch=priv_branch,
+                             git_log_max_days=self.config.get("git_log_max_days", 30))
                 gs.clone_repo(remote_url, tmp_dir, remote_branch)
                 # Read the actual project name from cloned project.json
                 pj_file = os.path.join(tmp_dir, "project.json")
@@ -2042,7 +2044,8 @@ class GanttPilotGUI:
                                      main_branch=remote_branch,
                                      committer_name=committer_name,
                                      committer_email=committer_email,
-                                     priv_branch=priv_branch)
+                                     priv_branch=priv_branch,
+                                     git_log_max_days=self.config.get("git_log_max_days", 30))
                     gs_tmp.init_repo()
                     gs_tmp.commit(f"Initialize project: {name}")
                 # Rename temp dir to the real project name
@@ -3917,6 +3920,7 @@ class ConfigDialog:
             ("max_segment_days", t_func("max_segment_days") if lang == "en" else "甘特图每段最大天数", str(config.get("max_segment_days", 90))),
             ("export_scale", t_func("export_scale") if lang == "en" else "导出图片缩放倍数", str(config.get("export_scale", 2.0))),
             ("pull_interval", t_func("pull_interval"), str(config.get("pull_interval", 5))),
+            ("git_log_max_days", t_func("git_log_max_days"), str(config.get("git_log_max_days", 30))),
         ]
         path_fields = {"data_dir", "config_dir"}
         self.entries = {}
@@ -4065,7 +4069,7 @@ class ConfigDialog:
     def _save(self):
         for key, entry in self.entries.items():
             val = entry.get().strip()
-            if key in ("max_segment_days", "pull_interval"):
+            if key in ("max_segment_days", "pull_interval", "git_log_max_days"):
                 try:
                     val = int(val)
                 except ValueError:
