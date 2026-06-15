@@ -31,6 +31,9 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.8.2 / v1.8.2 修复
+          - 🔢 Fix version number not bumped in v1.8.1 causing update detection failure / 修复版本号未更新导致检测不到更新
+
           ### ✨ New in v1.8.1 / v1.8.1 修复
           - 🔄 Fix update restart "Failed to load Python DLL" error — use isolated .cmd script with STARTUPINFO / 修复更新重启报错，改用独立脚本彻底清除环境变量
           - 🪟 Fix dialog focus freeze on Alt-Tab — all dialogs use deferred grab / 修复切换窗口后对话框卡死问题
