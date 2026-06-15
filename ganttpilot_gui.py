@@ -191,7 +191,7 @@ def _link_dialog(parent, title, message, link_text, link_url, ask=False, gui=Non
     dlg = tk.Toplevel(parent)
     dlg.title(title)
     dlg.transient(parent)
-    dlg.grab_set()
+    dlg.after(100, lambda: dlg.grab_set() if dlg.winfo_exists() else None)
     dlg.resizable(False, False)
 
     if gui:
@@ -738,29 +738,44 @@ class GanttPilotGUI:
             exe_path = sys.executable
         try:
             import subprocess
+            import tempfile
             env = os.environ.copy()
             env.pop('_MEIPASS2', None)
             env.pop('_MEIPASS', None)
 
             if sys.platform == "win32":
-                # Use PowerShell for a completely silent delay (no window flash).
-                # Explicitly clear _MEIPASS2 inside PowerShell before launching
-                # the new process to prevent DLL load errors.
-                ps_cmd = (
-                    f'powershell -WindowStyle Hidden -Command "'
-                    f'[Environment]::SetEnvironmentVariable(\'_MEIPASS2\', $null); '
-                    f'[Environment]::SetEnvironmentVariable(\'_MEIPASS\', $null); '
-                    f'$env:_MEIPASS2 = $null; '
-                    f'$env:_MEIPASS = $null; '
-                    f'Start-Sleep -Seconds 5; '
-                    f'Remove-Item -Force -ErrorAction SilentlyContinue \'{exe_path}.old\'; '
-                    f'Start-Process \'{exe_path}\'"'
-                )
+                # Write a .cmd restart script. Key points:
+                # 1. setlocal ensures env changes don't leak
+                # 2. Explicitly clear _MEIPASS2/_MEIPASS
+                # 3. Wait for current process to exit
+                # 4. Launch the new exe with a clean environment
+                current_pid = os.getpid()
+                script_path = os.path.join(tempfile.gettempdir(), "ganttpilot_restart.cmd")
+                with open(script_path, "w", encoding="utf-8") as f:
+                    f.write("@echo off\r\n")
+                    f.write("setlocal\r\n")
+                    f.write("set \"_MEIPASS2=\"\r\n")
+                    f.write("set \"_MEIPASS=\"\r\n")
+                    f.write(":wait\r\n")
+                    f.write(f'tasklist /FI "PID eq {current_pid}" 2>NUL | find /I "{current_pid}" >NUL\r\n')
+                    f.write("if not errorlevel 1 (\r\n")
+                    f.write("    timeout /t 1 /nobreak >NUL\r\n")
+                    f.write("    goto wait\r\n")
+                    f.write(")\r\n")
+                    f.write("timeout /t 2 /nobreak >NUL\r\n")
+                    f.write(f'del /f "{exe_path}.old" 2>NUL\r\n')
+                    f.write(f'start "" "{exe_path}"\r\n')
+                    f.write("endlocal\r\n")
+                    f.write(f'del /f "{script_path}" 2>NUL\r\n')
+                # Use STARTUPINFO to hide window instead of CREATE_NO_WINDOW
+                si = subprocess.STARTUPINFO()
+                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                si.wShowWindow = 0  # SW_HIDE
                 subprocess.Popen(
-                    ps_cmd,
-                    shell=True,
+                    [script_path],
                     env=env,
-                    creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
+                    startupinfo=si,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
                     close_fds=True
                 )
             elif sys.platform == "darwin":
@@ -843,6 +858,7 @@ class GanttPilotGUI:
             committer_email=committer_email,
             priv_branch=priv_branch,
             git_log_max_days=self.config.get("git_log_max_days", 30),
+            log_dir=self.config.config_dir,
         )
 
     # ── Widgets ──────────────────────────────────────────────
@@ -2001,7 +2017,8 @@ class GanttPilotGUI:
                              committer_name=committer_name,
                              committer_email=committer_email,
                              priv_branch=priv_branch,
-                             git_log_max_days=self.config.get("git_log_max_days", 30))
+                             git_log_max_days=self.config.get("git_log_max_days", 30),
+                             log_dir=self.config.config_dir)
                 gs.clone_repo(remote_url, tmp_dir, remote_branch)
                 # Read the actual project name from cloned project.json
                 pj_file = os.path.join(tmp_dir, "project.json")
@@ -2045,7 +2062,8 @@ class GanttPilotGUI:
                                      committer_name=committer_name,
                                      committer_email=committer_email,
                                      priv_branch=priv_branch,
-                                     git_log_max_days=self.config.get("git_log_max_days", 30))
+                                     git_log_max_days=self.config.get("git_log_max_days", 30),
+                                     log_dir=self.config.config_dir)
                     gs_tmp.init_repo()
                     gs_tmp.commit(f"Initialize project: {name}")
                 # Rename temp dir to the real project name
@@ -2477,7 +2495,7 @@ class GanttPilotGUI:
         dlg = tk.Toplevel(self.root)
         dlg.title(self._t("report_type_title"))
         dlg.transient(self.root)
-        dlg.grab_set()
+        dlg.after(100, lambda: dlg.grab_set() if dlg.winfo_exists() else None)
         dlg.resizable(False, False)
         result = {"mode": None}
 
@@ -3175,6 +3193,24 @@ class GanttPilotGUI:
         self.history_tree.heading("commit_author", text=self._t("commit_author"))
         self.history_tree.heading("commit_date", text=self._t("commit_date"))
         self.history_tree.heading("commit_message", text=self._t("commit_message"))
+        # Update toolbar tooltips
+        self._show_tooltip(self.undo_btn, self._tooltip_with_shortcut(self._t("undo"), "undo"))
+        self._show_tooltip(self.redo_btn, self._tooltip_with_shortcut(self._t("redo"), "redo"))
+        self._show_tooltip(self.tb_add_btn, self._tooltip_with_shortcut(self._t("add"), "add"))
+        self._show_tooltip(self.tb_edit_btn, self._tooltip_with_shortcut(self._t("edit"), "edit"))
+        self._show_tooltip(self.tb_view_btn, self._tooltip_with_shortcut(self._t("view"), "view"))
+        self._show_tooltip(self.tb_delete_btn, self._tooltip_with_shortcut(self._t("delete"), "delete"))
+        self._show_tooltip(self.tb_copy_btn, self._tooltip_with_shortcut(self._t("copy"), "copy"))
+        self._show_tooltip(self.tb_paste_btn, self._tooltip_with_shortcut(self._t("paste"), "paste"))
+        self._show_tooltip(self.tb_dup_btn, self._tooltip_with_shortcut(self._t("duplicate"), "duplicate"))
+        self._show_tooltip(self.tb_up_btn, self._tooltip_with_shortcut(self._t("move_up"), "move_up"))
+        self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
+        self._show_tooltip(self.update_check_btn, self._t("update_check"))
+        self._show_tooltip(self.help_btn, self._t("help"))
+        self._show_tooltip(self.config_btn, self._t("config"))
+        self._show_tooltip(self.mcp_btn, self._t("mcp_server"))
+        # Refresh tree (updates "需求分析"/"计划执行" category labels)
+        self.refresh_project_list()
         self.refresh_gantt()
 
     def increase_font(self):
@@ -3238,6 +3274,8 @@ class GanttPilotGUI:
             self._bg_check_interval_ms = pull_interval * 60 * 1000
 
     def show_help(self):
+        if self._has_active_dialog():
+            return
         help_body = self._t("help_text")
         footer = f"v{VERSION}  |  GitHub: https://github.com/{GITHUB_REPO}"
         text = help_body + footer
@@ -3247,9 +3285,16 @@ class GanttPilotGUI:
         dlg.title(self._t("help"))
         _center_dialog(dlg, self.root, 560, 520)
         dlg.transient(self.root)
-        dlg.grab_set()
+        self._active_dialog = dlg
         dlg.focus_set()
-        dlg.bind("<Escape>", lambda e: dlg.destroy())
+        dlg.after(100, lambda: dlg.grab_set() if dlg.winfo_exists() else None)
+
+        def _close():
+            self._active_dialog = None
+            dlg.destroy()
+
+        dlg.bind("<Escape>", lambda e: _close())
+        dlg.protocol("WM_DELETE_WINDOW", _close)
 
         # Clickable README link at top
         link_text = self._t("view_readme") + f"  ({readme_url})"
@@ -3269,7 +3314,7 @@ class GanttPilotGUI:
         txt.insert("1.0", text)
         txt.configure(state=tk.DISABLED)
 
-        ttk.Button(dlg, text="OK", command=dlg.destroy).pack(pady=(0, 8))
+        ttk.Button(dlg, text="OK", command=_close).pack(pady=(0, 8))
 
     # ── MCP Server management ───────────────────────────────
     def _start_mcp_server(self):
@@ -3553,11 +3598,17 @@ class GanttPilotGUI:
         return self.shortcut_manager.get_display_string(action_id)
 
     def _show_tooltip(self, widget, text):
+        widget._tooltip_text = text
+        if hasattr(widget, '_tooltip_bound'):
+            return  # Already bound, just update text
         def on_enter(event):
+            tip_text = getattr(widget, '_tooltip_text', '')
+            if not tip_text:
+                return
             tip = tk.Toplevel(widget)
             tip.wm_overrideredirect(True)
             tip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
-            lbl = tk.Label(tip, text=text, background="#ffffe0", relief=tk.SOLID, borderwidth=1, font=("", 9))
+            lbl = tk.Label(tip, text=tip_text, background="#ffffe0", relief=tk.SOLID, borderwidth=1, font=("", 9))
             lbl.pack()
             widget._tooltip = tip
         def on_leave(event):
@@ -3567,6 +3618,7 @@ class GanttPilotGUI:
                 widget._tooltip = None
         widget.bind("<Enter>", on_enter)
         widget.bind("<Leave>", on_leave)
+        widget._tooltip_bound = True
 
 
 # ── Dialogs ──────────────────────────────────────────────────
@@ -3579,8 +3631,8 @@ class PlanDialog:
         self.top.title(t_func("add") + " " + t_func("plan"))
         _center_dialog(self.top, parent, 420, 400)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
 
@@ -3666,8 +3718,8 @@ class PlanEditDialog:
         self.top.title("✏ " + t_func("plan"))
         _center_dialog(self.top, parent, 420, 400)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
 
@@ -3760,8 +3812,8 @@ class ActivityDialog:
         self.top.title(t_func("add") + " " + t_func("activity"))
         _center_dialog(self.top, parent, 420, 420)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
 
@@ -3907,8 +3959,8 @@ class ConfigDialog:
         self.top.title(t_func("config"))
         _center_dialog(self.top, parent, 620, 520)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
 
@@ -4121,8 +4173,8 @@ class ProjectEditDialog:
         self.top.title("✏ " + t_func("edit_project"))
         _center_dialog(self.top, parent, 480, 450)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(1, weight=1)
@@ -4212,8 +4264,8 @@ class MilestoneEditDialog:
         self.top.title("✏ " + t_func("edit_milestone"))
         _center_dialog(self.top, parent, 400, 250)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
 
         self.top.columnconfigure(1, weight=1)
@@ -4259,8 +4311,8 @@ class ActivityEditDialog:
         self.top.title("✏ " + t_func("edit_activity"))
         _center_dialog(self.top, parent, 420, 440)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
 
@@ -4396,8 +4448,8 @@ class ProjectGitConfigDialog:
         self.top.title("🔗 " + t_func("git_config"))
         _center_dialog(self.top, parent, 560, 380)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
 
@@ -4518,8 +4570,8 @@ class ProjectCreateDialog:
         self.top.title(t_func("add") + " " + t_func("project"))
         _center_dialog(self.top, parent, 450, 200)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
 
         # ── Mode state variable ──
@@ -4828,8 +4880,8 @@ class MilestoneCreateDialog:
         self.top.title(t_func("add") + " " + t_func("milestone"))
         _center_dialog(self.top, parent, 450, 280)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
 
         self.top.columnconfigure(1, weight=1)
@@ -4876,8 +4928,8 @@ class RequirementDialog:
         self.top.title(t_func("add_requirement"))
         _center_dialog(self.top, parent, 420, 280)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(2, weight=1)
@@ -4923,8 +4975,8 @@ class RequirementEditDialog:
         self.top.title(t_func("edit_requirement"))
         _center_dialog(self.top, parent, 420, 280)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(2, weight=1)
@@ -4973,8 +5025,8 @@ class TaskDialog:
         self.top.title(t_func("add_task"))
         _center_dialog(self.top, parent, 420, 280)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(2, weight=1)
@@ -5029,8 +5081,8 @@ class TaskEditDialog:
         self.top.title(t_func("edit_task"))
         _center_dialog(self.top, parent, 420, 280)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
         self.top.rowconfigure(2, weight=1)
@@ -5087,8 +5139,8 @@ class ProgressDialog:
         self.top.title(t_func("set_progress"))
         _center_dialog(self.top, parent, 350, 130)
         self.top.transient(parent)
-        self.top.grab_set()
         self.top.focus_set()
+        self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
 

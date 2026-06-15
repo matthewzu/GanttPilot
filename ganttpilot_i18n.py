@@ -140,7 +140,7 @@ TEXTS = {
         "sync_pr_hint": "已推送到 {}，请在远端创建 PR: {} → {}",
         "bg_check_interval": "后台检查间隔(分钟)",
         "pull_interval": "拉取间隔(分钟)",
-        "git_log_max_days": "Git日志保留天数",
+        "git_log_max_days": "日志保留天数",
         "main_update_detected": "检测到主线更新，请及时同步",
         "project_tags": "项目标签",
         "project_tags_hint": "逗号分隔，如: 前端,后端,测试",
@@ -275,6 +275,7 @@ TEXTS = {
         "undertime": "少用",
         "help_text": (
             "GanttPilot - 协作式项目管理器\n\n"
+            "【日志路径】操作日志: 本地配置路径/ganttpilot.log\n\n"
             "【快速上手】\n"
             "1. 空白处右键 → 添加项目（或加载示例体验）\n"
             "2. 展开「需求分析」→ 添加需求 → 拆解为任务\n"
@@ -322,7 +323,7 @@ TEXTS = {
             "• 拉取后自动更新本地 main，提示 rebase（变基后自动推送）\n"
             "• 项目右键 → 同步主线：手动将私有分支变基到最新 main\n"
             "• 私有分支名不能为 \"priv\" 或与主分支同名\n"
-            "• 推送失败排查：查看数据目录下 git_sync.log 日志文件\n\n"
+            "• 推送失败排查：查看数据目录下 ganttpilot.log 日志文件\n\n"
             "【提交者信息】创建项目时必须\n"
             "• 获取顺序：手动输入 → 全局配置(⚙) → 系统 git config\n"
             "• 全部获取不到则阻止创建，请先配置\n\n"
@@ -529,7 +530,7 @@ TEXTS = {
         "sync_pr_hint": "Pushed to {}, please create PR: {} → {}",
         "bg_check_interval": "Background Check Interval (min)",
         "pull_interval": "Pull Interval (min)",
-        "git_log_max_days": "Git Log Retention Days",
+        "git_log_max_days": "Log Retention Days",
         "main_update_detected": "Main branch has updates, please sync",
         "project_tags": "Project Tags",
         "project_tags_hint": "Comma separated, e.g.: frontend,backend,test",
@@ -664,6 +665,7 @@ TEXTS = {
         "undertime": "Undertime",
         "help_text": (
             "GanttPilot - Collaborative Project Manager\n\n"
+            "[Log Path] Application log: <Config Directory>/ganttpilot.log\n\n"
             "[Quick Start]\n"
             "1. Right-click empty area → Add Project (or Load Example)\n"
             "2. Expand Requirement Analysis → Add requirements → Break into tasks\n"
@@ -711,7 +713,7 @@ TEXTS = {
             "• Pull auto-updates local main, prompts rebase (auto-pushes after)\n"
             "• Right-click project → Sync Main: manually rebase to latest main\n"
             "• Private branch name cannot be \"priv\" or same as main\n"
-            "• Push troubleshooting: check git_sync.log in project data directory\n\n"
+            "• Push troubleshooting: check ganttpilot.log in config directory\n\n"
             "[Committer Info] Required when creating a project\n"
             "• Fallback order: manual input → global config(⚙) → system git config\n"
             "• Blocks creation if none found; configure first\n\n"

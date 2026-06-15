@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.8.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.8.1-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -253,9 +253,9 @@ After rebase, the remote tracking branch is automatically updated — no manual 
 - A periodic background check (default: every 5 minutes, configurable) detects remote updates
 - On exit, a dialog prompts whether to push your private branch to remote
 
-#### Troubleshooting (Git Sync Log)
+#### Troubleshooting (Sync Log)
 
-If push/pull operations fail intermittently, check the log file at `~/.ganttpilot/data/{project_name}/git_sync.log`. It records every git command with timestamps, success/failure status, and stderr output. Log files are automatically rotated daily and cleaned up after the configured retention period (default: 30 days, adjustable in Settings → Git Log Retention Days).
+If push/pull operations fail intermittently, check the log file at `~/.ganttpilot/ganttpilot.log`. It records important operations with timestamps, success/failure status, and error details. Log files are automatically rotated daily and cleaned up after the configured retention period (default: 30 days, adjustable in Settings → Log Retention Days).
 
 ### Reports
 
@@ -295,7 +295,7 @@ Toolbar → ⚙ opens the settings dialog:
 | Max Segment Days | Max days per Gantt chart segment in reports (default: 90) |
 | Export Scale | Scale factor for exported PNG images (default: 2.0, higher = larger text) |
 | Pull Interval | Background remote check interval in minutes (default: 5) |
-| Git Log Retention Days | Max days to keep git operation logs (default: 30) |
+| Log Retention Days | Max days to keep operation logs (default: 30) |
 | Shortcuts | Customize all keyboard shortcuts with conflict detection |
 
 Language is toggled via the `EN/中` toolbar button. Font size is adjusted via `A+`/`A-` toolbar buttons.
@@ -601,7 +601,7 @@ python main.py --version    # 显示版本
 
 #### 排查问题（Git 同步日志）
 
-如果推送/拉取操作偶尔失败，可查看日志文件 `~/.ganttpilot/data/{项目名}/git_sync.log`。日志记录每条 git 命令的时间戳、成功/失败状态和 stderr 输出。日志文件按天轮转，超过配置的保留天数后自动清理（默认 30 天，可在设置 → Git日志保留天数中调整）。
+如果推送/拉取操作偶尔失败，可查看日志文件 `~/.ganttpilot/ganttpilot.log`。日志记录重要操作的时间戳、成功/失败状态和错误详情。日志文件按天轮转，超过配置的保留天数后自动清理（默认 30 天，可在设置 → 日志保留天数中调整）。
 
 ### 报告
 
@@ -641,7 +641,7 @@ Markdown 报告（细节模式）包含：
 | 甘特图每段最大天数 | 报告甘特图每段的最大天数（默认 90） |
 | 导出图片缩放倍数 | 导出 PNG 图片的缩放倍数（默认 2.0，越大文字越清晰） |
 | 拉取间隔 | 后台远端检测间隔（分钟，默认 5） |
-| Git日志保留天数 | Git 操作日志保留的最大天数（默认 30），超期自动清理 |
+| 日志保留天数 | 操作日志保留的最大天数（默认 30），超期自动清理 |
 | 快捷键配置 | 自定义所有键盘快捷键，支持冲突检测 |
 
 语言通过工具栏 `EN/中` 按钮切换。字体大小通过 `A+`/`A-` 按钮调整。

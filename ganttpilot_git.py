@@ -25,13 +25,17 @@ from logging.handlers import TimedRotatingFileHandler
 _SUBPROCESS_FLAGS = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 
-def _setup_git_logger(data_dir, max_days=30):
-    """Create a file logger for git operations, auto-cleaning logs older than max_days."""
-    log_dir = data_dir
+def _setup_app_logger(log_dir, max_days=30):
+    """Create a file logger for application operations, auto-cleaning logs older than max_days.
+    
+    Args:
+        log_dir: Directory where ganttpilot.log will be stored (typically config_dir root).
+        max_days: Max days to keep rotated log files.
+    """
     os.makedirs(log_dir, exist_ok=True)
-    log_path = os.path.join(log_dir, "git_sync.log")
+    log_path = os.path.join(log_dir, "ganttpilot.log")
 
-    logger = logging.getLogger(f"ganttpilot_git.{data_dir}")
+    logger = logging.getLogger("ganttpilot")
     if logger.handlers:
         return logger
 
@@ -51,11 +55,11 @@ def _setup_git_logger(data_dir, max_days=30):
 
 
 def _cleanup_old_logs(log_dir, max_days):
-    """Remove git_sync.log.* files older than max_days."""
+    """Remove ganttpilot.log.* files older than max_days."""
     now = datetime.datetime.now()
     cutoff = now - datetime.timedelta(days=max_days)
     for name in os.listdir(log_dir):
-        if not name.startswith("git_sync.log."):
+        if not name.startswith("ganttpilot.log."):
             continue
         filepath = os.path.join(log_dir, name)
         try:
@@ -72,7 +76,8 @@ class GitSync:
     WORK_BRANCH = "priv"
 
     def __init__(self, data_dir, remote_url="", username="", password="", main_branch="main",
-                 committer_name="", committer_email="", priv_branch="", git_log_max_days=30):
+                 committer_name="", committer_email="", priv_branch="", git_log_max_days=30,
+                 log_dir=""):
         self.data_dir = data_dir
         self.remote_url = remote_url
         self.username = username
@@ -80,7 +85,7 @@ class GitSync:
         self.main_branch = main_branch or "main"
         self.committer_name = committer_name
         self.committer_email = committer_email
-        self._logger = _setup_git_logger(data_dir, max_days=git_log_max_days)
+        self._logger = _setup_app_logger(log_dir or data_dir, max_days=git_log_max_days)
         if priv_branch:
             self.priv_branch = priv_branch
         elif committer_name:
