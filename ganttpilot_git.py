@@ -310,7 +310,7 @@ class GitSync:
         status = self._run("status", "--porcelain", check=False)
         if status.stdout.strip():
             self._run("commit", "-m", "Auto-commit before sync",
-                      extra_config=self._committer_config())
+                      extra_config=self._committer_config(), check=False)
 
         # 2. Configure remote, fetch
         self._ensure_remote()

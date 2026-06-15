@@ -31,6 +31,9 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.8.3 / v1.8.3 修复
+          - 🔄 Fix sync getting stuck when commit has nothing to commit — commit failure no longer aborts the sync flow / 修复同步时因无实际变更 commit 失败导致推送卡住的问题
+
           ### ✨ New in v1.8.2 / v1.8.2 修复
           - 🔢 Fix version number not bumped in v1.8.1 causing update detection failure / 修复版本号未更新导致检测不到更新
 
