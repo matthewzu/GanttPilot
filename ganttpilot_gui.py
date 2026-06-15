@@ -742,6 +742,11 @@ class GanttPilotGUI:
             env = os.environ.copy()
             env.pop('_MEIPASS2', None)
             env.pop('_MEIPASS', None)
+            # Remove any PyInstaller _MEI temp directories from PATH
+            if 'PATH' in env:
+                paths = env['PATH'].split(os.pathsep)
+                paths = [p for p in paths if '_MEI' not in p]
+                env['PATH'] = os.pathsep.join(paths)
 
             if sys.platform == "win32":
                 # Write a .cmd restart script. Key points:
@@ -764,7 +769,7 @@ class GanttPilotGUI:
                     f.write(")\r\n")
                     f.write("timeout /t 2 /nobreak >NUL\r\n")
                     f.write(f'del /f "{exe_path}.old" 2>NUL\r\n')
-                    f.write(f'start "" "{exe_path}"\r\n')
+                    f.write(f'start /I "" "{exe_path}"\r\n')
                     f.write("endlocal\r\n")
                     f.write(f'del /f "{script_path}" 2>NUL\r\n')
                 # Use STARTUPINFO to hide window instead of CREATE_NO_WINDOW

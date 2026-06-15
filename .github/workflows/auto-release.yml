@@ -31,6 +31,9 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.8.4 / v1.8.4 修复
+          - 🔄 Fix update restart "Failed to load Python DLL" once and for all — clean _MEI paths from PATH env and use `start /I` for fresh environment / 彻底修复更新重启 DLL 加载失败，清除 PATH 中 _MEI 路径并用 start /I 启动新进程
+
           ### ✨ New in v1.8.3 / v1.8.3 修复
           - 🔄 Fix sync getting stuck when commit has nothing to commit — commit failure no longer aborts the sync flow / 修复同步时因无实际变更 commit 失败导致推送卡住的问题
 
