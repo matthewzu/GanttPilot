@@ -170,8 +170,25 @@ class DataStore:
     # ── Persistence ──────────────────────────────────────────
 
     def _is_split_format(self, proj_dir):
-        """Return True if the project directory uses the v2 split layout."""
-        return os.path.isdir(os.path.join(proj_dir, self._SPLIT_MARKER_DIR))
+        """Return True if the project directory uses the v2 split layout.
+
+        Checks both that milestones/ dir exists AND that project.json
+        no longer contains inline milestones data (guards against partial migration).
+        """
+        ms_dir = os.path.join(proj_dir, self._SPLIT_MARKER_DIR)
+        if not os.path.isdir(ms_dir):
+            return False
+        # Verify project.json doesn't still have inline milestones
+        proj_file = os.path.join(proj_dir, "project.json")
+        if not os.path.isfile(proj_file):
+            return False
+        try:
+            with open(proj_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # If project.json still has a "milestones" list, it's not fully migrated
+            return "milestones" not in data
+        except (json.JSONDecodeError, IOError):
+            return os.listdir(ms_dir) != []  # fallback: non-empty milestones dir
 
     def load(self):
         os.makedirs(self.data_dir, exist_ok=True)

@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.9.2 / v1.9.2 修复
+
+          - 🔧 **Fix "Upgrade Main Format" not showing after failed attempt** — Detect partial migration residue (empty milestones/ dir) and still show the menu item / **修复失败后菜单项消失** — 检测残留的空目录，正确判断是否已迁移
+
           ### ✨ New in v1.9.1 / v1.9.1 修复
 
           - 🔧 **Fix migration prompt for remote projects** — No longer prompts on startup for collaborative projects; auto-migrates on rebase instead / **修复远程项目启动提示** — 多人协作项目不再弹窗，变基时自动迁移

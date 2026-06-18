@@ -1825,7 +1825,17 @@ class GanttPilotGUI:
         if not proj or not proj.get("remote_url"):
             return False
         proj_dir = os.path.join(self.store.data_dir, proj["name"])
-        return not self.store._is_split_format(proj_dir)
+        # Check if project.json still has inline milestones (old format)
+        proj_file = os.path.join(proj_dir, "project.json")
+        if not os.path.isfile(proj_file):
+            return False
+        try:
+            with open(proj_file, "r", encoding="utf-8") as f:
+                on_disk = json.load(f)
+            # If project.json has "milestones" key with data, it's old format
+            return bool(on_disk.get("milestones"))
+        except (json.JSONDecodeError, IOError):
+            return False
 
     def _on_migrate_main_done(self):
         """Callback after successful migrate-and-push-main."""
