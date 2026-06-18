@@ -31,6 +31,13 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.9.1 / v1.9.1 修复
+
+          - 🔧 **Fix migration prompt for remote projects** — No longer prompts on startup for collaborative projects; auto-migrates on rebase instead / **修复远程项目启动提示** — 多人协作项目不再弹窗，变基时自动迁移
+          - 🔧 **Fix "Upgrade Main Format" error** — Perform migration directly on main branch instead of cherry-pick, avoiding conflicts / **修复升级主线格式报错** — 直接在主分支上执行迁移，避免冲突
+          - 🔧 **Fix error on restart after failed migration** — Robust error handling for partial/corrupt split data / **修复迁移失败后重启报错** — 增强容错处理
+          - 🔧 **Fix error when cancelling rebase prompt** — Fix lambda closure issue in error handler / **修复取消变基提示时报错**
+
           ### ✨ New in v1.9.0 / v1.9.0 新增
 
           - 📂 **v2 Fully-Split Storage Format** — Project data split into independent files (requirements, milestones, activities each in their own file), dramatically reducing Git merge conflicts in team collaboration / **v2 完全拆分存储格式** — 数据拆分为独立文件，大幅减少协作冲突
