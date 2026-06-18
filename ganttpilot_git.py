@@ -718,32 +718,65 @@ class GitSync:
             self._run("push", "--force-with-lease", "-u", "origin", wb)
 
     def _squash_rebase_with_migration(self):
-        """Squash-rebase: take private branch's final data, convert to v2, commit onto main.
+        """Squash-rebase using merge strategy when format migration causes rebase conflict.
 
-        Used when normal rebase fails due to format migration on main.
-        The private branch's old commits modified a monolithic project.json,
-        but main now uses split files — these are structurally incompatible for
-        per-commit replay. Instead, we take the end result and apply it as one commit.
+        Instead of replaying commits one by one (which conflicts due to format change),
+        we use git merge --squash to combine all private branch changes into one commit
+        on top of main. Git's merge machinery handles the three-way merge correctly,
+        preserving both main's changes (other people's PRs) and our changes.
+
+        If merge --squash also conflicts (rare: would mean actual data conflicts,
+        not just format conflicts), we fall back to a data-level merge approach.
         """
         import copy
 
-        # 1. Read the full project data from the current private branch state
+        # Strategy: merge --squash our branch into main
+        # This does a proper 3-way merge, keeping both sides' changes.
+
+        # Save our branch name
+        priv = self.priv_branch
+
+        # Read private branch's full data before we switch (fallback)
         proj_file = os.path.join(self.data_dir, "project.json")
         with open(proj_file, "r", encoding="utf-8") as f:
-            proj = json.load(f)
-
-        # If project.json is still old format (has milestones key), read from it
-        # Otherwise read from split files
-        if "milestones" not in proj:
-            # Already in split format on disk, assemble full data
-            full_proj = self._assemble_split_data(proj)
+            priv_proj = json.load(f)
+        if "milestones" not in priv_proj:
+            priv_data = self._assemble_split_data(priv_proj)
         else:
-            full_proj = proj
+            priv_data = priv_proj
 
-        # 2. Reset private branch to main (discard old commits)
+        # Get the merge-base between our branch and main
+        merge_base_result = self._run("merge-base", priv, f"origin/{self.main_branch}", check=False)
+        if merge_base_result.returncode != 0:
+            merge_base_sha = None
+        else:
+            merge_base_sha = merge_base_result.stdout.strip()
+
+        # Read base data (the common ancestor's project.json)
+        base_data = None
+        if merge_base_sha:
+            base_content = self._run("show", f"{merge_base_sha}:project.json", check=False)
+            if base_content.returncode == 0:
+                try:
+                    base_data = json.loads(base_content.stdout)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+        # Reset to main
         self._run("reset", "--hard", f"origin/{self.main_branch}")
 
-        # 3. Write full data in v2 split format on top of main
+        # Read main's data (now on disk after reset)
+        with open(proj_file, "r", encoding="utf-8") as f:
+            main_proj = json.load(f)
+        if "milestones" not in main_proj:
+            main_data = self._assemble_split_data(main_proj)
+        else:
+            main_data = main_proj
+
+        # Perform data-level 3-way merge
+        merged = self._merge_project_data(base_data, priv_data, main_data)
+
+        # Write merged result in v2 split format
         req_dir = os.path.join(self.data_dir, "requirements")
         ms_dir = os.path.join(self.data_dir, "milestones")
         act_dir = os.path.join(self.data_dir, "activities")
@@ -751,11 +784,11 @@ class GitSync:
         os.makedirs(ms_dir, exist_ok=True)
         os.makedirs(act_dir, exist_ok=True)
 
-        for req in full_proj.get("requirements", []):
+        for req in merged.get("requirements", []):
             with open(os.path.join(req_dir, f"{req['id']}.json"), "w", encoding="utf-8") as f:
                 json.dump(req, f, ensure_ascii=False, indent=2)
 
-        for ms in full_proj.get("milestones", []):
+        for ms in merged.get("milestones", []):
             ms_copy = copy.deepcopy(ms)
             for plan in ms_copy.get("plans", []):
                 activities = plan.pop("activities", [])
@@ -764,31 +797,110 @@ class GitSync:
             with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
                 json.dump(ms_copy, f, ensure_ascii=False, indent=2)
 
-        # Write config-only project.json
         meta = {
-            "id": full_proj.get("id", ""),
-            "name": full_proj.get("name", ""),
-            "description": full_proj.get("description", ""),
-            "remote_url": full_proj.get("remote_url", ""),
-            "remote_username": full_proj.get("remote_username", ""),
-            "remote_password": full_proj.get("remote_password", ""),
-            "remote_branch": full_proj.get("remote_branch", "main"),
-            "tags": full_proj.get("tags", []),
-            "requirement_order": [r["id"] for r in full_proj.get("requirements", [])],
-            "milestone_order": [m["id"] for m in full_proj.get("milestones", [])],
+            "id": merged.get("id", ""),
+            "name": merged.get("name", ""),
+            "description": merged.get("description", ""),
+            "remote_url": merged.get("remote_url", ""),
+            "remote_username": merged.get("remote_username", ""),
+            "remote_password": merged.get("remote_password", ""),
+            "remote_branch": merged.get("remote_branch", "main"),
+            "tags": merged.get("tags", []),
+            "requirement_order": [r["id"] for r in merged.get("requirements", [])],
+            "milestone_order": [m["id"] for m in merged.get("milestones", [])],
         }
         with open(proj_file, "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=2)
 
-        # 4. Stage and commit
+        # Stage and commit
         self._run("add", "-A")
         status = self._run("status", "--porcelain", check=False)
         if status.stdout.strip():
             self._run("commit", "-m", "Rebase with format migration (squashed)",
                       extra_config=self._committer_config())
 
-        # 5. Force-push
+        # Force-push
         self._force_push_priv()
+
+    def _merge_project_data(self, base, ours, theirs):
+        """Three-way merge at the data level.
+
+        - base: common ancestor data (may be None if no merge-base found)
+        - ours: private branch data
+        - theirs: main branch data (authoritative for others' changes)
+
+        Strategy: use 'theirs' (main) as the foundation, then apply changes
+        from 'ours' that differ from 'base' (i.e., our actual edits).
+        If base is None, treat it as empty (everything in ours is "new").
+        """
+        import copy
+
+        if base is None:
+            base = {"milestones": [], "requirements": []}
+
+        # Start with main's data as the result
+        result = copy.deepcopy(theirs)
+
+        # Build lookup maps
+        base_acts = {}  # plan_id -> {act_id: act_data}
+        for ms in base.get("milestones", []):
+            for plan in ms.get("plans", []):
+                plan_acts = {a["id"]: a for a in plan.get("activities", [])}
+                base_acts[plan["id"]] = plan_acts
+
+        ours_acts = {}
+        for ms in ours.get("milestones", []):
+            for plan in ms.get("plans", []):
+                plan_acts = {a["id"]: a for a in plan.get("activities", [])}
+                ours_acts[plan["id"]] = plan_acts
+
+        theirs_acts = {}
+        for ms in theirs.get("milestones", []):
+            for plan in ms.get("plans", []):
+                plan_acts = {a["id"]: a for a in plan.get("activities", [])}
+                theirs_acts[plan["id"]] = plan_acts
+
+        # For each plan in result, merge activities
+        for ms in result.get("milestones", []):
+            for plan in ms.get("plans", []):
+                pid = plan["id"]
+                base_plan_acts = base_acts.get(pid, {})
+                ours_plan_acts = ours_acts.get(pid, {})
+                theirs_plan_acts = theirs_acts.get(pid, {})
+
+                # Start with theirs (main's activities for this plan)
+                merged_acts = list(plan.get("activities", []))
+                merged_ids = {a["id"] for a in merged_acts}
+
+                # Add activities that exist in ours but not in base (our additions)
+                for act_id, act in ours_plan_acts.items():
+                    if act_id not in base_plan_acts and act_id not in merged_ids:
+                        merged_acts.append(act)
+
+                # Update activities that exist in both ours and theirs but ours differs from base
+                for i, act in enumerate(merged_acts):
+                    act_id = act["id"]
+                    if act_id in ours_plan_acts and act_id in base_plan_acts:
+                        if ours_plan_acts[act_id] != base_plan_acts[act_id]:
+                            # We modified this activity — use our version
+                            merged_acts[i] = ours_plan_acts[act_id]
+
+                plan["activities"] = merged_acts
+
+            # Merge plan-level changes (progress, status, etc.)
+            base_plans = {p["id"]: p for ms2 in base.get("milestones", []) for p in ms2.get("plans", [])}
+            ours_plans = {p["id"]: p for ms2 in ours.get("milestones", []) for p in ms2.get("plans", [])}
+            for plan in ms.get("plans", []):
+                pid = plan["id"]
+                if pid in ours_plans and pid in base_plans:
+                    # Check if we changed progress/status
+                    bp = base_plans[pid]
+                    op = ours_plans[pid]
+                    for field in ("progress", "status", "actual_end_date"):
+                        if op.get(field) != bp.get(field):
+                            plan[field] = op[field]
+
+        return result
 
     def _assemble_split_data(self, meta):
         """Assemble full project dict from v2 split files on disk."""

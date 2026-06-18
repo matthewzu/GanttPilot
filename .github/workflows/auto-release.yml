@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.9.4 / v1.9.4 修复
+
+          - 🔀 **Fix data loss in squash-rebase** — Previous squash-rebase overwrote main's data with private branch data, losing other members' PR contributions. Now uses three-way data merge: main as base, apply only our actual changes (additions/edits relative to merge-base) / **修复 squash-rebase 数据丢失** — 旧逻辑用私有分支数据覆盖主线，丢失他人 PR 内容。改为三方数据合并：以主线为基础，仅应用相对于共同祖先的实际变更
+
           ### ✨ New in v1.9.3 / v1.9.3 修复
 
           - 🔀 **Squash-rebase for format migration** — When normal rebase fails due to format migration on main, automatically falls back to squash strategy: takes private branch's final data, converts to v2 format, commits as one on top of main. No manual conflict resolution needed / **格式迁移自动 squash-rebase** — 变基因格式差异冲突时自动采用 squash 策略，取私有分支最终数据转为 v2 格式提交，无需手动解决冲突
