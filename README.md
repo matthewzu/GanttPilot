@@ -89,6 +89,16 @@ On disk, each project is stored as split files to minimize Git merge conflicts:
 
 Two people editing different requirements, milestones, or plans will never conflict — they touch different files. The maintainer upgrades the format via right-click → "Upgrade Main Format"; team members auto-migrate on rebase.
 
+#### Format Migration
+
+Projects created with older versions use a single-file format. To upgrade a collaborative project:
+
+1. **Maintainer**: right-click the project → "Upgrade Main Format" → confirm
+   - This migrates data, commits to main, and pushes to remote
+2. **Team members**: next time they "Sync Main" (rebase), local data auto-migrates — no manual action needed
+
+For local-only projects (no remote), a dialog prompts on startup offering one-click migration.
+
 #### Typical Workflow
 
 1. **Create a project** — right-click empty area → Add Project (or clone from a remote repo)
@@ -144,7 +154,7 @@ Right-click is the primary way to access all operations. What you see depends on
 | Right-click on | Available actions |
 | --- | --- |
 | Empty area | Add Project, Load Example, Push, Pull, Refresh |
-| Project | View, Edit, Git Config, Copy, Duplicate, Generate Report, Push, Pull, Sync Main, Refresh, Delete |
+| Project | View, Edit, Git Config, Copy, Duplicate, Generate Report, Push, Pull, Sync Main, Upgrade Main Format, Refresh, Delete |
 | Requirement Analysis | Add Requirement, Paste |
 | Requirement | View, Add Task, Edit, Copy, Cut, Paste, Duplicate, Move Up/Down, Delete |
 | Task | View, Edit, Copy, Cut, Duplicate, Move Up/Down, Delete |
@@ -454,6 +464,16 @@ python main.py --version    # 显示版本
 
 两人编辑不同需求、里程碑或计划时修改的是不同文件，不会产生冲突。维护者通过右键 → "升级主线格式"一键推送新格式到主线，其他成员变基时自动迁移。
 
+#### 格式迁移
+
+旧版本创建的项目使用单文件格式。升级协作项目的步骤：
+
+1. **维护者**：右键项目 → "升级主线格式" → 确认
+   - 自动迁移数据、提交到主分支并推送到远端
+2. **其他成员**：下次"同步主线"（变基）时本地数据自动迁移，无需任何手动操作
+
+对于本地项目（无远端仓库），启动时会弹窗提示一键迁移。
+
 #### 典型工作流程
 
 1. **创建项目** — 空白处右键 → 添加项目（或从远端仓库克隆）
@@ -507,7 +527,7 @@ python main.py --version    # 显示版本
 | 右键点击 | 可用操作 |
 | --- | --- |
 | 空白处 | 添加项目、加载示例、推送、拉取、刷新 |
-| 项目 | 编辑、Git 配置、复制、克隆、生成报告、推送、拉取、同步主线、刷新、删除 |
+| 项目 | 编辑、Git 配置、复制、克隆、生成报告、推送、拉取、同步主线、升级主线格式、刷新、删除 |
 | 需求分析 | 添加需求、粘贴 |
 | 需求 | 添加任务、编辑、复制、剪切、粘贴、克隆、上移/下移、删除 |
 | 任务 | 编辑、复制、剪切、克隆、上移/下移、删除 |
