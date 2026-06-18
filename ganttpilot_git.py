@@ -776,94 +776,40 @@ class GitSync:
         """Maintainer tool: migrate to v2 split format and push to main.
 
         Flow:
-          1. Ensure local data is migrated to v2 split format
-          2. Commit the migration on the current private branch
-          3. Checkout main, cherry-pick the migration commit, push to origin
-          4. Switch back to private branch and rebase onto new main
+          1. Fetch and update local main
+          2. Checkout main branch
+          3. Perform migration directly on main
+          4. Commit and push main
+          5. Switch back to private branch and rebase onto new main
 
         Raises:
-            RuntimeError: if push fails or main branch is not up to date
+            RuntimeError: if push fails
         """
         if not self.is_repo():
             raise RuntimeError("Not a git repository")
 
-        # Ensure we're on priv branch with clean state
+        # Ensure private branch is clean
         self._run("checkout", self.priv_branch, check=False)
+        self._run("add", "-A", check=False)
+        status = self._run("status", "--porcelain", check=False)
+        if status.stdout.strip():
+            self._run("commit", "-m", "Auto-commit before format migration",
+                      extra_config=self._committer_config(), check=False)
 
-        # Migrate local data if not already done
-        milestones_dir = os.path.join(self.data_dir, "milestones")
-        if not os.path.isdir(milestones_dir):
-            proj_file = os.path.join(self.data_dir, "project.json")
-            if not os.path.isfile(proj_file):
-                raise RuntimeError("project.json not found")
-            try:
-                with open(proj_file, "r", encoding="utf-8") as f:
-                    proj = json.load(f)
-            except (json.JSONDecodeError, IOError) as e:
-                raise RuntimeError(f"Cannot read project.json: {e}")
-
-            import copy
-
-            req_dir = os.path.join(self.data_dir, "requirements")
-            ms_dir = milestones_dir
-            act_dir = os.path.join(self.data_dir, "activities")
-            os.makedirs(req_dir, exist_ok=True)
-            os.makedirs(ms_dir, exist_ok=True)
-            os.makedirs(act_dir, exist_ok=True)
-
-            # Write requirements
-            for req in proj.get("requirements", []):
-                with open(os.path.join(req_dir, f"{req['id']}.json"), "w", encoding="utf-8") as f:
-                    json.dump(req, f, ensure_ascii=False, indent=2)
-
-            # Write milestones + activities
-            for ms in proj.get("milestones", []):
-                ms_copy = copy.deepcopy(ms)
-                for plan in ms_copy.get("plans", []):
-                    activities = plan.pop("activities", [])
-                    with open(os.path.join(act_dir, f"{plan['id']}.json"), "w", encoding="utf-8") as f:
-                        json.dump(activities, f, ensure_ascii=False, indent=2)
-                with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
-                    json.dump(ms_copy, f, ensure_ascii=False, indent=2)
-
-            # Write config-only project.json
-            meta = {
-                "id": proj.get("id", ""),
-                "name": proj.get("name", ""),
-                "description": proj.get("description", ""),
-                "remote_url": proj.get("remote_url", ""),
-                "remote_username": proj.get("remote_username", ""),
-                "remote_password": proj.get("remote_password", ""),
-                "remote_branch": proj.get("remote_branch", "main"),
-                "tags": proj.get("tags", []),
-                "requirement_order": [r["id"] for r in proj.get("requirements", [])],
-                "milestone_order": [m["id"] for m in proj.get("milestones", [])],
-            }
-            with open(proj_file, "w", encoding="utf-8") as f:
-                json.dump(meta, f, ensure_ascii=False, indent=2)
-
-            self._run("add", "-A")
-            status = self._run("status", "--porcelain", check=False)
-            if status.stdout.strip():
-                self._run("commit", "-m", "Migrate to v2 split storage format",
-                          extra_config=self._committer_config())
-
-        # Get the current commit (migration commit) on priv branch
-        migration_head = self._run("rev-parse", "HEAD").stdout.strip()
-
-        # Fetch latest and update local main
+        # Fetch and update local main
         self._ensure_remote()
         self._run("fetch", "origin", check=False)
         self._update_local_main()
 
-        # Checkout main, cherry-pick the migration
+        # Checkout main branch
         self._run("checkout", self.main_branch)
-        result = self._run("cherry-pick", migration_head, check=False)
-        if result.returncode != 0:
-            self._run("cherry-pick", "--abort", check=False)
+
+        try:
+            self._do_migration_on_main()
+        except Exception:
+            # On any failure, return to priv branch and re-raise
             self._run("checkout", self.priv_branch, check=False)
-            raise RuntimeError("Cannot apply migration to main (conflict). "
-                               "Ensure main is up to date first.")
+            raise
 
         # Push main to origin
         try:
@@ -879,6 +825,67 @@ class GitSync:
         # Switch back to private branch and rebase onto new main
         self._run("checkout", self.priv_branch, check=False)
         self._run("rebase", self.main_branch, check=False)
+
+    def _do_migration_on_main(self):
+        """Perform the actual v2 migration on the currently checked-out main branch."""
+        milestones_dir = os.path.join(self.data_dir, "milestones")
+        if os.path.isdir(milestones_dir):
+            raise RuntimeError("Already in v2 split format")
+
+        proj_file = os.path.join(self.data_dir, "project.json")
+        if not os.path.isfile(proj_file):
+            raise RuntimeError("project.json not found")
+
+        with open(proj_file, "r", encoding="utf-8") as f:
+            proj = json.load(f)
+
+        import copy
+
+        req_dir = os.path.join(self.data_dir, "requirements")
+        ms_dir = milestones_dir
+        act_dir = os.path.join(self.data_dir, "activities")
+        os.makedirs(req_dir, exist_ok=True)
+        os.makedirs(ms_dir, exist_ok=True)
+        os.makedirs(act_dir, exist_ok=True)
+
+        # Write requirements
+        for req in proj.get("requirements", []):
+            with open(os.path.join(req_dir, f"{req['id']}.json"), "w", encoding="utf-8") as f:
+                json.dump(req, f, ensure_ascii=False, indent=2)
+
+        # Write milestones + activities
+        for ms in proj.get("milestones", []):
+            ms_copy = copy.deepcopy(ms)
+            for plan in ms_copy.get("plans", []):
+                activities = plan.pop("activities", [])
+                with open(os.path.join(act_dir, f"{plan['id']}.json"), "w", encoding="utf-8") as f:
+                    json.dump(activities, f, ensure_ascii=False, indent=2)
+            with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
+                json.dump(ms_copy, f, ensure_ascii=False, indent=2)
+
+        # Write config-only project.json
+        meta = {
+            "id": proj.get("id", ""),
+            "name": proj.get("name", ""),
+            "description": proj.get("description", ""),
+            "remote_url": proj.get("remote_url", ""),
+            "remote_username": proj.get("remote_username", ""),
+            "remote_password": proj.get("remote_password", ""),
+            "remote_branch": proj.get("remote_branch", "main"),
+            "tags": proj.get("tags", []),
+            "requirement_order": [r["id"] for r in proj.get("requirements", [])],
+            "milestone_order": [m["id"] for m in proj.get("milestones", [])],
+        }
+        with open(proj_file, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+
+        # Stage and commit on main
+        self._run("add", "-A")
+        status = self._run("status", "--porcelain", check=False)
+        if not status.stdout.strip():
+            raise RuntimeError("No changes to commit (already migrated?)")
+        self._run("commit", "-m", "Migrate to v2 split storage format",
+                  extra_config=self._committer_config())
 
     def reset_to_commit(self, commit_hash):
         """Reset current branch (hard) to the specified commit.

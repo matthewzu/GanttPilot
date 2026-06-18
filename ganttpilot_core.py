@@ -240,39 +240,52 @@ class DataStore:
             for req_id in req_order:
                 rfile = os.path.join(req_dir, f"{req_id}.json")
                 if os.path.isfile(rfile):
-                    with open(rfile, "r", encoding="utf-8") as f:
-                        req = json.load(f)
-                    proj["requirements"].append(req)
-                    loaded_ids.add(req_id)
+                    try:
+                        with open(rfile, "r", encoding="utf-8") as f:
+                            req = json.load(f)
+                        proj["requirements"].append(req)
+                        loaded_ids.add(req_id)
+                    except (json.JSONDecodeError, IOError):
+                        pass
             # Load any unordered files (safety)
             for fname in sorted(os.listdir(req_dir)):
                 if fname.endswith(".json"):
                     rid = fname[:-5]
                     if rid not in loaded_ids:
-                        with open(os.path.join(req_dir, fname), "r", encoding="utf-8") as f:
-                            proj["requirements"].append(json.load(f))
+                        try:
+                            with open(os.path.join(req_dir, fname), "r", encoding="utf-8") as f:
+                                proj["requirements"].append(json.load(f))
+                        except (json.JSONDecodeError, IOError):
+                            pass
 
         # Load milestones in order
         ms_order = meta.get("milestone_order", [])
         ms_dir = os.path.join(proj_dir, "milestones")
-        loaded_ms_ids = set()
-        for ms_id in ms_order:
-            mfile = os.path.join(ms_dir, f"{ms_id}.json")
-            if os.path.isfile(mfile):
-                with open(mfile, "r", encoding="utf-8") as f:
-                    ms = json.load(f)
-                self._fill_milestone_defaults(ms, proj_dir)
-                proj["milestones"].append(ms)
-                loaded_ms_ids.add(ms_id)
-        # Load any unordered milestone files (safety)
-        for fname in sorted(os.listdir(ms_dir)):
-            if fname.endswith(".json"):
-                mid = fname[:-5]
-                if mid not in loaded_ms_ids:
-                    with open(os.path.join(ms_dir, fname), "r", encoding="utf-8") as f:
-                        ms = json.load(f)
-                    self._fill_milestone_defaults(ms, proj_dir)
-                    proj["milestones"].append(ms)
+        if os.path.isdir(ms_dir):
+            loaded_ms_ids = set()
+            for ms_id in ms_order:
+                mfile = os.path.join(ms_dir, f"{ms_id}.json")
+                if os.path.isfile(mfile):
+                    try:
+                        with open(mfile, "r", encoding="utf-8") as f:
+                            ms = json.load(f)
+                        self._fill_milestone_defaults(ms, proj_dir)
+                        proj["milestones"].append(ms)
+                        loaded_ms_ids.add(ms_id)
+                    except (json.JSONDecodeError, IOError):
+                        pass
+            # Load any unordered milestone files (safety)
+            for fname in sorted(os.listdir(ms_dir)):
+                if fname.endswith(".json"):
+                    mid = fname[:-5]
+                    if mid not in loaded_ms_ids:
+                        try:
+                            with open(os.path.join(ms_dir, fname), "r", encoding="utf-8") as f:
+                                ms = json.load(f)
+                            self._fill_milestone_defaults(ms, proj_dir)
+                            proj["milestones"].append(ms)
+                        except (json.JSONDecodeError, IOError):
+                            pass
 
         return proj
 

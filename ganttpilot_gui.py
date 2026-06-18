@@ -390,9 +390,6 @@ class GanttPilotGUI:
         self.create_widgets()
         self.refresh_project_list()
 
-        # ── Check for storage format migration ────────────────
-        self._check_activity_migration()
-
         # ── ShortcutManager setup ────────────────────────────
         self.shortcut_manager = ShortcutManager(self.root, self.config)
         self.shortcut_manager._gui = self
@@ -593,7 +590,9 @@ class GanttPilotGUI:
                     gs.manual_rebase()
                     self.root.after(0, self._on_rebase_done)
                 except RuntimeError as e:
-                    self.root.after(0, lambda: messagebox.showerror(self._t("error"), self._t("rebase_conflict")))
+                    err_msg = str(e)
+                    self.root.after(0, lambda msg=err_msg: messagebox.showerror(
+                        self._t("error"), self._t("rebase_conflict")))
             threading.Thread(target=_do, daemon=True).start()
 
     def manual_update_check(self):
@@ -824,29 +823,6 @@ class GanttPilotGUI:
                     os.remove(old_path)
             except OSError:
                 pass
-
-    def _check_activity_migration(self):
-        """Prompt user to migrate if old format is detected.
-
-        Only prompts for local-only projects (no remote_url). Remote projects
-        are migrated automatically during rebase to follow the main branch format.
-        """
-        if not self.store.needs_migration(local_only=True):
-            return
-        answer = messagebox.askyesno(
-            self._t("migration_title"),
-            self._t("migration_message"),
-            parent=self.root,
-        )
-        if answer:
-            count = self.store.migrate_to_split(local_only=True)
-            messagebox.showinfo(
-                self._t("migration_title"),
-                self._t("migration_success").format(count),
-                parent=self.root,
-            )
-        else:
-            self.status_var.set(self._t("migration_skipped"))
 
     def _commit(self, message):
         """Commit changes for the current project's git repo."""
