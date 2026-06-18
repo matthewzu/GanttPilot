@@ -1820,29 +1820,44 @@ class GanttPilotGUI:
         threading.Thread(target=_do, daemon=True).start()
 
     def _should_show_migrate_main(self):
-        """Return True if current project needs format migration and has a remote."""
+        """Return True if remote main needs format migration and project has a remote."""
         proj = self.store.get_project(self.current_project)
         if not proj or not proj.get("remote_url"):
             return False
+        # Check remote main's format via git
         proj_dir = os.path.join(self.store.data_dir, proj["name"])
-        # Check if project.json still has inline milestones (old format)
-        proj_file = os.path.join(proj_dir, "project.json")
-        if not os.path.isfile(proj_file):
+        git_dir = os.path.join(proj_dir, ".git")
+        if not os.path.isdir(git_dir):
             return False
         try:
-            with open(proj_file, "r", encoding="utf-8") as f:
-                on_disk = json.load(f)
-            # Old format: project.json has milestones data inline
-            if on_disk.get("milestones"):
+            import subprocess
+            # Check if origin/main has per-activity dirs (activities/{id}/_order)
+            result = subprocess.run(
+                ["git", "ls-tree", "-r", "--name-only", "origin/main", "activities/"],
+                cwd=proj_dir, capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=10,
+            )
+            if result.returncode != 0:
+                return False
+            # If any line ends with _order, it's already per-activity format
+            for line in result.stdout.strip().split("\n"):
+                if line.strip().endswith("/_order"):
+                    return False
+            # If there are activities/ entries but no _order, needs upgrade
+            if result.stdout.strip():
                 return True
-        except (json.JSONDecodeError, IOError):
-            return False
-        # Check if activities/ still has flat .json files (v2 → per-activity upgrade needed)
-        act_dir = os.path.join(proj_dir, "activities")
-        if os.path.isdir(act_dir):
-            for entry in os.listdir(act_dir):
-                if entry.endswith(".json"):
-                    return True  # Has flat activity files, needs upgrade
+            # No activities at all — check if project.json on main has milestones
+            result2 = subprocess.run(
+                ["git", "show", "origin/main:project.json"],
+                cwd=proj_dir, capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=10,
+            )
+            if result2.returncode == 0:
+                import json as _json
+                data = _json.loads(result2.stdout)
+                return bool(data.get("milestones"))
+        except Exception:
+            pass
         return False
 
     def _on_migrate_main_done(self):

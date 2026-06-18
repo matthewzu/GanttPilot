@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.10.2 / v1.10.2 修复
+
+          - 🔧 **"Upgrade Main Format" disappears after upgrade** — Menu now checks remote main's format (via git ls-tree) instead of local disk, so it correctly hides after main is upgraded even before private branch rebases / **升级后菜单正确消失** — 改为检查远端 main 格式而非本地磁盘
+
           ### ✨ New in v1.10.1 / v1.10.1 修复
 
           - 🔧 **Fix "Upgrade Main Format" not showing for v2→per-activity upgrade** — Menu now detects flat activity files and offers upgrade to per-activity format / **修复已拆分项目无法升级到 per-activity 格式** — 菜单现在检测 flat activity 文件并提供升级入口
