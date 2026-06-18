@@ -2,10 +2,24 @@
 # -*- coding: utf-8 -*-
 """GanttPilot - Core Data Model & Business Logic / 核心数据模型与业务逻辑
 
-Data is stored as JSON files in the data directory:
-  data_dir/
-    {project_name}/
-      project.json   — single project object with milestones, plans, activities
+Data is stored per project, with two format generations:
+
+  v2 (fully split — new default):
+    data_dir/{project_name}/
+      project.json           — config only (id, name, remote, tags, order indices)
+      requirements/
+        {req_id}.json        — single requirement with its tasks
+      milestones/
+        {ms_id}.json         — milestone metadata + plans (without activities)
+      activities/
+        {plan_id}.json       — activities array for one plan
+
+  v0/v1 (legacy — auto-loaded, never written for new projects):
+    data_dir/{project_name}/
+      project.json           — everything in one file
+
+This split structure minimizes git merge conflicts: edits to different
+requirements, milestones, or plans touch different files.
 """
 
 import copy
@@ -126,20 +140,43 @@ def calculate_hours_from_slots(time_slots_str):
 class DataStore:
     """Manages project data with per-project directory storage.
 
-    Each project is stored in data_dir/{project_name}/project.json.
+    Storage layout (v2 — fully split):
+      data_dir/
+        {project_name}/
+          project.json              — config: id, name, description, remote_*, tags,
+                                      requirement_order, milestone_order
+          requirements/
+            {req_id}.json           — single requirement with tasks array
+          milestones/
+            {ms_id}.json            — milestone with plans array (no activities)
+          activities/
+            {plan_id}.json          — activities array for one plan
+
+    Backward compatible: loads legacy single-file project.json transparently.
     Internally maintains self.data = {"projects": [...]} as a unified view.
     """
+
+    # Sentinel: the v2 split format is indicated by existence of milestones/ dir
+    _SPLIT_MARKER_DIR = "milestones"
 
     def __init__(self, data_dir):
         self.data_dir = data_dir
         self.data = {"projects": []}
         self._clipboard = None  # {"type": str, "data": dict}
+        # Projects that have been explicitly migrated (by name)
+        self._migrated_projects = set()
         self.load()
+
+    # ── Persistence ──────────────────────────────────────────
+
+    def _is_split_format(self, proj_dir):
+        """Return True if the project directory uses the v2 split layout."""
+        return os.path.isdir(os.path.join(proj_dir, self._SPLIT_MARKER_DIR))
 
     def load(self):
         os.makedirs(self.data_dir, exist_ok=True)
 
-        # ── Migration: old projects.json → per-project directories (Task 1.4) ──
+        # ── Migration: ancient projects.json → per-project directories ──
         old_file = os.path.join(self.data_dir, "projects.json")
         if os.path.exists(old_file):
             try:
@@ -155,7 +192,7 @@ class DataStore:
             except (json.JSONDecodeError, IOError, KeyError) as e:
                 warnings.warn(f"Migration of old projects.json failed: {e}")
 
-        # ── Load from per-project subdirectories (Task 1.1) ──
+        # ── Load projects ──
         projects = []
         if os.path.isdir(self.data_dir):
             for entry in sorted(os.listdir(self.data_dir)):
@@ -166,59 +203,250 @@ class DataStore:
                 if not os.path.isfile(proj_file):
                     continue
                 try:
-                    with open(proj_file, "r", encoding="utf-8") as f:
-                        proj = json.load(f)
-                    # Fill missing project-level defaults
-                    if "description" not in proj:
-                        proj["description"] = ""
-                    if "priv_branch" not in proj:
-                        proj["priv_branch"] = ""
-                    # Migration: remove committer info from project (now in global config)
-                    # Only remove from in-memory dict; do NOT write back to file here
-                    # to avoid creating unstaged changes that block git rebase.
-                    proj.pop("committer_name", None)
-                    proj.pop("committer_email", None)
-                    proj.pop("priv_branch", None)
-                    # Backward compat: initialize empty requirements list for old projects
-                    if "requirements" not in proj:
-                        proj["requirements"] = []
-                    # Fill missing progress/actual_end_date defaults for each plan
-                    for ms in proj.get("milestones", []):
-                        for plan in ms.get("plans", []):
-                            if "progress" not in plan:
-                                plan["progress"] = 0
-                            if "actual_end_date" not in plan:
-                                plan["actual_end_date"] = ""
-                            if "planned_hours" not in plan:
-                                plan["planned_hours"] = 0
-                            # Backward compat: initialize linked_task_id for old plans
-                            if "linked_task_id" not in plan:
-                                plan["linked_task_id"] = ""
-                            # Auto-fix finished plans with progress=0
-                            if plan.get("status") == "finished" and plan["progress"] == 0:
-                                plan["progress"] = 100
-                            # Fill missing activity-level defaults (backward compat)
-                            for activity in plan.get("activities", []):
-                                activity.setdefault("time_slots", "")
-                                activity.setdefault("tag", "")
-                                activity.setdefault("description", "")
+                    if self._is_split_format(sub):
+                        proj = self._load_split(sub, proj_file)
+                    else:
+                        proj = self._load_legacy(sub, proj_file)
                     projects.append(proj)
                 except (json.JSONDecodeError, IOError) as e:
                     warnings.warn(f"Skipping project in '{entry}': {e}")
         self.data = {"projects": projects}
+
+    def _load_split(self, proj_dir, proj_file):
+        """Load a project in v2 split format."""
+        with open(proj_file, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+
+        # Build full project dict from config
+        proj = {
+            "id": meta.get("id", ""),
+            "name": meta.get("name", ""),
+            "description": meta.get("description", ""),
+            "remote_url": meta.get("remote_url", ""),
+            "remote_username": meta.get("remote_username", ""),
+            "remote_password": meta.get("remote_password", ""),
+            "remote_branch": meta.get("remote_branch", "main"),
+            "tags": meta.get("tags", []),
+            "requirements": [],
+            "milestones": [],
+        }
+
+        # Load requirements in order
+        req_order = meta.get("requirement_order", [])
+        req_dir = os.path.join(proj_dir, "requirements")
+        if os.path.isdir(req_dir):
+            # Load ordered ones first
+            loaded_ids = set()
+            for req_id in req_order:
+                rfile = os.path.join(req_dir, f"{req_id}.json")
+                if os.path.isfile(rfile):
+                    with open(rfile, "r", encoding="utf-8") as f:
+                        req = json.load(f)
+                    proj["requirements"].append(req)
+                    loaded_ids.add(req_id)
+            # Load any unordered files (safety)
+            for fname in sorted(os.listdir(req_dir)):
+                if fname.endswith(".json"):
+                    rid = fname[:-5]
+                    if rid not in loaded_ids:
+                        with open(os.path.join(req_dir, fname), "r", encoding="utf-8") as f:
+                            proj["requirements"].append(json.load(f))
+
+        # Load milestones in order
+        ms_order = meta.get("milestone_order", [])
+        ms_dir = os.path.join(proj_dir, "milestones")
+        loaded_ms_ids = set()
+        for ms_id in ms_order:
+            mfile = os.path.join(ms_dir, f"{ms_id}.json")
+            if os.path.isfile(mfile):
+                with open(mfile, "r", encoding="utf-8") as f:
+                    ms = json.load(f)
+                self._fill_milestone_defaults(ms, proj_dir)
+                proj["milestones"].append(ms)
+                loaded_ms_ids.add(ms_id)
+        # Load any unordered milestone files (safety)
+        for fname in sorted(os.listdir(ms_dir)):
+            if fname.endswith(".json"):
+                mid = fname[:-5]
+                if mid not in loaded_ms_ids:
+                    with open(os.path.join(ms_dir, fname), "r", encoding="utf-8") as f:
+                        ms = json.load(f)
+                    self._fill_milestone_defaults(ms, proj_dir)
+                    proj["milestones"].append(ms)
+
+        return proj
+
+    def _load_legacy(self, proj_dir, proj_file):
+        """Load a project from legacy single-file format."""
+        with open(proj_file, "r", encoding="utf-8") as f:
+            proj = json.load(f)
+
+        # Fill missing project-level defaults
+        proj.setdefault("description", "")
+        proj.pop("committer_name", None)
+        proj.pop("committer_email", None)
+        proj.pop("priv_branch", None)
+        proj.setdefault("requirements", [])
+
+        # Load activities from separate files (v1 split) or inline (v0)
+        activities_dir = os.path.join(proj_dir, "activities")
+        for ms in proj.get("milestones", []):
+            self._fill_milestone_defaults(ms, proj_dir)
+
+        return proj
+
+    def _fill_milestone_defaults(self, ms, proj_dir):
+        """Fill default values for plans and load activities."""
+        activities_dir = os.path.join(proj_dir, "activities")
+        for plan in ms.get("plans", []):
+            plan.setdefault("progress", 0)
+            plan.setdefault("actual_end_date", "")
+            plan.setdefault("planned_hours", 0)
+            plan.setdefault("linked_task_id", "")
+            if plan.get("status") == "finished" and plan["progress"] == 0:
+                plan["progress"] = 100
+
+            # Load activities: prefer separate file, fall back to inline
+            plan_id = plan["id"]
+            act_file = os.path.join(activities_dir, f"{plan_id}.json")
+            if os.path.isfile(act_file):
+                try:
+                    with open(act_file, "r", encoding="utf-8") as af:
+                        plan["activities"] = json.load(af)
+                except (json.JSONDecodeError, IOError):
+                    plan.setdefault("activities", [])
+            else:
+                plan.setdefault("activities", [])
+
+            for activity in plan.get("activities", []):
+                activity.setdefault("time_slots", "")
+                activity.setdefault("tag", "")
+                activity.setdefault("description", "")
 
     def save(self):
         os.makedirs(self.data_dir, exist_ok=True)
         for proj in self.data.get("projects", []):
             proj_dir = os.path.join(self.data_dir, proj["name"])
             os.makedirs(proj_dir, exist_ok=True)
-            proj_file = os.path.join(proj_dir, "project.json")
-            # Defensive: strip personal fields (now stored in global config)
+
+            # Defensive: strip personal fields
             proj.pop("committer_name", None)
             proj.pop("committer_email", None)
             proj.pop("priv_branch", None)
-            with open(proj_file, "w", encoding="utf-8") as f:
-                json.dump(proj, f, ensure_ascii=False, indent=2)
+
+            # Decide format: use v2 split if already split or explicitly migrated
+            if (self._is_split_format(proj_dir)
+                    or proj["name"] in self._migrated_projects):
+                self._save_split(proj, proj_dir)
+            else:
+                self._save_legacy(proj, proj_dir)
+
+    def _save_split(self, proj, proj_dir):
+        """Save project in v2 fully-split format."""
+        req_dir = os.path.join(proj_dir, "requirements")
+        ms_dir = os.path.join(proj_dir, "milestones")
+        act_dir = os.path.join(proj_dir, "activities")
+        os.makedirs(req_dir, exist_ok=True)
+        os.makedirs(ms_dir, exist_ok=True)
+        os.makedirs(act_dir, exist_ok=True)
+
+        # ── Write project.json (config only) ──
+        meta = {
+            "id": proj.get("id", ""),
+            "name": proj["name"],
+            "description": proj.get("description", ""),
+            "remote_url": proj.get("remote_url", ""),
+            "remote_username": proj.get("remote_username", ""),
+            "remote_password": proj.get("remote_password", ""),
+            "remote_branch": proj.get("remote_branch", "main"),
+            "tags": proj.get("tags", []),
+            "requirement_order": [r["id"] for r in proj.get("requirements", [])],
+            "milestone_order": [m["id"] for m in proj.get("milestones", [])],
+        }
+        with open(os.path.join(proj_dir, "project.json"), "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+
+        # ── Write requirements ──
+        active_req_ids = set()
+        for req in proj.get("requirements", []):
+            active_req_ids.add(req["id"])
+            with open(os.path.join(req_dir, f"{req['id']}.json"), "w", encoding="utf-8") as f:
+                json.dump(req, f, ensure_ascii=False, indent=2)
+        # Clean orphaned requirement files
+        for fname in os.listdir(req_dir):
+            if fname.endswith(".json") and fname[:-5] not in active_req_ids:
+                os.remove(os.path.join(req_dir, fname))
+
+        # ── Write milestones + activities ──
+        active_ms_ids = set()
+        active_plan_ids = set()
+        for ms in proj.get("milestones", []):
+            active_ms_ids.add(ms["id"])
+            # Write milestone (plans without activities)
+            ms_copy = copy.deepcopy(ms)
+            for plan in ms_copy.get("plans", []):
+                plan_id = plan["id"]
+                active_plan_ids.add(plan_id)
+                activities = plan.pop("activities", [])
+                # Write activities to separate file
+                with open(os.path.join(act_dir, f"{plan_id}.json"), "w", encoding="utf-8") as f:
+                    json.dump(activities, f, ensure_ascii=False, indent=2)
+            with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
+                json.dump(ms_copy, f, ensure_ascii=False, indent=2)
+
+        # Clean orphaned milestone files
+        for fname in os.listdir(ms_dir):
+            if fname.endswith(".json") and fname[:-5] not in active_ms_ids:
+                os.remove(os.path.join(ms_dir, fname))
+        # Clean orphaned activity files
+        for fname in os.listdir(act_dir):
+            if fname.endswith(".json") and fname[:-5] not in active_plan_ids:
+                os.remove(os.path.join(act_dir, fname))
+
+    def _save_legacy(self, proj, proj_dir):
+        """Save project in legacy single-file format (backward compat)."""
+        proj_file = os.path.join(proj_dir, "project.json")
+        with open(proj_file, "w", encoding="utf-8") as f:
+            json.dump(proj, f, ensure_ascii=False, indent=2)
+
+    # ── Migration ────────────────────────────────────────────
+
+    def needs_migration(self, local_only=False):
+        """Check if any project still uses old format (not fully split).
+
+        Args:
+            local_only: If True, only check projects without remote_url.
+
+        Returns True if at least one qualifying project is not in v2 split format.
+        """
+        for proj in self.data.get("projects", []):
+            if local_only and proj.get("remote_url"):
+                continue
+            proj_dir = os.path.join(self.data_dir, proj["name"])
+            if not self._is_split_format(proj_dir):
+                # Has actual content to migrate?
+                if proj.get("milestones") or proj.get("requirements"):
+                    return True
+        return False
+
+    def migrate_to_split(self, local_only=False):
+        """Migrate projects to v2 fully-split format.
+
+        Args:
+            local_only: If True, only migrate projects without remote_url.
+
+        Returns the number of projects migrated.
+        """
+        count = 0
+        for proj in self.data.get("projects", []):
+            if local_only and proj.get("remote_url"):
+                continue
+            proj_dir = os.path.join(self.data_dir, proj["name"])
+            if not self._is_split_format(proj_dir):
+                self._migrated_projects.add(proj["name"])
+                count += 1
+        self.save()
+        return count
 
     # ── Project ──────────────────────────────────────────────
     def list_projects(self):
@@ -247,12 +475,7 @@ class DataStore:
             "milestones": [],
         }
         self.data["projects"].append(proj)
-        # Create project subdirectory and write project.json
-        proj_dir = os.path.join(self.data_dir, name)
-        os.makedirs(proj_dir, exist_ok=True)
-        proj_file = os.path.join(proj_dir, "project.json")
-        with open(proj_file, "w", encoding="utf-8") as f:
-            json.dump(proj, f, ensure_ascii=False, indent=2)
+        self.save()
         return proj
 
     def delete_project(self, name):
@@ -990,10 +1213,7 @@ class DataStore:
                 i += 1
             cloned["name"] = name
             self.data["projects"].append(cloned)
-            proj_dir = os.path.join(self.data_dir, name)
-            os.makedirs(proj_dir, exist_ok=True)
-            with open(os.path.join(proj_dir, "project.json"), "w", encoding="utf-8") as f:
-                json.dump(cloned, f, ensure_ascii=False, indent=2)
+            self.save()
             return cloned
 
         proj = self.get_project(target_project_name)

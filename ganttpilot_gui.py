@@ -390,6 +390,9 @@ class GanttPilotGUI:
         self.create_widgets()
         self.refresh_project_list()
 
+        # ── Check for storage format migration ────────────────
+        self._check_activity_migration()
+
         # ── ShortcutManager setup ────────────────────────────
         self.shortcut_manager = ShortcutManager(self.root, self.config)
         self.shortcut_manager._gui = self
@@ -822,6 +825,29 @@ class GanttPilotGUI:
             except OSError:
                 pass
 
+    def _check_activity_migration(self):
+        """Prompt user to migrate if old format is detected.
+
+        Only prompts for local-only projects (no remote_url). Remote projects
+        are migrated automatically during rebase to follow the main branch format.
+        """
+        if not self.store.needs_migration(local_only=True):
+            return
+        answer = messagebox.askyesno(
+            self._t("migration_title"),
+            self._t("migration_message"),
+            parent=self.root,
+        )
+        if answer:
+            count = self.store.migrate_to_split(local_only=True)
+            messagebox.showinfo(
+                self._t("migration_title"),
+                self._t("migration_success").format(count),
+                parent=self.root,
+            )
+        else:
+            self.status_var.set(self._t("migration_skipped"))
+
     def _commit(self, message):
         """Commit changes for the current project's git repo."""
         if not self.current_project:
@@ -1137,6 +1163,9 @@ class GanttPilotGUI:
                 menu.add_command(label=self._t("push"), command=self.do_sync, accelerator=self._accel("sync"))
                 menu.add_command(label=self._t("pull"), command=self.do_pull)
                 menu.add_command(label=self._t("sync_main"), command=self.do_manual_rebase_menu)
+                # Show "Upgrade Main Format" only if project uses old format and has a remote
+                if self.current_project and self._should_show_migrate_main():
+                    menu.add_command(label=self._t("migrate_main"), command=self.do_migrate_main)
                 menu.add_command(label=self._t("refresh"), command=self._full_refresh, accelerator=self._accel("refresh"))
                 menu.add_separator()
                 menu.add_command(label=self._t("delete"), command=self.delete_selected, accelerator=self._accel("delete"))
@@ -1782,6 +1811,56 @@ class GanttPilotGUI:
                 self.root.after(0, lambda: messagebox.showerror(self._t("error"), self._t("rebase_conflict")))
         threading.Thread(target=_do, daemon=True).start()
 
+    def do_migrate_main(self):
+        """Maintainer action: migrate storage format and push to main branch."""
+        if not self.current_project:
+            return
+        proj = self.store.get_project(self.current_project)
+        if not proj or not proj.get("remote_url"):
+            messagebox.showwarning("", self._t("no_remote"))
+            return
+
+        # Confirm with maintainer
+        answer = messagebox.askyesno(
+            self._t("migrate_main_title"),
+            self._t("migrate_main_confirm"),
+            parent=self.root,
+        )
+        if not answer:
+            return
+
+        self.status_var.set(self._t("migrate_main_running"))
+        self.root.update()
+
+        def _do():
+            try:
+                gs = self._get_project_git(proj)
+                gs.migrate_and_push_main()
+                self.root.after(0, self._on_migrate_main_done)
+            except RuntimeError as e:
+                self.root.after(0, lambda: messagebox.showerror(
+                    self._t("error"), str(e)))
+                self.root.after(0, lambda: self.status_var.set(""))
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _should_show_migrate_main(self):
+        """Return True if current project needs format migration and has a remote."""
+        proj = self.store.get_project(self.current_project)
+        if not proj or not proj.get("remote_url"):
+            return False
+        proj_dir = os.path.join(self.store.data_dir, proj["name"])
+        return not self.store._is_split_format(proj_dir)
+
+    def _on_migrate_main_done(self):
+        """Callback after successful migrate-and-push-main."""
+        self._full_refresh()
+        messagebox.showinfo(
+            self._t("migrate_main_title"),
+            self._t("migrate_main_success"),
+            parent=self.root,
+        )
+        self.status_var.set(self._t("migrate_main_success"))
+
     def on_branch_changed(self, event=None):
         """Handle branch selection change — load data from selected branch."""
         selected = self.branch_selector.get()
@@ -1809,7 +1888,7 @@ class GanttPilotGUI:
                 self.refresh_history()
                 return
 
-            # Different branch — read project.json from that branch
+            # Different branch — read full project data from that branch
             # For local branches, prefer origin/ version if available (local main
             # is rarely updated directly; origin/main is fetched and up-to-date).
             read_branch = selected
@@ -1819,12 +1898,10 @@ class GanttPilotGUI:
                 if remote_content is not None:
                     read_branch = remote_ref
 
-            content = gs.read_file_from_branch(read_branch, "project.json")
-            if content is None:
+            branch_proj = gs.read_project_from_branch(read_branch)
+            if branch_proj is None:
                 self.status_var.set(f"Cannot load project.json from branch: {selected}")
                 return
-
-            branch_proj = json.loads(content)
             # Temporarily replace project data for display
             backend = CanvasBackend(self.gantt_canvas)
             renderer = GanttRenderer(backend, branch_proj, self.lang, self.gantt_zoom)

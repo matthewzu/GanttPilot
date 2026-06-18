@@ -31,32 +31,13 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
-          ### ✨ New in v1.8.4 / v1.8.4 修复
-          - 🔄 Fix update restart "Failed to load Python DLL" once and for all — clean _MEI paths from PATH env and use `start /I` for fresh environment / 彻底修复更新重启 DLL 加载失败，清除 PATH 中 _MEI 路径并用 start /I 启动新进程
+          ### ✨ New in v1.9.0 / v1.9.0 新增
 
-          ### ✨ New in v1.8.3 / v1.8.3 修复
-          - 🔄 Fix sync getting stuck when commit has nothing to commit — commit failure no longer aborts the sync flow / 修复同步时因无实际变更 commit 失败导致推送卡住的问题
-
-          ### ✨ New in v1.8.2 / v1.8.2 修复
-          - 🔢 Fix version number not bumped in v1.8.1 causing update detection failure / 修复版本号未更新导致检测不到更新
-
-          ### ✨ New in v1.8.1 / v1.8.1 修复
-          - 🔄 Fix update restart "Failed to load Python DLL" error — use isolated .cmd script with STARTUPINFO / 修复更新重启报错，改用独立脚本彻底清除环境变量
-          - 🪟 Fix dialog focus freeze on Alt-Tab — all dialogs use deferred grab / 修复切换窗口后对话框卡死问题
-          - 🌐 Fix incomplete language switch — refresh tooltips and tree categories / 修复切换语言不彻底
-          - 📁 Rename log to ganttpilot.log, store in config dir / 日志改名为通用操作日志
-
-          ### ✨ New in v1.8.0 / v1.8.0 新增
-          - 📝 Git sync log — all git operations (push/fetch/etc.) are logged to `ganttpilot.log` in the config directory for troubleshooting / 操作日志 — 重要操作记录到本地配置路径下的 `ganttpilot.log`，方便排查问题
-          - ⚙️ Log Retention Days config — configurable max days to keep logs (default: 30) / 日志保留天数配置 — 可配置日志保留最大天数（默认 30）
-          - 🔄 Fix update restart "Failed to load Python DLL" error / 修复更新重启报错，改用 .cmd 脚本清除环境变量
-          - 🪟 Fix dialog focus freeze on Alt-Tab / 修复切换窗口后对话框卡死问题
-
-          ### 🛠️ Fixed in v1.7.1 / v1.7.1 修复
-          - Fix "Failed to load Python DLL _MEI*" error after update restart / 修复更新重启报错
-            - Root cause: VBS restart script inherits _MEIPASS2 env var / VBS 脚本继承旧环境变量
-            - Fix: Use PowerShell, clear _MEIPASS2 before launching new process / 改用 PowerShell 清除环境变量
-            - Auto-cleanup leftover .old file on startup / 启动时自动清理 .old 残留文件
+          - 📂 **v2 Fully-Split Storage Format** — Project data split into independent files (requirements, milestones, activities each in their own file), dramatically reducing Git merge conflicts in team collaboration / **v2 完全拆分存储格式** — 数据拆分为独立文件，大幅减少协作冲突
+          - 🔄 **One-Click Main Branch Upgrade** — Maintainer right-click → "Upgrade Main Format", auto-migrates and pushes to main; team members auto-migrate on rebase / **一键升级主线格式** — 维护者右键操作，其他成员变基时自动跟随
+          - 🔀 **Auto-Migrate on Rebase** — Detects new format on main and auto-migrates locally before rebase to avoid conflicts / **变基前自动格式迁移** — 避免格式差异导致冲突
+          - 💡 **Migration Prompt for Local Projects** — Prompts local-only projects to upgrade on startup / **本地项目迁移提示** — 启动时检测并提示一键迁移
+          - 🔄 **Full Backward Compatibility** — Transparently loads v0 (monolithic), v1 (activities split), and v2 (fully split) formats / **完全向后兼容** — 自动识别三种历史格式
 
           ### 🏗️ 核心能力 / Core Capabilities
 

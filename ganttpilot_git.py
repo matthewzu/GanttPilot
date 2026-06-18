@@ -14,6 +14,7 @@ Sync flow:
 """
 
 import datetime
+import json
 import logging
 import os
 import re
@@ -235,12 +236,15 @@ class GitSync:
             self._run("checkout", self.priv_branch, check=False)
 
     def commit(self, message):
-        """Stage only project.json and commit on priv branch"""
+        """Stage project data files and commit on priv branch"""
         if not self.is_repo():
             self.init_repo()
         # Ensure we're on priv branch
         self._run("checkout", self.priv_branch, check=False)
         self._run("add", "project.json")
+        self._run("add", "requirements", check=False)
+        self._run("add", "milestones", check=False)
+        self._run("add", "activities", check=False)
         status = self._run("status", "--porcelain", check=False)
         if not status.stdout.strip():
             return False
@@ -304,9 +308,12 @@ class GitSync:
         wb = self.priv_branch
         self._logger.info("=== sync start === branch=%s remote=%s", wb, self.remote_url)
 
-        # 1. Commit pending on priv_branch (only project.json)
+        # 1. Commit pending on priv_branch (all project data files)
         self._run("checkout", wb, check=False)
         self._run("add", "project.json", check=False)
+        self._run("add", "requirements", check=False)
+        self._run("add", "milestones", check=False)
+        self._run("add", "activities", check=False)
         status = self._run("status", "--porcelain", check=False)
         if status.stdout.strip():
             self._run("commit", "-m", "Auto-commit before sync",
@@ -524,6 +531,95 @@ class GitSync:
         except Exception:
             return None
 
+    def read_project_from_branch(self, branch):
+        """从指定分支读取完整项目数据。
+
+        Supports both v2 split format and legacy single-file format.
+
+        Args:
+            branch: 分支名
+
+        Returns:
+            dict: 完整项目数据，失败时返回 None
+        """
+        content = self.read_file_from_branch(branch, "project.json")
+        if content is None:
+            return None
+        try:
+            proj = json.loads(content)
+        except (json.JSONDecodeError, ValueError):
+            return None
+
+        # Check if branch uses v2 format (has milestones/ dir)
+        ms_check = self._run("ls-tree", "--name-only", f"{branch}", "milestones/", check=False)
+        if ms_check.returncode == 0 and ms_check.stdout.strip():
+            return self._read_split_from_branch(branch, proj)
+
+        # Legacy format — load activities from separate files if available
+        for ms in proj.get("milestones", []):
+            for plan in ms.get("plans", []):
+                if "activities" not in plan or not plan["activities"]:
+                    plan_id = plan.get("id", "")
+                    act_content = self.read_file_from_branch(
+                        branch, f"activities/{plan_id}.json"
+                    )
+                    if act_content:
+                        try:
+                            plan["activities"] = json.loads(act_content)
+                        except (json.JSONDecodeError, ValueError):
+                            plan.setdefault("activities", [])
+                    else:
+                        plan.setdefault("activities", [])
+        return proj
+
+    def _read_split_from_branch(self, branch, meta):
+        """Assemble full project from v2 split files on a branch."""
+        proj = {
+            "id": meta.get("id", ""),
+            "name": meta.get("name", ""),
+            "description": meta.get("description", ""),
+            "remote_url": meta.get("remote_url", ""),
+            "remote_username": meta.get("remote_username", ""),
+            "remote_password": meta.get("remote_password", ""),
+            "remote_branch": meta.get("remote_branch", "main"),
+            "tags": meta.get("tags", []),
+            "requirements": [],
+            "milestones": [],
+        }
+
+        # Load requirements
+        for req_id in meta.get("requirement_order", []):
+            content = self.read_file_from_branch(branch, f"requirements/{req_id}.json")
+            if content:
+                try:
+                    proj["requirements"].append(json.loads(content))
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+        # Load milestones and activities
+        for ms_id in meta.get("milestone_order", []):
+            content = self.read_file_from_branch(branch, f"milestones/{ms_id}.json")
+            if not content:
+                continue
+            try:
+                ms = json.loads(content)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            # Load activities for each plan
+            for plan in ms.get("plans", []):
+                plan_id = plan.get("id", "")
+                act_content = self.read_file_from_branch(branch, f"activities/{plan_id}.json")
+                if act_content:
+                    try:
+                        plan["activities"] = json.loads(act_content)
+                    except (json.JSONDecodeError, ValueError):
+                        plan.setdefault("activities", [])
+                else:
+                    plan.setdefault("activities", [])
+            proj["milestones"].append(ms)
+
+        return proj
+
     def has_remote_updates(self):
         """检查远端主分支是否有新提交（相对于当前私有分支的基点）。
 
@@ -579,11 +675,18 @@ class GitSync:
     def manual_rebase(self):
         """手动将私有分支 rebase 到远端主分支最新提交。
 
+        If the remote main branch uses the split-activities format but the
+        local branch still has inline activities, automatically migrate the
+        local data before rebasing to avoid format-related conflicts.
+
         Rebase 成功后自动 force-push 私有分支到远端（使用 --force-with-lease 安全推送）。
 
         Raises:
             RuntimeError: rebase 冲突时抛出异常
         """
+        # ── Pre-rebase: auto-migrate if main uses new format ──
+        self._pre_rebase_migrate()
+
         result = self._run("rebase", f"origin/{self.main_branch}", check=False)
         if result.returncode != 0:
             self._run("rebase", "--abort", check=False)
@@ -596,6 +699,186 @@ class GitSync:
             self._restore_plain_remote()
             self._run("push", "--force-with-lease", "-u", "origin", wb)
 
+    def _pre_rebase_migrate(self):
+        """If origin/main has the v2 split format but local doesn't, migrate locally first.
+
+        This prevents format-related merge conflicts during rebase when the
+        maintainer has already migrated to the split format on main.
+        """
+        # Check if origin/main has the milestones/ directory (v2 indicator)
+        result = self._run("ls-tree", "--name-only",
+                           f"origin/{self.main_branch}", "milestones/", check=False)
+        if result.returncode != 0 or not result.stdout.strip():
+            return  # Main doesn't have v2 format — nothing to migrate
+
+        # Check if local already has milestones/ dir
+        milestones_dir = os.path.join(self.data_dir, "milestones")
+        if os.path.isdir(milestones_dir):
+            return  # Already migrated locally
+
+        # Local has old format, main has v2 — migrate locally before rebase
+        proj_file = os.path.join(self.data_dir, "project.json")
+        if not os.path.isfile(proj_file):
+            return
+        try:
+            with open(proj_file, "r", encoding="utf-8") as f:
+                proj = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return
+
+        import copy
+
+        # Create split directories
+        req_dir = os.path.join(self.data_dir, "requirements")
+        ms_dir = os.path.join(self.data_dir, "milestones")
+        act_dir = os.path.join(self.data_dir, "activities")
+        os.makedirs(req_dir, exist_ok=True)
+        os.makedirs(ms_dir, exist_ok=True)
+        os.makedirs(act_dir, exist_ok=True)
+
+        # Write requirements
+        for req in proj.get("requirements", []):
+            with open(os.path.join(req_dir, f"{req['id']}.json"), "w", encoding="utf-8") as f:
+                json.dump(req, f, ensure_ascii=False, indent=2)
+
+        # Write milestones + activities
+        for ms in proj.get("milestones", []):
+            ms_copy = copy.deepcopy(ms)
+            for plan in ms_copy.get("plans", []):
+                activities = plan.pop("activities", [])
+                with open(os.path.join(act_dir, f"{plan['id']}.json"), "w", encoding="utf-8") as f:
+                    json.dump(activities, f, ensure_ascii=False, indent=2)
+            with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
+                json.dump(ms_copy, f, ensure_ascii=False, indent=2)
+
+        # Write updated project.json (config only)
+        meta = {
+            "id": proj.get("id", ""),
+            "name": proj.get("name", ""),
+            "description": proj.get("description", ""),
+            "remote_url": proj.get("remote_url", ""),
+            "remote_username": proj.get("remote_username", ""),
+            "remote_password": proj.get("remote_password", ""),
+            "remote_branch": proj.get("remote_branch", "main"),
+            "tags": proj.get("tags", []),
+            "requirement_order": [r["id"] for r in proj.get("requirements", [])],
+            "milestone_order": [m["id"] for m in proj.get("milestones", [])],
+        }
+        with open(proj_file, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+
+        # Stage and commit the migration
+        self._run("add", "-A", check=False)
+        self._run("commit", "-m", "Auto-migrate to v2 split storage format",
+                  extra_config=self._committer_config(), check=False)
+
+    def migrate_and_push_main(self):
+        """Maintainer tool: migrate to v2 split format and push to main.
+
+        Flow:
+          1. Ensure local data is migrated to v2 split format
+          2. Commit the migration on the current private branch
+          3. Checkout main, cherry-pick the migration commit, push to origin
+          4. Switch back to private branch and rebase onto new main
+
+        Raises:
+            RuntimeError: if push fails or main branch is not up to date
+        """
+        if not self.is_repo():
+            raise RuntimeError("Not a git repository")
+
+        # Ensure we're on priv branch with clean state
+        self._run("checkout", self.priv_branch, check=False)
+
+        # Migrate local data if not already done
+        milestones_dir = os.path.join(self.data_dir, "milestones")
+        if not os.path.isdir(milestones_dir):
+            proj_file = os.path.join(self.data_dir, "project.json")
+            if not os.path.isfile(proj_file):
+                raise RuntimeError("project.json not found")
+            try:
+                with open(proj_file, "r", encoding="utf-8") as f:
+                    proj = json.load(f)
+            except (json.JSONDecodeError, IOError) as e:
+                raise RuntimeError(f"Cannot read project.json: {e}")
+
+            import copy
+
+            req_dir = os.path.join(self.data_dir, "requirements")
+            ms_dir = milestones_dir
+            act_dir = os.path.join(self.data_dir, "activities")
+            os.makedirs(req_dir, exist_ok=True)
+            os.makedirs(ms_dir, exist_ok=True)
+            os.makedirs(act_dir, exist_ok=True)
+
+            # Write requirements
+            for req in proj.get("requirements", []):
+                with open(os.path.join(req_dir, f"{req['id']}.json"), "w", encoding="utf-8") as f:
+                    json.dump(req, f, ensure_ascii=False, indent=2)
+
+            # Write milestones + activities
+            for ms in proj.get("milestones", []):
+                ms_copy = copy.deepcopy(ms)
+                for plan in ms_copy.get("plans", []):
+                    activities = plan.pop("activities", [])
+                    with open(os.path.join(act_dir, f"{plan['id']}.json"), "w", encoding="utf-8") as f:
+                        json.dump(activities, f, ensure_ascii=False, indent=2)
+                with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
+                    json.dump(ms_copy, f, ensure_ascii=False, indent=2)
+
+            # Write config-only project.json
+            meta = {
+                "id": proj.get("id", ""),
+                "name": proj.get("name", ""),
+                "description": proj.get("description", ""),
+                "remote_url": proj.get("remote_url", ""),
+                "remote_username": proj.get("remote_username", ""),
+                "remote_password": proj.get("remote_password", ""),
+                "remote_branch": proj.get("remote_branch", "main"),
+                "tags": proj.get("tags", []),
+                "requirement_order": [r["id"] for r in proj.get("requirements", [])],
+                "milestone_order": [m["id"] for m in proj.get("milestones", [])],
+            }
+            with open(proj_file, "w", encoding="utf-8") as f:
+                json.dump(meta, f, ensure_ascii=False, indent=2)
+
+            self._run("add", "-A")
+            status = self._run("status", "--porcelain", check=False)
+            if status.stdout.strip():
+                self._run("commit", "-m", "Migrate to v2 split storage format",
+                          extra_config=self._committer_config())
+
+        # Get the current commit (migration commit) on priv branch
+        migration_head = self._run("rev-parse", "HEAD").stdout.strip()
+
+        # Fetch latest and update local main
+        self._ensure_remote()
+        self._run("fetch", "origin", check=False)
+        self._update_local_main()
+
+        # Checkout main, cherry-pick the migration
+        self._run("checkout", self.main_branch)
+        result = self._run("cherry-pick", migration_head, check=False)
+        if result.returncode != 0:
+            self._run("cherry-pick", "--abort", check=False)
+            self._run("checkout", self.priv_branch, check=False)
+            raise RuntimeError("Cannot apply migration to main (conflict). "
+                               "Ensure main is up to date first.")
+
+        # Push main to origin
+        try:
+            self._run("push", "origin", self.main_branch)
+        except RuntimeError:
+            self._restore_plain_remote()
+            try:
+                self._run("push", "origin", self.main_branch)
+            except RuntimeError as e:
+                self._run("checkout", self.priv_branch, check=False)
+                raise RuntimeError(f"Push to main failed: {e}")
+
+        # Switch back to private branch and rebase onto new main
+        self._run("checkout", self.priv_branch, check=False)
+        self._run("rebase", self.main_branch, check=False)
 
     def reset_to_commit(self, commit_hash):
         """Reset current branch (hard) to the specified commit.

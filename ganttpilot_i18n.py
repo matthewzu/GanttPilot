@@ -319,9 +319,10 @@ TEXTS = {
             "• 每人私有分支，通过 PR 合并到主线\n"
             "• 启动时自动拉取主线，后台定期检测更新\n"
             "• 退出时提示推送私有分支，确认即推送\n"
-            "• 提交仅包含 project.json，排除其他文件\n"
+            "• 提交包含 project.json 及 requirements/ milestones/ activities/ 目录\n"
             "• 拉取后自动更新本地 main，提示 rebase（变基后自动推送）\n"
             "• 项目右键 → 同步主线：手动将私有分支变基到最新 main\n"
+            "• 项目右键 → 升级主线格式：维护者一键迁移到 v2 拆分格式并推送主线\n"
             "• 私有分支名不能为 \"priv\" 或与主分支同名\n"
             "• 推送失败排查：查看数据目录下 ganttpilot.log 日志文件\n\n"
             "【提交者信息】创建项目时必须\n"
@@ -392,6 +393,16 @@ TEXTS = {
         "priv_branch_invalid_priv": "不能使用 'priv' 作为私有分支名称",
         "priv_branch_same_as_main": "私有分支名称不能与主分支相同",
         "priv_branch_invalid_chars": "分支名称包含非法字符",
+        # ── Storage migration / 存储格式迁移 ──
+        "migration_title": "存储格式升级",
+        "migration_message": "检测到项目数据使用旧格式存储（活动记录内嵌在 project.json 中）。\n\n新格式将活动记录拆分为独立文件，可显著减少多人协作时的 Git 合并冲突。\n\n是否立即迁移？",
+        "migration_success": "迁移完成，已升级 {} 个项目的存储格式。",
+        "migration_skipped": "已跳过迁移，下次启动时将再次提示。",
+        "migrate_main": "升级主线格式",
+        "migrate_main_title": "升级主线存储格式",
+        "migrate_main_confirm": "将存储格式升级提交到主线分支并推送到远端。\n\n其他成员变基时将自动迁移到新格式。\n\n确定执行？",
+        "migrate_main_running": "正在升级主线格式...",
+        "migrate_main_success": "主线格式升级完成，已推送到远端。",
     },
     "en": {
         "app_title": "GanttPilot - Collaborative Project Manager",
@@ -709,9 +720,10 @@ TEXTS = {
             "• Each user on private branch, merge via PR\n"
             "• Auto-fetch main on startup, periodic background check\n"
             "• Prompts to push private branch on exit\n"
-            "• Commits only include project.json (other files excluded)\n"
+            "• Commits include project.json + requirements/ milestones/ activities/\n"
             "• Pull auto-updates local main, prompts rebase (auto-pushes after)\n"
             "• Right-click project → Sync Main: manually rebase to latest main\n"
+            "• Right-click project → Upgrade Main Format: migrate to v2 split format and push\n"
             "• Private branch name cannot be \"priv\" or same as main\n"
             "• Push troubleshooting: check ganttpilot.log in config directory\n\n"
             "[Committer Info] Required when creating a project\n"
@@ -783,6 +795,16 @@ TEXTS = {
         "priv_branch_invalid_priv": "Cannot use 'priv' as private branch name",
         "priv_branch_same_as_main": "Private branch name cannot be the same as main branch",
         "priv_branch_invalid_chars": "Branch name contains invalid characters",
+        # ── Storage migration ──
+        "migration_title": "Storage Format Upgrade",
+        "migration_message": "Project data is stored in the old format (activities embedded in project.json).\n\nThe new format stores activities in separate files, significantly reducing Git merge conflicts during collaboration.\n\nMigrate now?",
+        "migration_success": "Migration complete. Upgraded storage format for {} project(s).",
+        "migration_skipped": "Migration skipped. You will be prompted again on next launch.",
+        "migrate_main": "Upgrade Main Format",
+        "migrate_main_title": "Upgrade Main Branch Format",
+        "migrate_main_confirm": "This will commit the storage format upgrade to the main branch and push to remote.\n\nOther members will auto-migrate when they rebase.\n\nProceed?",
+        "migrate_main_running": "Upgrading main branch format...",
+        "migrate_main_success": "Main branch format upgraded and pushed to remote.",
     },
 }
 

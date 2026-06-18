@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.8.4-blue.svg)
+![Version](https://img.shields.io/badge/version-1.9.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -71,6 +71,23 @@ Project
 - **Milestones & Plans** define *when* and *who* will do it
 - **Activities** record *actual work* done — hours, content, and tags
 - **Linked Tasks** connect plans back to requirements, creating a full traceability chain
+
+#### Storage Format (v2)
+
+On disk, each project is stored as split files to minimize Git merge conflicts:
+
+```
+~/.ganttpilot/data/{project_name}/
+  project.json              ← Config only (id, name, remote, tags, order)
+  requirements/
+    {req_id}.json           ← One requirement with its tasks
+  milestones/
+    {ms_id}.json            ← One milestone with plan metadata
+  activities/
+    {plan_id}.json          ← Activities for one plan
+```
+
+Two people editing different requirements, milestones, or plans will never conflict — they touch different files. The maintainer upgrades the format via right-click → "Upgrade Main Format"; team members auto-migrate on rebase.
 
 #### Typical Workflow
 
@@ -419,6 +436,23 @@ python main.py --version    # 显示版本
 - **里程碑和计划**定义"什么时候做"和"谁来做"
 - **活动**记录实际工作——工时、内容和标签
 - **关联任务**将计划与需求连接起来，形成完整的跟踪链条
+
+#### 存储格式 (v2)
+
+磁盘上每个项目数据拆分为独立文件，最大程度减少 Git 合并冲突：
+
+```
+~/.ganttpilot/data/{项目名}/
+  project.json              ← 仅项目配置（名称、远端、标签、顺序索引）
+  requirements/
+    {req_id}.json           ← 单个需求（含任务）
+  milestones/
+    {ms_id}.json            ← 单个里程碑（含计划元数据）
+  activities/
+    {plan_id}.json          ← 单个计划的活动记录
+```
+
+两人编辑不同需求、里程碑或计划时修改的是不同文件，不会产生冲突。维护者通过右键 → "升级主线格式"一键推送新格式到主线，其他成员变基时自动迁移。
 
 #### 典型工作流程
 
