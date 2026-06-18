@@ -66,6 +66,7 @@ TEXTS = {
         "config_saved": "配置已保存",
         "help": "帮助",
         "about": "关于",
+        "more": "更多",
         "version": "版本",
         "exit": "退出",
         "error": "错误",
@@ -290,7 +291,8 @@ TEXTS = {
             "• 添加(Ctrl+N) / 编辑(F2) / 查看(F3) / 删除(Delete)\n"
             "• 复制(Ctrl+C) / 剪切(Ctrl+X) / 粘贴(Ctrl+V) / 克隆(Ctrl+D)\n"
             "• 上移(Alt+↑) / 下移(Alt+↓)\n"
-            "• 🔌 MCP服务 / ⟳ 检查更新 / ⚙ 配置\n\n"
+            "• ⚙ 配置（语言、字体、路径、快捷键）\n"
+            "• ⋯ 更多（检查更新、帮助、MCP服务、关于）\n\n"
             "【右键菜单】所有操作的主要入口\n"
             "• 空白处 → 添加项目、推送、拉取、刷新\n"
             "• 项目 → 编辑、Git配置、报告、推送、拉取、删除\n"
@@ -330,7 +332,7 @@ TEXTS = {
             "• 全部获取不到则阻止创建，请先配置\n\n"
             "【其他】Ctrl+Z 撤销 / Ctrl+Y 恢复 / 快捷键可自定义\n\n"
             "【MCP Server】AI 助手集成\n"
-            "• 点击 🔌 按钮打开 MCP 配置，启动/停止服务\n"
+            "• 点击 ⋯ → MCP服务 打开 MCP 配置，启动/停止服务\n"
             "• 支持 Kiro、Claude Desktop 等 AI 工具直接管理项目\n"
             "• 提供配置模板一键复制，粘贴到对应工具的配置文件即可\n\n"
         ),
@@ -467,6 +469,7 @@ TEXTS = {
         "config_saved": "Config saved",
         "help": "Help",
         "about": "About",
+        "more": "More",
         "version": "Version",
         "exit": "Exit",
         "error": "Error",
@@ -691,7 +694,8 @@ TEXTS = {
             "• Add(Ctrl+N) / Edit(F2) / View(F3) / Delete(Delete)\n"
             "• Copy(Ctrl+C) / Cut(Ctrl+X) / Paste(Ctrl+V) / Duplicate(Ctrl+D)\n"
             "• Move Up(Alt+↑) / Move Down(Alt+↓)\n"
-            "• 🔌 MCP Server / ⟳ Check Updates / ⚙ Config\n\n"
+            "• ⚙ Config (language, font, paths, shortcuts)\n"
+            "• ⋯ More (check updates, help, MCP server, about)\n\n"
             "[Right-Click Menus] Primary entry for all operations\n"
             "• Empty area → Add Project, Push, Pull, Refresh\n"
             "• Project → Edit, Git Config, Report, Push, Pull, Delete\n"

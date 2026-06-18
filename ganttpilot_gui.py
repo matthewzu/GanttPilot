@@ -6,6 +6,7 @@ All CRUD operations via right-click context menus on the tree.
 """
 
 import copy
+import datetime
 import os
 import re
 import subprocess
@@ -378,6 +379,7 @@ class GanttPilotGUI:
         self.store = DataStore(self.config.data_dir)
         self.undo_manager = UndoManager(self.store)
         self.current_project = None
+        self._branch_project_data = None  # holds project data when viewing non-current branch
         self.gantt_zoom = 10  # independent gantt zoom level (font size for gantt)
         self._active_dialog = None
         self._focus_restore_id = None
@@ -437,14 +439,13 @@ class GanttPilotGUI:
         self._show_tooltip(self.tb_view_btn, self._tooltip_with_shortcut(self._t("view"), "view"))
         self._show_tooltip(self.tb_delete_btn, self._tooltip_with_shortcut(self._t("delete"), "delete"))
         self._show_tooltip(self.tb_copy_btn, self._tooltip_with_shortcut(self._t("copy"), "copy"))
+        self._show_tooltip(self.tb_cut_btn, self._tooltip_with_shortcut(self._t("cut"), "cut"))
         self._show_tooltip(self.tb_paste_btn, self._tooltip_with_shortcut(self._t("paste"), "paste"))
         self._show_tooltip(self.tb_dup_btn, self._tooltip_with_shortcut(self._t("duplicate"), "duplicate"))
         self._show_tooltip(self.tb_up_btn, self._tooltip_with_shortcut(self._t("move_up"), "move_up"))
         self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
-        self._show_tooltip(self.update_check_btn, self._t("update_check"))
-        self._show_tooltip(self.help_btn, self._t("help"))
         self._show_tooltip(self.config_btn, self._t("config"))
-        self._show_tooltip(self.mcp_btn, self._t("mcp_server"))
+        self._show_tooltip(self.about_btn, self._t("more"))
 
         # MCP server process handle
         self._mcp_process = None
@@ -596,21 +597,17 @@ class GanttPilotGUI:
             threading.Thread(target=_do, daemon=True).start()
 
     def manual_update_check(self):
-        """手动触发更新检测，禁用按钮直到检测完成。"""
-        self.update_check_btn.configure(state=tk.DISABLED)
+        """手动触发更新检测。"""
         self.status_var.set(self._t("checking_update"))
 
         def on_result(new_version, download_url, asset_url=None, asset_size=0):
-            self.root.after(0, lambda: self.update_check_btn.configure(state=tk.NORMAL))
             if new_version:
                 self.root.after(0, lambda: self._show_update_notification(new_version, download_url, asset_url, asset_size))
 
         def on_no_update():
-            self.root.after(0, lambda: self.update_check_btn.configure(state=tk.NORMAL))
             self.root.after(0, lambda: self.status_var.set(self._t("no_update")))
 
         def on_fail():
-            self.root.after(0, lambda: self.update_check_btn.configure(state=tk.NORMAL))
             self.root.after(0, lambda: self.status_var.set(self._t("check_update_fail")))
 
         UpdateChecker(VERSION, self.lang, on_result, no_update_callback=on_no_update, fail_callback=on_fail).check()
@@ -878,16 +875,13 @@ class GanttPilotGUI:
         left_frame = ttk.Frame(self.paned, width=320)
         self.paned.add(left_frame, weight=1)
 
-        # Minimal toolbar: lang, undo/redo, font, config, help
+        # Minimal toolbar: undo/redo, unified buttons, config, about
         toolbar = ttk.Frame(left_frame)
         toolbar.pack(fill=tk.X, pady=(0, 2))
-        ttk.Button(toolbar, text="EN/中", command=self.toggle_language, width=5).pack(side=tk.LEFT, padx=1)
         self.undo_btn = ttk.Button(toolbar, text="↩", command=self.do_undo, width=3, state=tk.DISABLED)
         self.undo_btn.pack(side=tk.LEFT, padx=1)
         self.redo_btn = ttk.Button(toolbar, text="↪", command=self.do_redo, width=3, state=tk.DISABLED)
         self.redo_btn.pack(side=tk.LEFT, padx=1)
-        ttk.Button(toolbar, text="A+", command=self.increase_font, width=3).pack(side=tk.LEFT, padx=1)
-        ttk.Button(toolbar, text="A-", command=self.decrease_font, width=3).pack(side=tk.LEFT, padx=1)
 
         # Unified toolbar buttons: Add, Edit, Delete | Copy, Paste, Duplicate | Move Up, Move Down
         self.tb_add_btn = ttk.Button(toolbar, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED)
@@ -911,14 +905,10 @@ class GanttPilotGUI:
         self.tb_down_btn = ttk.Button(toolbar, text="↓", command=self.toolbar_move_down, width=4, state=tk.DISABLED)
         self.tb_down_btn.pack(side=tk.LEFT, padx=1)
 
+        self.about_btn = ttk.Button(toolbar, text="⋯", command=self.show_more_menu, width=3)
+        self.about_btn.pack(side=tk.RIGHT, padx=1)
         self.config_btn = ttk.Button(toolbar, text="⚙", command=self.open_config_dialog, width=3)
         self.config_btn.pack(side=tk.RIGHT, padx=1)
-        self.mcp_btn = ttk.Button(toolbar, text="🔌", command=self.open_mcp_dialog, width=3)
-        self.mcp_btn.pack(side=tk.RIGHT, padx=1)
-        self.update_check_btn = ttk.Button(toolbar, text="⟳", command=self.manual_update_check, width=3)
-        self.update_check_btn.pack(side=tk.RIGHT, padx=1)
-        self.help_btn = ttk.Button(toolbar, text="?", command=self.show_help, width=3)
-        self.help_btn.pack(side=tk.RIGHT, padx=1)
 
         # Tree
         tree_frame = ttk.Frame(left_frame)
@@ -1872,7 +1862,7 @@ class GanttPilotGUI:
         self.status_var.set(self._t("migrate_main_success"))
 
     def on_branch_changed(self, event=None):
-        """Handle branch selection change — load data from selected branch."""
+        """Handle branch selection change — load data from selected branch (global)."""
         selected = self.branch_selector.get()
         if not selected or not self.current_project:
             return
@@ -1893,8 +1883,11 @@ class GanttPilotGUI:
             if selected == current:
                 # Current working branch — load data normally
                 self.store.load()
+                self._branch_project_data = None
+                self.refresh_project_list()
                 self.refresh_gantt()
                 self.refresh_time_report()
+                self.refresh_tracking()
                 self.refresh_history()
                 return
 
@@ -1912,10 +1905,20 @@ class GanttPilotGUI:
             if branch_proj is None:
                 self.status_var.set(f"Cannot load project.json from branch: {selected}")
                 return
-            # Temporarily replace project data for display
+
+            # Store branch project data for other views to use
+            self._branch_project_data = branch_proj
+
+            # Refresh tree with branch data
+            self.refresh_project_list()
+
+            # Refresh Gantt with branch data
             backend = CanvasBackend(self.gantt_canvas)
             renderer = GanttRenderer(backend, branch_proj, self.lang, self.gantt_zoom)
             renderer.draw()
+
+            # Refresh tracking with branch data
+            self.refresh_tracking()
 
             # Refresh history for the selected branch
             for item in self.history_tree.get_children():
@@ -3258,52 +3261,7 @@ class GanttPilotGUI:
         self.lang = "en" if self.lang == "zh" else "zh"
         self.config.language = self.lang
         self.config.save()
-        self.root.title(self._t("app_title") + f" v{VERSION}")
-        self.report_tree.heading("executor", text=self._t("executor"))
-        self.report_tree.heading("hours", text=self._t("total_hours"))
-        self.report_tree.heading("days", text=self._t("total_days"))
-        self.report_tree.heading("percentage", text=self._t("percentage"))
-        # Update notebook tab labels
-        self.right_notebook.tab(0, text=self._t("gantt_chart"))
-        self.right_notebook.tab(1, text=self._t("history"))
-        # Update branch label
-        self.branch_label.configure(text=self._t("branch"))
-        # Update banner labels
-        self.update_banner_label.configure(text=self._t("main_updated"))
-        self.update_banner_btn.configure(text=self._t("sync_main"))
-        # Update report mode selector
-        self.report_mode_label.configure(text=self._t("report_mode"))
-        current_idx = self.report_mode_combo.current()
-        self.report_mode_combo["values"] = [
-            self._t("report_by_project"),
-            self._t("report_by_milestone"),
-            self._t("report_by_plan"),
-            self._t("report_by_tag"),
-        ]
-        self.report_mode_combo.current(current_idx if current_idx >= 0 else 0)
-        # Update history tree headings
-        self.history_tree.heading("commit_author", text=self._t("commit_author"))
-        self.history_tree.heading("commit_date", text=self._t("commit_date"))
-        self.history_tree.heading("commit_message", text=self._t("commit_message"))
-        # Update toolbar tooltips
-        self._show_tooltip(self.undo_btn, self._tooltip_with_shortcut(self._t("undo"), "undo"))
-        self._show_tooltip(self.redo_btn, self._tooltip_with_shortcut(self._t("redo"), "redo"))
-        self._show_tooltip(self.tb_add_btn, self._tooltip_with_shortcut(self._t("add"), "add"))
-        self._show_tooltip(self.tb_edit_btn, self._tooltip_with_shortcut(self._t("edit"), "edit"))
-        self._show_tooltip(self.tb_view_btn, self._tooltip_with_shortcut(self._t("view"), "view"))
-        self._show_tooltip(self.tb_delete_btn, self._tooltip_with_shortcut(self._t("delete"), "delete"))
-        self._show_tooltip(self.tb_copy_btn, self._tooltip_with_shortcut(self._t("copy"), "copy"))
-        self._show_tooltip(self.tb_paste_btn, self._tooltip_with_shortcut(self._t("paste"), "paste"))
-        self._show_tooltip(self.tb_dup_btn, self._tooltip_with_shortcut(self._t("duplicate"), "duplicate"))
-        self._show_tooltip(self.tb_up_btn, self._tooltip_with_shortcut(self._t("move_up"), "move_up"))
-        self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
-        self._show_tooltip(self.update_check_btn, self._t("update_check"))
-        self._show_tooltip(self.help_btn, self._t("help"))
-        self._show_tooltip(self.config_btn, self._t("config"))
-        self._show_tooltip(self.mcp_btn, self._t("mcp_server"))
-        # Refresh tree (updates "需求分析"/"计划执行" category labels)
-        self.refresh_project_list()
-        self.refresh_gantt()
+        self._refresh_ui_language()
 
     def increase_font(self):
         self.config.font_size = self.config.font_size + 1
@@ -3354,13 +3312,19 @@ class GanttPilotGUI:
             self._show_tooltip(self.tb_edit_btn, self._tooltip_with_shortcut(self._t("edit"), "edit"))
             self._show_tooltip(self.tb_delete_btn, self._tooltip_with_shortcut(self._t("delete"), "delete"))
             self._show_tooltip(self.tb_copy_btn, self._tooltip_with_shortcut(self._t("copy"), "copy"))
+            self._show_tooltip(self.tb_cut_btn, self._tooltip_with_shortcut(self._t("cut"), "cut"))
             self._show_tooltip(self.tb_paste_btn, self._tooltip_with_shortcut(self._t("paste"), "paste"))
             self._show_tooltip(self.tb_dup_btn, self._tooltip_with_shortcut(self._t("duplicate"), "duplicate"))
             self._show_tooltip(self.tb_up_btn, self._tooltip_with_shortcut(self._t("move_up"), "move_up"))
             self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
-            self._show_tooltip(self.update_check_btn, self._t("update_check"))
-            self._show_tooltip(self.help_btn, self._t("help"))
             self._show_tooltip(self.config_btn, self._t("config"))
+            self._show_tooltip(self.about_btn, self._t("more"))
+            # Check if language was changed in config dialog
+            if self.config.language != self.lang:
+                self.lang = self.config.language
+                self._refresh_ui_language()
+            # Update font size
+            self.update_fonts()
             # Update pull interval from config
             pull_interval = max(1, self.config.get("pull_interval", 5))
             self._bg_check_interval_ms = pull_interval * 60 * 1000
@@ -3407,6 +3371,72 @@ class GanttPilotGUI:
         txt.configure(state=tk.DISABLED)
 
         ttk.Button(dlg, text="OK", command=_close).pack(pady=(0, 8))
+
+    def show_more_menu(self):
+        """Show a popup menu with less-common actions: update, help, MCP, about."""
+        menu = tk.Menu(self.root, tearoff=0)
+        menu.add_command(label=self._t("update_check"), command=self.manual_update_check)
+        menu.add_command(label=self._t("help"), command=self.show_help)
+        menu.add_command(label=self._t("mcp_server"), command=self.open_mcp_dialog)
+        menu.add_separator()
+        menu.add_command(label=f"{self._t('about')} (v{VERSION})",
+                         command=lambda: webbrowser.open(f"https://github.com/{GITHUB_REPO}"))
+        # Show menu at the button position
+        try:
+            x = self.about_btn.winfo_rootx()
+            y = self.about_btn.winfo_rooty() + self.about_btn.winfo_height()
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
+
+    def _refresh_ui_language(self):
+        """Refresh all UI elements after language change (called from config dialog)."""
+        self.root.title(self._t("app_title") + f" v{VERSION}")
+        self.report_tree.heading("executor", text=self._t("executor"))
+        self.report_tree.heading("hours", text=self._t("total_hours"))
+        self.report_tree.heading("days", text=self._t("total_days"))
+        self.report_tree.heading("percentage", text=self._t("percentage"))
+        # Update notebook tab labels
+        self.right_notebook.tab(0, text=self._t("gantt_chart"))
+        self.right_notebook.tab(1, text=self._t("tracking_tab"))
+        self.right_notebook.tab(2, text=self._t("history"))
+        # Update branch label
+        self.branch_label.configure(text=self._t("branch"))
+        # Update banner labels
+        self.update_banner_label.configure(text=self._t("main_updated"))
+        self.update_banner_btn.configure(text=self._t("sync_main"))
+        # Update report mode selector
+        self.report_mode_label.configure(text=self._t("report_mode"))
+        current_idx = self.report_mode_combo.current()
+        self.report_mode_combo["values"] = [
+            self._t("report_by_project"),
+            self._t("report_by_milestone"),
+            self._t("report_by_plan"),
+            self._t("report_by_tag"),
+        ]
+        self.report_mode_combo.current(current_idx if current_idx >= 0 else 0)
+        # Update history tree headings
+        self.history_tree.heading("commit_author", text=self._t("commit_author"))
+        self.history_tree.heading("commit_date", text=self._t("commit_date"))
+        self.history_tree.heading("commit_message", text=self._t("commit_message"))
+        # Update toolbar tooltips
+        self._show_tooltip(self.undo_btn, self._tooltip_with_shortcut(self._t("undo"), "undo"))
+        self._show_tooltip(self.redo_btn, self._tooltip_with_shortcut(self._t("redo"), "redo"))
+        self._show_tooltip(self.tb_add_btn, self._tooltip_with_shortcut(self._t("add"), "add"))
+        self._show_tooltip(self.tb_edit_btn, self._tooltip_with_shortcut(self._t("edit"), "edit"))
+        self._show_tooltip(self.tb_view_btn, self._tooltip_with_shortcut(self._t("view"), "view"))
+        self._show_tooltip(self.tb_delete_btn, self._tooltip_with_shortcut(self._t("delete"), "delete"))
+        self._show_tooltip(self.tb_copy_btn, self._tooltip_with_shortcut(self._t("copy"), "copy"))
+        self._show_tooltip(self.tb_cut_btn, self._tooltip_with_shortcut(self._t("cut"), "cut"))
+        self._show_tooltip(self.tb_paste_btn, self._tooltip_with_shortcut(self._t("paste"), "paste"))
+        self._show_tooltip(self.tb_dup_btn, self._tooltip_with_shortcut(self._t("duplicate"), "duplicate"))
+        self._show_tooltip(self.tb_up_btn, self._tooltip_with_shortcut(self._t("move_up"), "move_up"))
+        self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
+        self._show_tooltip(self.config_btn, self._t("config"))
+        self._show_tooltip(self.about_btn, self._t("more"))
+        # Refresh tree
+        self.refresh_project_list()
+        self.refresh_gantt()
 
     # ── MCP Server management ───────────────────────────────
     def _start_mcp_server(self):
@@ -3910,6 +3940,7 @@ class ActivityDialog:
         self.top.columnconfigure(1, weight=1)
 
         row = 0
+        today_str = datetime.date.today().strftime("%Y%m%d")
         fields = [
             ("executor", t_func("executor")),
             ("date", t_func("date") + " (YYYYMMDD, " + t_func("optional") + ")"),
@@ -3921,6 +3952,9 @@ class ActivityDialog:
             entry = ttk.Entry(self.top, width=30)
             entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
             self.entries[key] = entry
+            # Pre-fill date with today
+            if key == "date":
+                entry.insert(0, today_str)
             # Pre-fill executor with committer name and add hint
             if key == "executor" and default_executor:
                 entry.insert(0, default_executor)
@@ -4065,6 +4099,7 @@ class ConfigDialog:
             ("export_scale", t_func("export_scale") if lang == "en" else "导出图片缩放倍数", str(config.get("export_scale", 2.0))),
             ("pull_interval", t_func("pull_interval"), str(config.get("pull_interval", 5))),
             ("git_log_max_days", t_func("git_log_max_days"), str(config.get("git_log_max_days", 30))),
+            ("font_size", t_func("font_size"), str(config.font_size)),
         ]
         path_fields = {"data_dir", "config_dir"}
         self.entries = {}
@@ -4079,6 +4114,14 @@ class ConfigDialog:
                            command=lambda e=entry: self._browse_dir(e)).grid(row=i, column=2, padx=2, pady=4)
 
         next_row = len(fields)
+
+        # Language selector
+        ttk.Label(self.top, text=t_func("language")).grid(row=next_row, column=0, padx=8, pady=4, sticky=tk.W)
+        self.lang_combo = ttk.Combobox(self.top, state="readonly", width=33,
+                                       values=["中文", "English"])
+        self.lang_combo.set("中文" if lang == "zh" else "English")
+        self.lang_combo.grid(row=next_row, column=1, padx=4, pady=4, sticky=tk.EW)
+        next_row += 1
 
         # ── Shortcut configuration section ───────────────────
         if self.shortcut_manager is not None:
@@ -4223,7 +4266,19 @@ class ConfigDialog:
                     val = max(1.0, float(val))
                 except ValueError:
                     continue
+            elif key == "font_size":
+                try:
+                    val = max(8, min(30, int(val)))
+                except ValueError:
+                    continue
+                self.config.font_size = val
+                continue
             self.config.set(key, val)
+
+        # Save language selection
+        lang_sel = self.lang_combo.get()
+        new_lang = "zh" if lang_sel == "中文" else "en"
+        self.config.language = new_lang
 
         # Auto-detect git user if committer fields are still empty
         committer_name = self.config.get("committer_name", "")

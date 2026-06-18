@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.10.3-blue.svg)
+![Version](https://img.shields.io/badge/version-1.11.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -127,11 +127,8 @@ The toolbar at the top provides quick access to common actions. Buttons are cont
 
 | Button | Action | Shortcut |
 | --- | --- | --- |
-| EN/中 | Toggle language | — |
 | ↩ | Undo | `Ctrl+Z` |
 | ↪ | Redo | `Ctrl+Y` |
-| A+ | Increase font size | — |
-| A- | Decrease font size | — |
 | Add | Add child node (requirement/task/milestone/plan/activity) | `Ctrl+N` |
 | Edit | Edit selected node | `F2` |
 | View | View node details (read-only, scrollable, zoomable) | `F3` |
@@ -142,10 +139,8 @@ The toolbar at the top provides quick access to common actions. Buttons are cont
 | Duplicate | Clone node with all children | `Ctrl+D` |
 | Move Up | Reorder node up among siblings | `Alt+Up` |
 | Move Down | Reorder node down among siblings | `Alt+Down` |
-| 🔌 | MCP Server config (start/stop, copy config templates) | — |
-| ? | Show help | — |
-| ⟳ | Check for updates | — |
-| ⚙ | Open settings | — |
+| ⚙ | Open settings (language, font size, paths, shortcuts) | — |
+| ⋯ | More menu (check updates, help, MCP server, about) | — |
 
 Other shortcuts: `Ctrl+S` Push/Sync, `F5` Refresh. All shortcuts are customizable in Config.
 
@@ -325,9 +320,9 @@ Toolbar → ⚙ opens the settings dialog:
 | Export Scale | Scale factor for exported PNG images (default: 2.0, higher = larger text) |
 | Pull Interval | Background remote check interval in minutes (default: 5) |
 | Log Retention Days | Max days to keep operation logs (default: 30) |
+| Font Size | UI font size (8-30) |
+| Language | Switch between 中文 and English |
 | Shortcuts | Customize all keyboard shortcuts with conflict detection |
-
-Language is toggled via the `EN/中` toolbar button. Font size is adjusted via `A+`/`A-` toolbar buttons.
 
 ### Project Tags
 
@@ -339,7 +334,7 @@ GanttPilot includes a built-in MCP (Model Context Protocol) server that allows A
 
 #### Quick Setup
 
-1. Click the 🔌 button in the toolbar to open the MCP config dialog
+1. Click the "⋯" (More) button in the toolbar → select "MCP Server" to open the MCP config dialog
 2. Click "Start" to enable the MCP server
 3. Switch to the config template tab for your AI tool (Kiro / Claude Desktop / Generic)
 4. Click "Copy Config" and paste into your tool's MCP configuration file
@@ -504,13 +499,11 @@ python main.py --version    # 显示版本
 
 | 按钮 | 功能 | 快捷键 |
 | --- | --- | --- |
-| EN/中 | 切换语言 | — |
 | ↩ | 撤销 | `Ctrl+Z` |
 | ↪ | 恢复 | `Ctrl+Y` |
-| A+ | 增大字体 | — |
-| A- | 减小字体 | — |
 | 添加 | 添加子节点（需求/任务/里程碑/计划/活动） | `Ctrl+N` |
 | 编辑 | 编辑选中节点 | `F2` |
+| 查看 | 查看详情（只读，可滚动，可缩放） | `F3` |
 | 删除 | 删除选中节点 | `Delete` |
 | 复制 | 复制节点到剪贴板 | `Ctrl+C` |
 | 剪切 | 剪切节点（复制+删除） | `Ctrl+X` |
@@ -518,9 +511,8 @@ python main.py --version    # 显示版本
 | 克隆 | 复制节点及其所有子节点 | `Ctrl+D` |
 | 上移 | 在同级节点中上移 | `Alt+Up` |
 | 下移 | 在同级节点中下移 | `Alt+Down` |
-| ? | 显示帮助 | — |
-| ⟳ | 检查更新 | — |
-| ⚙ | 打开设置 | — |
+| ⚙ | 打开配置（语言、字体大小、路径、快捷键） | — |
+| ⋯ | 更多菜单（检查更新、帮助、MCP服务、关于） | — |
 
 其他快捷键：`Ctrl+S` 推送/同步、`F5` 刷新。所有快捷键均可在配置中自定义。
 
@@ -700,9 +692,9 @@ Markdown 报告（细节模式）包含：
 | 导出图片缩放倍数 | 导出 PNG 图片的缩放倍数（默认 2.0，越大文字越清晰） |
 | 拉取间隔 | 后台远端检测间隔（分钟，默认 5） |
 | 日志保留天数 | 操作日志保留的最大天数（默认 30），超期自动清理 |
+| 字体大小 | UI 字体大小（8-30） |
+| 语言 | 切换中文/English |
 | 快捷键配置 | 自定义所有键盘快捷键，支持冲突检测 |
-
-语言通过工具栏 `EN/中` 按钮切换。字体大小通过 `A+`/`A-` 按钮调整。
 
 ### 项目标签
 

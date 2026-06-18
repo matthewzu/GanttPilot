@@ -31,9 +31,18 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.11.0 / v1.11.0 改进
+
+          - 🧹 **Toolbar cleanup** — Infrequent buttons (language toggle, font size, update check, help, MCP) merged into "⚙ Config" and "⋯ More" menu, cleaner toolbar / **工具栏精简** — 不常用按钮合并到"⚙配置"和"⋯更多"菜单，界面更简洁
+          - ⚙️ **Language & font in Config** — Language switch and font size now live in the Config dialog / **配置集成语言和字体** — 中英文切换和字体大小移入配置对话框
+          - ⋯ **More popup menu** — New "⋯" button opens a menu with: check updates, help, MCP server, about / **更多菜单** — 新增"⋯"按钮，弹出菜单承载不常用功能
+          - ✂️ **Cut button tooltip** — Cut button now shows "Cut (Ctrl+X)" tooltip on hover / **剪切按钮提示** — 剪切按钮添加 tooltip
+          - 📅 **Activity date defaults to today** — Date field auto-fills with today's date when creating activities / **活动日期默认今天** — 创建活动时日期自动填充当天
+          - 🔀 **Global branch switching** — Switching branches refreshes all views: project tree, Gantt, time stats, requirement tracking, and history / **分支切换全局化** — 切换分支同步刷新所有视图
+
           ### ✨ New in v1.10.3 / v1.10.3 改进
 
-          - 🔄 **Remove auto-restart after update** — No more "Failed to load Python DLL" errors. Click OK to exit, then manually reopen / **取消自动重启** — 彻底解决更新后 DLL 加载失败，点击确定退出后手动重新打开即为新版本
+          - 🔄 **Remove auto-restart after update** — No more "Failed to load Python DLL" errors. Click OK to exit, then manually reopen / **取消自动重启** — 彻底解决更新后 DLL 加载失败
 
           ### ✨ New in v1.10.2 / v1.10.2 修复
 
