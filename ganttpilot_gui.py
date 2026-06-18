@@ -716,14 +716,15 @@ class GanttPilotGUI:
                 os.rename(exe_path, old_path)
                 os.rename(tmp_path, exe_path)
 
-            # Show completion dialog with clickable README link, then auto-restart
+            # Show completion dialog — user must manually restart
             def _post_update():
                 readme_url = f"https://github.com/{GITHUB_REPO}#readme"
-                msg = self._t("update_restart", new_version)
+                msg = (f"v{new_version} downloaded. Click OK to exit, then reopen manually."
+                       if self.lang == "en"
+                       else f"v{new_version} 已下载完成，点击确定后将退出，请手动重新打开。")
                 link_text = "📖 " + self._t("view_readme")
                 _link_dialog(self.root, self._t("update_check"), msg, link_text, readme_url, ask=False, gui=self)
-                # Auto-restart
-                self._restart_app(exe_path)
+                self.root.destroy()
 
             self.root.after(0, _post_update)
         except Exception as e:
