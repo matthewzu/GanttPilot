@@ -1,5 +1,19 @@
 # 更新日志 / Changelog
 
+## [1.10.0] - 2026-06-18
+
+### 新增 / Added
+- 📂 **每条活动独立文件** — 活动记录从单个 `activities/{plan_id}.json` 数组文件拆分为 `activities/{plan_id}/{activity_id}.json` 每条活动独立文件 + `_order.json` 排序文件，进一步减少同计划下多人协作的 Git 冲突
+- 🔄 **向后兼容三代格式** — 自动识别 v0（单文件）、v1（activities 数组拆分）、v2（per-activity 文件）三种格式并正确加载
+
+### 改进 / Improved
+- 🔀 **迁移工具同步更新** — "升级主线格式"、变基前自动迁移、squash-rebase 均输出 per-activity 格式
+
+## [1.9.4] - 2026-06-18
+
+### 修复 / Fixed
+- 🔀 **修复 squash-rebase 数据丢失** — 旧逻辑用私有分支数据覆盖主线，丢失他人 PR 内容。改为三方数据合并：以主线为基础，仅应用相对于共同祖先的实际变更
+
 ## [1.9.0] - 2026-06-18
 
 ### 新增 / Added

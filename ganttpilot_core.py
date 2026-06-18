@@ -12,7 +12,9 @@ Data is stored per project, with two format generations:
       milestones/
         {ms_id}.json         — milestone metadata + plans (without activities)
       activities/
-        {plan_id}.json       — activities array for one plan
+        {plan_id}/
+          _order.json        — activity ID ordering
+          {activity_id}.json — single activity record
 
   v0/v1 (legacy — auto-loaded, never written for new projects):
     data_dir/{project_name}/
@@ -336,22 +338,68 @@ class DataStore:
             if plan.get("status") == "finished" and plan["progress"] == 0:
                 plan["progress"] = 100
 
-            # Load activities: prefer separate file, fall back to inline
+            # Load activities: prefer per-activity dir, then single file, then inline
             plan_id = plan["id"]
+            plan_act_dir = os.path.join(activities_dir, plan_id)
             act_file = os.path.join(activities_dir, f"{plan_id}.json")
-            if os.path.isfile(act_file):
+
+            if os.path.isdir(plan_act_dir):
+                # v3: per-activity files with _order.json
+                plan["activities"] = self._load_activities_dir(plan_act_dir)
+            elif os.path.isfile(act_file):
+                # v2: single activities array file
                 try:
                     with open(act_file, "r", encoding="utf-8") as af:
                         plan["activities"] = json.load(af)
                 except (json.JSONDecodeError, IOError):
                     plan.setdefault("activities", [])
             else:
+                # v0/v1: inline in project.json
                 plan.setdefault("activities", [])
 
             for activity in plan.get("activities", []):
                 activity.setdefault("time_slots", "")
                 activity.setdefault("tag", "")
                 activity.setdefault("description", "")
+
+    def _load_activities_dir(self, plan_act_dir):
+        """Load activities from per-activity directory with _order file."""
+        order_file = os.path.join(plan_act_dir, "_order")
+        activities = []
+
+        # Read order (plain text, one ID per line)
+        order = []
+        if os.path.isfile(order_file):
+            try:
+                with open(order_file, "r", encoding="utf-8") as f:
+                    order = [line.strip() for line in f if line.strip()]
+            except IOError:
+                pass
+
+        # Load ordered activities
+        loaded_ids = set()
+        for act_id in order:
+            afile = os.path.join(plan_act_dir, f"{act_id}.json")
+            if os.path.isfile(afile):
+                try:
+                    with open(afile, "r", encoding="utf-8") as f:
+                        activities.append(json.load(f))
+                    loaded_ids.add(act_id)
+                except (json.JSONDecodeError, IOError):
+                    pass
+
+        # Load any unordered activity files (safety)
+        for fname in sorted(os.listdir(plan_act_dir)):
+            if fname.endswith(".json"):
+                aid = fname[:-5]
+                if aid not in loaded_ids:
+                    try:
+                        with open(os.path.join(plan_act_dir, fname), "r", encoding="utf-8") as f:
+                            activities.append(json.load(f))
+                    except (json.JSONDecodeError, IOError):
+                        pass
+
+        return activities
 
     def save(self):
         os.makedirs(self.data_dir, exist_ok=True)
@@ -418,9 +466,24 @@ class DataStore:
                 plan_id = plan["id"]
                 active_plan_ids.add(plan_id)
                 activities = plan.pop("activities", [])
-                # Write activities to separate file
-                with open(os.path.join(act_dir, f"{plan_id}.json"), "w", encoding="utf-8") as f:
-                    json.dump(activities, f, ensure_ascii=False, indent=2)
+                # Write activities as per-activity files
+                plan_act_dir = os.path.join(act_dir, plan_id)
+                os.makedirs(plan_act_dir, exist_ok=True)
+                active_act_ids = set()
+                for act in activities:
+                    active_act_ids.add(act["id"])
+                    with open(os.path.join(plan_act_dir, f"{act['id']}.json"), "w", encoding="utf-8") as f:
+                        json.dump(act, f, ensure_ascii=False, indent=2)
+                # Write _order (plain text, one ID per line)
+                with open(os.path.join(plan_act_dir, "_order"), "w", encoding="utf-8") as f:
+                    for act in activities:
+                        f.write(act["id"] + "\n")
+                # Clean orphaned activity files in this plan dir
+                for fname in os.listdir(plan_act_dir):
+                    if fname.endswith(".json"):
+                        aid = fname[:-5]
+                        if aid not in active_act_ids:
+                            os.remove(os.path.join(plan_act_dir, fname))
             with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
                 json.dump(ms_copy, f, ensure_ascii=False, indent=2)
 
@@ -428,10 +491,16 @@ class DataStore:
         for fname in os.listdir(ms_dir):
             if fname.endswith(".json") and fname[:-5] not in active_ms_ids:
                 os.remove(os.path.join(ms_dir, fname))
-        # Clean orphaned activity files
-        for fname in os.listdir(act_dir):
-            if fname.endswith(".json") and fname[:-5] not in active_plan_ids:
-                os.remove(os.path.join(act_dir, fname))
+        # Clean orphaned activity plan directories and legacy single-file activities
+        for entry in os.listdir(act_dir):
+            entry_path = os.path.join(act_dir, entry)
+            if os.path.isdir(entry_path):
+                if entry not in active_plan_ids:
+                    import shutil
+                    shutil.rmtree(entry_path)
+            elif entry.endswith(".json"):
+                # Remove legacy single-file activities (migrated to dirs)
+                os.remove(entry_path)
 
     def _save_legacy(self, proj, proj_dir):
         """Save project in legacy single-file format (backward compat)."""

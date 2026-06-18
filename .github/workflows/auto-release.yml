@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.10.0 / v1.10.0 新增
+
+          - 📂 **Per-Activity File Storage** — Each activity is now stored as an individual file (`activities/{plan_id}/{activity_id}.json` + `_order.json`), virtually eliminating merge conflicts even when two people add activities to the same plan / **每条活动独立文件** — 即使同计划下多人添加活动也几乎不会冲突
+
           ### ✨ New in v1.9.4 / v1.9.4 修复
 
           - 🔀 **Fix data loss in squash-rebase** — Previous squash-rebase overwrote main's data with private branch data, losing other members' PR contributions. Now uses three-way data merge: main as base, apply only our actual changes (additions/edits relative to merge-base) / **修复 squash-rebase 数据丢失** — 旧逻辑用私有分支数据覆盖主线，丢失他人 PR 内容。改为三方数据合并：以主线为基础，仅应用相对于共同祖先的实际变更

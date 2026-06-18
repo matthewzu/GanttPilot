@@ -26,6 +26,22 @@ from logging.handlers import TimedRotatingFileHandler
 _SUBPROCESS_FLAGS = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 
+def _write_activities_split(act_dir, plan_id, activities):
+    """Write activities as per-activity files with _order file.
+
+    Creates activities/{plan_id}/{activity_id}.json for each activity
+    and activities/{plan_id}/_order (plain text, one ID per line) for ordering.
+    """
+    plan_act_dir = os.path.join(act_dir, plan_id)
+    os.makedirs(plan_act_dir, exist_ok=True)
+    for act in activities:
+        with open(os.path.join(plan_act_dir, f"{act['id']}.json"), "w", encoding="utf-8") as f:
+            json.dump(act, f, ensure_ascii=False, indent=2)
+    with open(os.path.join(plan_act_dir, "_order"), "w", encoding="utf-8") as f:
+        for act in activities:
+            f.write(act["id"] + "\n")
+
+
 def _setup_app_logger(log_dir, max_days=30):
     """Create a file logger for application operations, auto-cleaning logs older than max_days.
     
@@ -608,14 +624,35 @@ class GitSync:
             # Load activities for each plan
             for plan in ms.get("plans", []):
                 plan_id = plan.get("id", "")
-                act_content = self.read_file_from_branch(branch, f"activities/{plan_id}.json")
-                if act_content:
+                # Try per-activity dir format first (_order file)
+                order_content = self.read_file_from_branch(
+                    branch, f"activities/{plan_id}/_order")
+                if order_content:
                     try:
-                        plan["activities"] = json.loads(act_content)
-                    except (json.JSONDecodeError, ValueError):
+                        order = [line.strip() for line in order_content.split("\n") if line.strip()]
+                        activities = []
+                        for act_id in order:
+                            ac = self.read_file_from_branch(
+                                branch, f"activities/{plan_id}/{act_id}.json")
+                            if ac:
+                                try:
+                                    activities.append(json.loads(ac))
+                                except (json.JSONDecodeError, ValueError):
+                                    pass
+                        plan["activities"] = activities
+                    except Exception:
                         plan.setdefault("activities", [])
                 else:
-                    plan.setdefault("activities", [])
+                    # Fallback: single array file
+                    act_content = self.read_file_from_branch(
+                        branch, f"activities/{plan_id}.json")
+                    if act_content:
+                        try:
+                            plan["activities"] = json.loads(act_content)
+                        except (json.JSONDecodeError, ValueError):
+                            plan.setdefault("activities", [])
+                    else:
+                        plan.setdefault("activities", [])
             proj["milestones"].append(ms)
 
         return proj
@@ -792,8 +829,7 @@ class GitSync:
             ms_copy = copy.deepcopy(ms)
             for plan in ms_copy.get("plans", []):
                 activities = plan.pop("activities", [])
-                with open(os.path.join(act_dir, f"{plan['id']}.json"), "w", encoding="utf-8") as f:
-                    json.dump(activities, f, ensure_ascii=False, indent=2)
+                _write_activities_split(act_dir, plan["id"], activities)
             with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
                 json.dump(ms_copy, f, ensure_ascii=False, indent=2)
 
@@ -925,8 +961,14 @@ class GitSync:
                     with open(mfile, "r", encoding="utf-8") as f:
                         ms = json.load(f)
                     for plan in ms.get("plans", []):
-                        act_file = os.path.join(act_dir, f"{plan['id']}.json")
-                        if os.path.isfile(act_file):
+                        plan_id = plan["id"]
+                        plan_act_dir = os.path.join(act_dir, plan_id)
+                        act_file = os.path.join(act_dir, f"{plan_id}.json")
+                        if os.path.isdir(plan_act_dir):
+                            # v3: per-activity files
+                            plan["activities"] = self._read_activities_dir(plan_act_dir)
+                        elif os.path.isfile(act_file):
+                            # v2: single array file
                             with open(act_file, "r", encoding="utf-8") as f:
                                 plan["activities"] = json.load(f)
                         else:
@@ -934,6 +976,39 @@ class GitSync:
                     proj["milestones"].append(ms)
 
         return proj
+
+    @staticmethod
+    def _read_activities_dir(plan_act_dir):
+        """Read activities from per-activity directory."""
+        order_file = os.path.join(plan_act_dir, "_order")
+        order = []
+        if os.path.isfile(order_file):
+            try:
+                with open(order_file, "r", encoding="utf-8") as f:
+                    order = [line.strip() for line in f if line.strip()]
+            except IOError:
+                pass
+        activities = []
+        loaded_ids = set()
+        for act_id in order:
+            afile = os.path.join(plan_act_dir, f"{act_id}.json")
+            if os.path.isfile(afile):
+                try:
+                    with open(afile, "r", encoding="utf-8") as f:
+                        activities.append(json.load(f))
+                    loaded_ids.add(act_id)
+                except (json.JSONDecodeError, IOError):
+                    pass
+        for fname in sorted(os.listdir(plan_act_dir)):
+            if fname.endswith(".json"):
+                aid = fname[:-5]
+                if aid not in loaded_ids:
+                    try:
+                        with open(os.path.join(plan_act_dir, fname), "r", encoding="utf-8") as f:
+                            activities.append(json.load(f))
+                    except (json.JSONDecodeError, IOError):
+                        pass
+        return activities
 
     def _pre_rebase_migrate(self):
         """If origin/main has the v2 split format but local doesn't, migrate locally first.
@@ -982,8 +1057,7 @@ class GitSync:
             ms_copy = copy.deepcopy(ms)
             for plan in ms_copy.get("plans", []):
                 activities = plan.pop("activities", [])
-                with open(os.path.join(act_dir, f"{plan['id']}.json"), "w", encoding="utf-8") as f:
-                    json.dump(activities, f, ensure_ascii=False, indent=2)
+                _write_activities_split(act_dir, plan["id"], activities)
             with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
                 json.dump(ms_copy, f, ensure_ascii=False, indent=2)
 
@@ -1094,8 +1168,7 @@ class GitSync:
             ms_copy = copy.deepcopy(ms)
             for plan in ms_copy.get("plans", []):
                 activities = plan.pop("activities", [])
-                with open(os.path.join(act_dir, f"{plan['id']}.json"), "w", encoding="utf-8") as f:
-                    json.dump(activities, f, ensure_ascii=False, indent=2)
+                _write_activities_split(act_dir, plan["id"], activities)
             with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
                 json.dump(ms_copy, f, ensure_ascii=False, indent=2)
 

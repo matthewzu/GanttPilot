@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.9.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.10.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -84,10 +84,12 @@ On disk, each project is stored as split files to minimize Git merge conflicts:
   milestones/
     {ms_id}.json            ← One milestone with plan metadata
   activities/
-    {plan_id}.json          ← Activities for one plan
+    {plan_id}/
+      _order.json           ← Activity ordering
+      {activity_id}.json    ← Single activity record
 ```
 
-Two people editing different requirements, milestones, or plans will never conflict — they touch different files. The maintainer upgrades the format via right-click → "Upgrade Main Format"; team members auto-migrate on rebase.
+Two people editing different requirements, milestones, or plans will never conflict — they touch different files. Even two people adding activities to the same plan create different files and only conflict on `_order.json` (simple array append, usually auto-merged by git). The maintainer upgrades the format via right-click → "Upgrade Main Format"; team members auto-migrate on rebase.
 
 #### Format Migration
 
@@ -459,10 +461,12 @@ python main.py --version    # 显示版本
   milestones/
     {ms_id}.json            ← 单个里程碑（含计划元数据）
   activities/
-    {plan_id}.json          ← 单个计划的活动记录
+    {plan_id}/
+      _order.json           ← 活动排序
+      {activity_id}.json    ← 单条活动记录
 ```
 
-两人编辑不同需求、里程碑或计划时修改的是不同文件，不会产生冲突。维护者通过右键 → "升级主线格式"一键推送新格式到主线，其他成员变基时自动迁移。
+两人编辑不同需求、里程碑或计划时修改的是不同文件，不会产生冲突。即使两人同时给同一计划添加活动，也是创建不同文件，仅 `_order.json`（简单数组追加）可能需要合并。维护者通过右键 → "升级主线格式"一键推送新格式到主线，其他成员变基时自动迁移。
 
 #### 格式迁移
 
