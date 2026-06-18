@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.9.3 / v1.9.3 修复
+
+          - 🔀 **Squash-rebase for format migration** — When normal rebase fails due to format migration on main, automatically falls back to squash strategy: takes private branch's final data, converts to v2 format, commits as one on top of main. No manual conflict resolution needed / **格式迁移自动 squash-rebase** — 变基因格式差异冲突时自动采用 squash 策略，取私有分支最终数据转为 v2 格式提交，无需手动解决冲突
+
           ### ✨ New in v1.9.2 / v1.9.2 修复
 
           - 🔧 **Fix "Upgrade Main Format" not showing after failed attempt** — Detect partial migration residue (empty milestones/ dir) and still show the menu item / **修复失败后菜单项消失** — 检测残留的空目录，正确判断是否已迁移

@@ -679,10 +679,14 @@ class GitSync:
         local branch still has inline activities, automatically migrate the
         local data before rebasing to avoid format-related conflicts.
 
+        If normal rebase fails (likely due to format migration on main),
+        falls back to a squash strategy: take the final data state from the
+        private branch, convert to v2 format, and commit on top of main.
+
         Rebase 成功后自动 force-push 私有分支到远端（使用 --force-with-lease 安全推送）。
 
         Raises:
-            RuntimeError: rebase 冲突时抛出异常
+            RuntimeError: rebase 冲突时抛出异常（非格式迁移原因）
         """
         # ── Pre-rebase: auto-migrate if main uses new format ──
         self._pre_rebase_migrate()
@@ -690,14 +694,134 @@ class GitSync:
         result = self._run("rebase", f"origin/{self.main_branch}", check=False)
         if result.returncode != 0:
             self._run("rebase", "--abort", check=False)
-            raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Rebase conflict, aborted")
+
+            # Check if main has v2 format — if so, use squash strategy
+            ms_check = self._run("ls-tree", "--name-only",
+                                 f"origin/{self.main_branch}", "milestones/", check=False)
+            if ms_check.returncode == 0 and ms_check.stdout.strip():
+                self._squash_rebase_with_migration()
+            else:
+                raise RuntimeError(result.stderr.strip() or result.stdout.strip()
+                                   or "Rebase conflict, aborted")
+            return
+
         # Force-push private branch after successful rebase
+        self._force_push_priv()
+
+    def _force_push_priv(self):
+        """Force-push private branch to remote."""
         wb = self.priv_branch
         try:
             self._run("push", "--force-with-lease", "-u", "origin", wb)
         except RuntimeError:
             self._restore_plain_remote()
             self._run("push", "--force-with-lease", "-u", "origin", wb)
+
+    def _squash_rebase_with_migration(self):
+        """Squash-rebase: take private branch's final data, convert to v2, commit onto main.
+
+        Used when normal rebase fails due to format migration on main.
+        The private branch's old commits modified a monolithic project.json,
+        but main now uses split files — these are structurally incompatible for
+        per-commit replay. Instead, we take the end result and apply it as one commit.
+        """
+        import copy
+
+        # 1. Read the full project data from the current private branch state
+        proj_file = os.path.join(self.data_dir, "project.json")
+        with open(proj_file, "r", encoding="utf-8") as f:
+            proj = json.load(f)
+
+        # If project.json is still old format (has milestones key), read from it
+        # Otherwise read from split files
+        if "milestones" not in proj:
+            # Already in split format on disk, assemble full data
+            full_proj = self._assemble_split_data(proj)
+        else:
+            full_proj = proj
+
+        # 2. Reset private branch to main (discard old commits)
+        self._run("reset", "--hard", f"origin/{self.main_branch}")
+
+        # 3. Write full data in v2 split format on top of main
+        req_dir = os.path.join(self.data_dir, "requirements")
+        ms_dir = os.path.join(self.data_dir, "milestones")
+        act_dir = os.path.join(self.data_dir, "activities")
+        os.makedirs(req_dir, exist_ok=True)
+        os.makedirs(ms_dir, exist_ok=True)
+        os.makedirs(act_dir, exist_ok=True)
+
+        for req in full_proj.get("requirements", []):
+            with open(os.path.join(req_dir, f"{req['id']}.json"), "w", encoding="utf-8") as f:
+                json.dump(req, f, ensure_ascii=False, indent=2)
+
+        for ms in full_proj.get("milestones", []):
+            ms_copy = copy.deepcopy(ms)
+            for plan in ms_copy.get("plans", []):
+                activities = plan.pop("activities", [])
+                with open(os.path.join(act_dir, f"{plan['id']}.json"), "w", encoding="utf-8") as f:
+                    json.dump(activities, f, ensure_ascii=False, indent=2)
+            with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
+                json.dump(ms_copy, f, ensure_ascii=False, indent=2)
+
+        # Write config-only project.json
+        meta = {
+            "id": full_proj.get("id", ""),
+            "name": full_proj.get("name", ""),
+            "description": full_proj.get("description", ""),
+            "remote_url": full_proj.get("remote_url", ""),
+            "remote_username": full_proj.get("remote_username", ""),
+            "remote_password": full_proj.get("remote_password", ""),
+            "remote_branch": full_proj.get("remote_branch", "main"),
+            "tags": full_proj.get("tags", []),
+            "requirement_order": [r["id"] for r in full_proj.get("requirements", [])],
+            "milestone_order": [m["id"] for m in full_proj.get("milestones", [])],
+        }
+        with open(proj_file, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+
+        # 4. Stage and commit
+        self._run("add", "-A")
+        status = self._run("status", "--porcelain", check=False)
+        if status.stdout.strip():
+            self._run("commit", "-m", "Rebase with format migration (squashed)",
+                      extra_config=self._committer_config())
+
+        # 5. Force-push
+        self._force_push_priv()
+
+    def _assemble_split_data(self, meta):
+        """Assemble full project dict from v2 split files on disk."""
+        proj = dict(meta)
+        proj["requirements"] = []
+        proj["milestones"] = []
+
+        req_dir = os.path.join(self.data_dir, "requirements")
+        if os.path.isdir(req_dir):
+            for req_id in meta.get("requirement_order", []):
+                rfile = os.path.join(req_dir, f"{req_id}.json")
+                if os.path.isfile(rfile):
+                    with open(rfile, "r", encoding="utf-8") as f:
+                        proj["requirements"].append(json.load(f))
+
+        ms_dir = os.path.join(self.data_dir, "milestones")
+        act_dir = os.path.join(self.data_dir, "activities")
+        if os.path.isdir(ms_dir):
+            for ms_id in meta.get("milestone_order", []):
+                mfile = os.path.join(ms_dir, f"{ms_id}.json")
+                if os.path.isfile(mfile):
+                    with open(mfile, "r", encoding="utf-8") as f:
+                        ms = json.load(f)
+                    for plan in ms.get("plans", []):
+                        act_file = os.path.join(act_dir, f"{plan['id']}.json")
+                        if os.path.isfile(act_file):
+                            with open(act_file, "r", encoding="utf-8") as f:
+                                plan["activities"] = json.load(f)
+                        else:
+                            plan.setdefault("activities", [])
+                    proj["milestones"].append(ms)
+
+        return proj
 
     def _pre_rebase_migrate(self):
         """If origin/main has the v2 split format but local doesn't, migrate locally first.
