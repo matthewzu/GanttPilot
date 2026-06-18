@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.10.1 / v1.10.1 修复
+
+          - 🔧 **Fix "Upgrade Main Format" not showing for v2→per-activity upgrade** — Menu now detects flat activity files and offers upgrade to per-activity format / **修复已拆分项目无法升级到 per-activity 格式** — 菜单现在检测 flat activity 文件并提供升级入口
+
           ### ✨ New in v1.10.0 / v1.10.0 新增
 
           - 📂 **Per-Activity File Storage** — Each activity is now stored as an individual file (`activities/{plan_id}/{activity_id}.json` + `_order.json`), virtually eliminating merge conflicts even when two people add activities to the same plan / **每条活动独立文件** — 即使同计划下多人添加活动也几乎不会冲突

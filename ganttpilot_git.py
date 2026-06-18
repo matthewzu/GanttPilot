@@ -1137,10 +1137,13 @@ class GitSync:
         self._run("rebase", self.main_branch, check=False)
 
     def _do_migration_on_main(self):
-        """Perform the actual v2 migration on the currently checked-out main branch."""
-        milestones_dir = os.path.join(self.data_dir, "milestones")
-        if os.path.isdir(milestones_dir):
-            raise RuntimeError("Already in v2 split format")
+        """Perform migration on the currently checked-out main branch.
+
+        Handles two cases:
+        1. Old format (project.json has milestones inline) → full v2 split
+        2. V2 split with flat activity files → per-activity files
+        """
+        import copy
 
         proj_file = os.path.join(self.data_dir, "project.json")
         if not os.path.isfile(proj_file):
@@ -1149,51 +1152,62 @@ class GitSync:
         with open(proj_file, "r", encoding="utf-8") as f:
             proj = json.load(f)
 
-        import copy
-
-        req_dir = os.path.join(self.data_dir, "requirements")
-        ms_dir = milestones_dir
+        milestones_dir = os.path.join(self.data_dir, "milestones")
         act_dir = os.path.join(self.data_dir, "activities")
-        os.makedirs(req_dir, exist_ok=True)
-        os.makedirs(ms_dir, exist_ok=True)
-        os.makedirs(act_dir, exist_ok=True)
 
-        # Write requirements
-        for req in proj.get("requirements", []):
-            with open(os.path.join(req_dir, f"{req['id']}.json"), "w", encoding="utf-8") as f:
-                json.dump(req, f, ensure_ascii=False, indent=2)
+        if "milestones" in proj:
+            # Case 1: Full migration from old monolithic format
+            req_dir = os.path.join(self.data_dir, "requirements")
+            os.makedirs(req_dir, exist_ok=True)
+            os.makedirs(milestones_dir, exist_ok=True)
+            os.makedirs(act_dir, exist_ok=True)
 
-        # Write milestones + activities
-        for ms in proj.get("milestones", []):
-            ms_copy = copy.deepcopy(ms)
-            for plan in ms_copy.get("plans", []):
-                activities = plan.pop("activities", [])
-                _write_activities_split(act_dir, plan["id"], activities)
-            with open(os.path.join(ms_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
-                json.dump(ms_copy, f, ensure_ascii=False, indent=2)
+            for req in proj.get("requirements", []):
+                with open(os.path.join(req_dir, f"{req['id']}.json"), "w", encoding="utf-8") as f:
+                    json.dump(req, f, ensure_ascii=False, indent=2)
 
-        # Write config-only project.json
-        meta = {
-            "id": proj.get("id", ""),
-            "name": proj.get("name", ""),
-            "description": proj.get("description", ""),
-            "remote_url": proj.get("remote_url", ""),
-            "remote_username": proj.get("remote_username", ""),
-            "remote_password": proj.get("remote_password", ""),
-            "remote_branch": proj.get("remote_branch", "main"),
-            "tags": proj.get("tags", []),
-            "requirement_order": [r["id"] for r in proj.get("requirements", [])],
-            "milestone_order": [m["id"] for m in proj.get("milestones", [])],
-        }
-        with open(proj_file, "w", encoding="utf-8") as f:
-            json.dump(meta, f, ensure_ascii=False, indent=2)
+            for ms in proj.get("milestones", []):
+                ms_copy = copy.deepcopy(ms)
+                for plan in ms_copy.get("plans", []):
+                    activities = plan.pop("activities", [])
+                    _write_activities_split(act_dir, plan["id"], activities)
+                with open(os.path.join(milestones_dir, f"{ms['id']}.json"), "w", encoding="utf-8") as f:
+                    json.dump(ms_copy, f, ensure_ascii=False, indent=2)
+
+            meta = {
+                "id": proj.get("id", ""),
+                "name": proj.get("name", ""),
+                "description": proj.get("description", ""),
+                "remote_url": proj.get("remote_url", ""),
+                "remote_username": proj.get("remote_username", ""),
+                "remote_password": proj.get("remote_password", ""),
+                "remote_branch": proj.get("remote_branch", "main"),
+                "tags": proj.get("tags", []),
+                "requirement_order": [r["id"] for r in proj.get("requirements", [])],
+                "milestone_order": [m["id"] for m in proj.get("milestones", [])],
+            }
+            with open(proj_file, "w", encoding="utf-8") as f:
+                json.dump(meta, f, ensure_ascii=False, indent=2)
+
+        elif os.path.isdir(act_dir):
+            # Case 2: Upgrade flat activity files to per-activity dirs
+            for entry in list(os.listdir(act_dir)):
+                entry_path = os.path.join(act_dir, entry)
+                if entry.endswith(".json") and os.path.isfile(entry_path):
+                    plan_id = entry[:-5]
+                    with open(entry_path, "r", encoding="utf-8") as f:
+                        activities = json.load(f)
+                    _write_activities_split(act_dir, plan_id, activities)
+                    os.remove(entry_path)
+        else:
+            raise RuntimeError("No data to migrate")
 
         # Stage and commit on main
         self._run("add", "-A")
         status = self._run("status", "--porcelain", check=False)
         if not status.stdout.strip():
             raise RuntimeError("No changes to commit (already migrated?)")
-        self._run("commit", "-m", "Migrate to v2 split storage format",
+        self._run("commit", "-m", "Upgrade to per-activity file storage format",
                   extra_config=self._committer_config())
 
     def reset_to_commit(self, commit_hash):

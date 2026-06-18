@@ -1832,10 +1832,18 @@ class GanttPilotGUI:
         try:
             with open(proj_file, "r", encoding="utf-8") as f:
                 on_disk = json.load(f)
-            # If project.json has "milestones" key with data, it's old format
-            return bool(on_disk.get("milestones"))
+            # Old format: project.json has milestones data inline
+            if on_disk.get("milestones"):
+                return True
         except (json.JSONDecodeError, IOError):
             return False
+        # Check if activities/ still has flat .json files (v2 → per-activity upgrade needed)
+        act_dir = os.path.join(proj_dir, "activities")
+        if os.path.isdir(act_dir):
+            for entry in os.listdir(act_dir):
+                if entry.endswith(".json"):
+                    return True  # Has flat activity files, needs upgrade
+        return False
 
     def _on_migrate_main_done(self):
         """Callback after successful migrate-and-push-main."""

@@ -1,5 +1,11 @@
 # 更新日志 / Changelog
 
+## [1.10.1] - 2026-06-18
+
+### 修复 / Fixed
+- 🔧 **"升级主线格式"菜单检测增强** — 同时检测旧格式（inline milestones）和 v2 格式中的 flat activity 文件，支持从 v2 升级到 per-activity 格式
+- 🔧 **迁移工具支持增量升级** — `_do_migration_on_main` 支持两种迁移路径：旧格式→完整拆分、v2 flat activities→per-activity 目录
+
 ## [1.10.0] - 2026-06-18
 
 ### 新增 / Added
