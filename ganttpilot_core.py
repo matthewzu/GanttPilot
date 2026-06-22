@@ -246,6 +246,7 @@ class DataStore:
             "remote_password": meta.get("remote_password", ""),
             "remote_branch": meta.get("remote_branch", "main"),
             "tags": meta.get("tags", []),
+            "members": meta.get("members", {}),
             "requirements": [],
             "milestones": [],
         }
@@ -319,6 +320,7 @@ class DataStore:
         proj.pop("committer_email", None)
         proj.pop("priv_branch", None)
         proj.setdefault("requirements", [])
+        proj.setdefault("members", {})
 
         # Load activities from separate files (v1 split) or inline (v0)
         activities_dir = os.path.join(proj_dir, "activities")
@@ -438,6 +440,7 @@ class DataStore:
             "remote_password": proj.get("remote_password", ""),
             "remote_branch": proj.get("remote_branch", "main"),
             "tags": proj.get("tags", []),
+            "members": proj.get("members", {}),
             "requirement_order": [r["id"] for r in proj.get("requirements", [])],
             "milestone_order": [m["id"] for m in proj.get("milestones", [])],
         }
@@ -570,6 +573,7 @@ class DataStore:
             "remote_password": remote_password,
             "remote_branch": remote_branch,
             "tags": tags or [],
+            "members": {},
             "requirements": [],
             "milestones": [],
         }

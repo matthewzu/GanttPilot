@@ -6,6 +6,7 @@
   "remote_username": "",
   "remote_password": "",
   "tags": ["frontend", "backend", "testing", "ops", "design"],
+  "members": {"Alice Wang": "Alice", "Bob Li": "Bob", "Charlie Zhang": "Charlie", "David Chen": "David", "Eve Liu": "Eve", "Frank Wu": "Frank"},
   "requirements": [
     {
       "id": "req00001",

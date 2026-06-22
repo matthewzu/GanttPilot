@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.12.0 / v1.12.0 新增
+
+          - 👥 **Project Members** — Define team members with name-to-abbreviation mapping at the project level (Edit Project → Members field, format `name:abbr`). When members are configured, the executor field becomes a dropdown list, preventing typo errors in abbreviations. Statistics remain based on abbreviations for backward compatibility / **项目成员管理** — 在项目级别配置成员名字与缩写对应关系，添加活动时执行者从下拉列表选择，避免缩写拼写错误
+
           ### ✨ New in v1.11.0 / v1.11.0 改进
 
           - 🧹 **Toolbar cleanup** — Infrequent buttons (language toggle, font size, update check, help, MCP) merged into "⚙ Config" and "⋯ More" menu, cleaner toolbar / **工具栏精简** — 不常用按钮合并到"⚙配置"和"⋯更多"菜单，界面更简洁

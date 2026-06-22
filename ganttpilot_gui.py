@@ -2249,6 +2249,7 @@ class GanttPilotGUI:
         # Get project tags for tag selection
         proj_data = self.store.get_project(proj)
         project_tags = proj_data.get("tags", []) if proj_data else []
+        project_members = proj_data.get("members", {}) if proj_data else {}
         # Get committer name as default executor
         proj_committers = self.config.get("project_committers", {}) or {}
         proj_comm = proj_committers.get(proj, {})
@@ -2256,7 +2257,7 @@ class GanttPilotGUI:
         if self._has_active_dialog():
             return
         dlg = ActivityDialog(self.root, self._t, self.lang, project_tags=project_tags,
-                             default_executor=default_executor)
+                             default_executor=default_executor, project_members=project_members)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
         self._active_dialog = None
@@ -2432,10 +2433,12 @@ class GanttPilotGUI:
             new_name = dlg.result["name"]
             new_desc = dlg.result.get("description", "")
             new_tags = dlg.result.get("tags", [])
+            new_members = dlg.result.get("members", {})
             self.undo_manager.save_snapshot()
-            # Update description and tags
+            # Update description, tags, and members
             proj["description"] = new_desc
             proj["tags"] = new_tags
+            proj["members"] = new_members
             # Rename if needed
             if new_name != proj_name:
                 if not self.store.rename_project(proj_name, new_name):
@@ -2469,9 +2472,11 @@ class GanttPilotGUI:
         # Get project tags for tag selection
         proj_data = self.store.get_project(proj_name)
         project_tags = proj_data.get("tags", []) if proj_data else []
+        project_members = proj_data.get("members", {}) if proj_data else {}
         if self._has_active_dialog():
             return
-        dlg = ActivityEditDialog(self.root, self._t, self.lang, activity, project_tags=project_tags)
+        dlg = ActivityEditDialog(self.root, self._t, self.lang, activity,
+                                 project_tags=project_tags, project_members=project_members)
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
         self._active_dialog = None
@@ -3926,10 +3931,11 @@ class PlanEditDialog:
 
 class ActivityDialog:
     """Dialog for adding an activity"""
-    def __init__(self, parent, t_func, lang, project_tags=None, default_executor=""):
+    def __init__(self, parent, t_func, lang, project_tags=None, default_executor="", project_members=None):
         self.result = None
         self.t_func = t_func
         self.project_tags = project_tags or []
+        self.project_members = project_members or {}
         self.top = tk.Toplevel(parent)
         self.top.title(t_func("add") + " " + t_func("activity"))
         _center_dialog(self.top, parent, 420, 420)
@@ -3941,28 +3947,50 @@ class ActivityDialog:
 
         row = 0
         today_str = datetime.date.today().strftime("%Y%m%d")
-        fields = [
-            ("executor", t_func("executor")),
-            ("date", t_func("date") + " (YYYYMMDD, " + t_func("optional") + ")"),
-            ("content", t_func("content")),
-        ]
-        self.entries = {}
-        for key, label in fields:
-            ttk.Label(self.top, text=label).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
+
+        # Executor field — Combobox if project has members, otherwise Entry
+        ttk.Label(self.top, text=t_func("executor")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
+        if self.project_members:
+            # Build display values: "abbreviation (full_name)"
+            self._member_abbrs = list(self.project_members.values())
+            display_values = [f"{abbr} ({name})" for name, abbr in self.project_members.items()]
+            executor_combo = ttk.Combobox(self.top, width=28, values=display_values, state="readonly")
+            executor_combo.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
+            # Pre-select default_executor if it matches an abbreviation
+            if default_executor:
+                for i, abbr in enumerate(self._member_abbrs):
+                    if abbr == default_executor:
+                        executor_combo.current(i)
+                        break
+            self.entries = {"executor": executor_combo}
+        else:
+            self.entries = {}
             entry = ttk.Entry(self.top, width=30)
             entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
-            self.entries[key] = entry
-            # Pre-fill date with today
-            if key == "date":
-                entry.insert(0, today_str)
-            # Pre-fill executor with committer name and add hint
-            if key == "executor" and default_executor:
+            self.entries["executor"] = entry
+            if default_executor:
                 entry.insert(0, default_executor)
                 row += 1
                 ttk.Label(self.top, text=t_func("executor_default_hint", default_executor),
                           foreground="gray", font=("", 8)).grid(
                     row=row, column=1, padx=8, pady=(0, 2), sticky=tk.W)
-            row += 1
+        row += 1
+
+        # Date field
+        ttk.Label(self.top, text=t_func("date") + " (YYYYMMDD, " + t_func("optional") + ")").grid(
+            row=row, column=0, padx=8, pady=4, sticky=tk.W)
+        date_entry = ttk.Entry(self.top, width=30)
+        date_entry.insert(0, today_str)
+        date_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
+        self.entries["date"] = date_entry
+        row += 1
+
+        # Content field
+        ttk.Label(self.top, text=t_func("content")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
+        content_entry = ttk.Entry(self.top, width=30)
+        content_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
+        self.entries["content"] = content_entry
+        row += 1
 
         # Effort hours field
         ttk.Label(self.top, text=t_func("effort_hours")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
@@ -4017,7 +4045,15 @@ class ActivityDialog:
             row=row, column=0, columnspan=2, pady=12)
 
     def _ok(self):
-        executor = self.entries["executor"].get().strip()
+        # Extract executor value
+        if self.project_members:
+            sel_idx = self.entries["executor"].current()
+            if sel_idx < 0:
+                messagebox.showwarning("", self.t_func("select_executor"))
+                return
+            executor = self._member_abbrs[sel_idx]
+        else:
+            executor = self.entries["executor"].get().strip()
         date = self.entries["date"].get().strip()
         content = self.entries["content"].get().strip()
         effort_hours_str = self.entries["effort_hours"].get().strip()
@@ -4310,7 +4346,7 @@ class ConfigDialog:
 
 
 class ProjectEditDialog:
-    """Dialog for editing a project name, description, tags, and committer info"""
+    """Dialog for editing a project name, description, tags, members, and committer info"""
     def __init__(self, parent, t_func, lang, project, config=None):
         self.result = None
         self.t_func = t_func
@@ -4318,7 +4354,7 @@ class ProjectEditDialog:
         self.proj_name = project.get("name", "")
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_project"))
-        _center_dialog(self.top, parent, 480, 450)
+        _center_dialog(self.top, parent, 520, 600)
         self.top.transient(parent)
         self.top.focus_set()
         self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
@@ -4334,7 +4370,7 @@ class ProjectEditDialog:
         ttk.Label(self.top, text=t_func("description")).grid(row=1, column=0, padx=8, pady=6, sticky=tk.NW)
         desc_frame = ttk.Frame(self.top)
         desc_frame.grid(row=1, column=1, padx=8, pady=6, sticky=tk.NSEW)
-        self.desc_text = tk.Text(desc_frame, width=30, height=4, wrap=tk.WORD, undo=True)
+        self.desc_text = tk.Text(desc_frame, width=30, height=3, wrap=tk.WORD, undo=True)
         desc_sb = ttk.Scrollbar(desc_frame, orient=tk.VERTICAL, command=self.desc_text.yview)
         self.desc_text.configure(yscrollcommand=desc_sb.set)
         self.desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -4350,29 +4386,45 @@ class ProjectEditDialog:
         ttk.Label(self.top, text=t_func("project_tags_hint"), foreground="gray", font=("", 8)).grid(
             row=3, column=1, padx=8, pady=(0, 2), sticky=tk.W)
 
+        # Members management (name → abbreviation mapping)
+        ttk.Label(self.top, text=t_func("project_members")).grid(row=4, column=0, padx=8, pady=6, sticky=tk.NW)
+        members_frame = ttk.Frame(self.top)
+        members_frame.grid(row=4, column=1, padx=8, pady=6, sticky=tk.NSEW)
+        self.top.rowconfigure(4, weight=1)
+
+        self.members_entry = ttk.Entry(members_frame, width=30)
+        self.members_entry.pack(side=tk.TOP, fill=tk.X)
+        existing_members = project.get("members", {})
+        # Format: "name:abbr,name:abbr"
+        members_str = ",".join(f"{name}:{abbr}" for name, abbr in existing_members.items())
+        self.members_entry.insert(0, members_str)
+
+        ttk.Label(members_frame, text=t_func("project_members_hint"), foreground="gray", font=("", 8)).pack(
+            side=tk.TOP, anchor=tk.W, pady=(2, 0))
+
         # Committer info (per-project, stored in global config keyed by project name)
         proj_committers = config.get("project_committers", {}) if config else {}
         proj_comm = proj_committers.get(self.proj_name, {})
         global_name = config.get("committer_name", "") if config else ""
         global_email = config.get("committer_email", "") if config else ""
 
-        ttk.Label(self.top, text=t_func("committer_name")).grid(row=4, column=0, padx=8, pady=4, sticky=tk.W)
+        ttk.Label(self.top, text=t_func("committer_name")).grid(row=5, column=0, padx=8, pady=4, sticky=tk.W)
         self.committer_name_entry = ttk.Entry(self.top, width=30)
         self.committer_name_entry.insert(0, proj_comm.get("name", ""))
-        self.committer_name_entry.grid(row=4, column=1, padx=8, pady=4, sticky=tk.EW)
+        self.committer_name_entry.grid(row=5, column=1, padx=8, pady=4, sticky=tk.EW)
 
-        ttk.Label(self.top, text=t_func("committer_email")).grid(row=5, column=0, padx=8, pady=4, sticky=tk.W)
+        ttk.Label(self.top, text=t_func("committer_email")).grid(row=6, column=0, padx=8, pady=4, sticky=tk.W)
         self.committer_email_entry = ttk.Entry(self.top, width=30)
         self.committer_email_entry.insert(0, proj_comm.get("email", ""))
-        self.committer_email_entry.grid(row=5, column=1, padx=8, pady=4, sticky=tk.EW)
+        self.committer_email_entry.grid(row=6, column=1, padx=8, pady=4, sticky=tk.EW)
 
         # Hint: show global fallback
         hint = t_func("committer_fallback_hint", global_name, global_email) if (global_name or global_email) else ""
         if hint:
             ttk.Label(self.top, text=hint, foreground="gray", font=("", 8)).grid(
-                row=6, column=1, padx=8, pady=(0, 2), sticky=tk.W)
+                row=7, column=1, padx=8, pady=(0, 2), sticky=tk.W)
 
-        ttk.Button(self.top, text="OK", command=self._ok).grid(row=7, column=0, columnspan=2, pady=10)
+        ttk.Button(self.top, text="OK", command=self._ok).grid(row=8, column=0, columnspan=2, pady=10)
 
     def _ok(self):
         name = self.name_entry.get().strip()
@@ -4382,6 +4434,31 @@ class ProjectEditDialog:
         tags_str = self.tags_entry.get().strip()
         tags_str = tags_str.replace("\uff0c", ",")  # Chinese comma → ASCII comma
         tags = [t.strip() for t in tags_str.split(",") if t.strip()] if tags_str else []
+
+        # Parse members
+        members_str = self.members_entry.get().strip()
+        members_str = members_str.replace("\uff0c", ",").replace("\uff1a", ":")
+        members = {}
+        if members_str:
+            abbrs_seen = set()
+            for pair in members_str.split(","):
+                pair = pair.strip()
+                if not pair:
+                    continue
+                if ":" not in pair:
+                    messagebox.showwarning("", self.t_func("invalid_member_format"))
+                    return
+                parts = pair.split(":", 1)
+                member_name = parts[0].strip()
+                member_abbr = parts[1].strip()
+                if not member_name or not member_abbr:
+                    messagebox.showwarning("", self.t_func("invalid_member_format"))
+                    return
+                if member_abbr in abbrs_seen:
+                    messagebox.showwarning("", self.t_func("duplicate_member_abbr", member_abbr))
+                    return
+                abbrs_seen.add(member_abbr)
+                members[member_name] = member_abbr
 
         committer_name = self.committer_name_entry.get().strip()
         committer_email = self.committer_email_entry.get().strip()
@@ -4399,7 +4476,8 @@ class ProjectEditDialog:
             self.config.set("project_committers", proj_committers)
             self.config.save()
 
-        self.result = {"name": name, "description": self.desc_text.get("1.0", tk.END).strip(), "tags": tags}
+        self.result = {"name": name, "description": self.desc_text.get("1.0", tk.END).strip(),
+                       "tags": tags, "members": members}
         self.top.destroy()
 
 
@@ -4450,10 +4528,11 @@ class MilestoneEditDialog:
 
 class ActivityEditDialog:
     """Dialog for editing an existing activity"""
-    def __init__(self, parent, t_func, lang, activity, project_tags=None):
+    def __init__(self, parent, t_func, lang, activity, project_tags=None, project_members=None):
         self.result = None
         self.t_func = t_func
         self.project_tags = project_tags or []
+        self.project_members = project_members or {}
         self.top = tk.Toplevel(parent)
         self.top.title("✏ " + t_func("edit_activity"))
         _center_dialog(self.top, parent, 420, 440)
@@ -4464,19 +4543,45 @@ class ActivityEditDialog:
         self.top.columnconfigure(1, weight=1)
 
         row = 0
-        fields = [
-            ("executor", t_func("executor"), activity.get("executor", "")),
-            ("date", t_func("date") + " (YYYYMMDD, " + t_func("optional") + ")", activity.get("date", "")),
-            ("content", t_func("content"), activity.get("content", "")),
-        ]
         self.entries = {}
-        for key, label, val in fields:
-            ttk.Label(self.top, text=label).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
+
+        # Executor field — Combobox if project has members, otherwise Entry
+        ttk.Label(self.top, text=t_func("executor")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
+        if self.project_members:
+            self._member_abbrs = list(self.project_members.values())
+            display_values = [f"{abbr} ({name})" for name, abbr in self.project_members.items()]
+            executor_combo = ttk.Combobox(self.top, width=28, values=display_values, state="readonly")
+            executor_combo.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
+            # Pre-select current executor
+            current_executor = activity.get("executor", "")
+            for i, abbr in enumerate(self._member_abbrs):
+                if abbr == current_executor:
+                    executor_combo.current(i)
+                    break
+            self.entries["executor"] = executor_combo
+        else:
             entry = ttk.Entry(self.top, width=30)
-            entry.insert(0, val)
+            entry.insert(0, activity.get("executor", ""))
             entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
-            self.entries[key] = entry
-            row += 1
+            self.entries["executor"] = entry
+        row += 1
+
+        # Date field
+        ttk.Label(self.top, text=t_func("date") + " (YYYYMMDD, " + t_func("optional") + ")").grid(
+            row=row, column=0, padx=8, pady=4, sticky=tk.W)
+        date_entry = ttk.Entry(self.top, width=30)
+        date_entry.insert(0, activity.get("date", ""))
+        date_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
+        self.entries["date"] = date_entry
+        row += 1
+
+        # Content field
+        ttk.Label(self.top, text=t_func("content")).grid(row=row, column=0, padx=8, pady=4, sticky=tk.W)
+        content_entry = ttk.Entry(self.top, width=30)
+        content_entry.insert(0, activity.get("content", ""))
+        content_entry.grid(row=row, column=1, padx=8, pady=4, sticky=tk.EW)
+        self.entries["content"] = content_entry
+        row += 1
 
         # Determine if existing activity used direct hours (no time_slots)
         existing_ts = activity.get("time_slots", "")
@@ -4541,7 +4646,15 @@ class ActivityEditDialog:
             row=row, column=0, columnspan=2, pady=12)
 
     def _ok(self):
-        executor = self.entries["executor"].get().strip()
+        # Extract executor value
+        if self.project_members:
+            sel_idx = self.entries["executor"].current()
+            if sel_idx < 0:
+                messagebox.showwarning("", self.t_func("select_executor"))
+                return
+            executor = self._member_abbrs[sel_idx]
+        else:
+            executor = self.entries["executor"].get().strip()
         date = self.entries["date"].get().strip()
         content = self.entries["content"].get().strip()
         effort_hours_str = self.entries["effort_hours"].get().strip()

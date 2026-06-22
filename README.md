@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.11.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.12.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -78,7 +78,7 @@ On disk, each project is stored as split files to minimize Git merge conflicts:
 
 ```
 ~/.ganttpilot/data/{project_name}/
-  project.json              ← Config only (id, name, remote, tags, order)
+  project.json              ← Config only (id, name, remote, tags, members, order)
   requirements/
     {req_id}.json           ← One requirement with its tasks
   milestones/
@@ -328,6 +328,18 @@ Toolbar → ⚙ opens the settings dialog:
 
 Define tags at the project level (Edit Project → Tags field, comma-separated). When adding activities, the tag dropdown only shows project-defined tags. Tags are used to group hours in Time Statistics and Reports.
 
+### Project Members
+
+Define team members at the project level (Edit Project → Members field). Format: `name:abbreviation`, comma-separated. For example: `John Smith:JS,Alice Wang:AW`.
+
+When members are configured:
+- Adding or editing activities shows a dropdown list instead of free-text input for the executor field
+- Only configured members can be selected as executors, preventing typos and abbreviation errors
+- The stored value is the abbreviation, keeping report statistics consistent
+- Each name must map to a unique abbreviation
+
+If no members are configured, the executor field remains free-text (backward compatible).
+
 ### MCP Server (AI Integration)
 
 GanttPilot includes a built-in MCP (Model Context Protocol) server that allows AI assistants like Kiro, Claude, and others to directly manage your project data.
@@ -450,7 +462,7 @@ python main.py --version    # 显示版本
 
 ```
 ~/.ganttpilot/data/{项目名}/
-  project.json              ← 仅项目配置（名称、远端、标签、顺序索引）
+  project.json              ← 仅项目配置（名称、远端、标签、成员、顺序索引）
   requirements/
     {req_id}.json           ← 单个需求（含任务）
   milestones/
@@ -699,6 +711,18 @@ Markdown 报告（细节模式）包含：
 ### 项目标签
 
 在项目级别定义标签（编辑项目 → 标签字段，逗号分隔）。添加活动时，标签下拉框只显示项目已定义的标签。标签用于在工时统计和报告中按类别分组汇总。
+
+### 项目成员
+
+在项目级别定义团队成员（编辑项目 → 成员字段）。格式：`全名:缩写`，逗号分隔。例如：`张三:ZS,李四:LS`。
+
+配置成员后：
+- 添加或编辑活动时，执行者字段变为下拉列表而非自由输入
+- 只能从已配置的成员中选择执行者，避免缩写拼写错误导致统计出错
+- 存储的值为缩写，确保报告统计与之前保持一致
+- 每个名字对应唯一的缩写
+
+如果未配置成员，执行者字段保持自由输入（向后兼容）。
 
 ### 许可证
 

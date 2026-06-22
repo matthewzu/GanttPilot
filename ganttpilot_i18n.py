@@ -145,6 +145,11 @@ TEXTS = {
         "main_update_detected": "检测到主线更新，请及时同步",
         "project_tags": "项目标签",
         "project_tags_hint": "逗号分隔，如: 前端,后端,测试",
+        "project_members": "项目成员",
+        "project_members_hint": "格式: 全名:缩写,全名:缩写  如: 张三:ZS,李四:LS",
+        "invalid_member_format": "成员格式错误，请使用 '全名:缩写' 格式，逗号分隔",
+        "duplicate_member_abbr": "缩写重复: {}",
+        "select_executor": "请选择执行者",
         "committer_fallback_hint": "留空则使用全局配置: {} <{}>",
         "manage_tags": "管理标签",
         "tag_select": "选择标签",
@@ -310,7 +315,8 @@ TEXTS = {
             "• 直接填写小时数：3.5\n\n"
             "【活动描述】\n"
             "• 活动支持多行描述字段，记录背景和补充说明\n"
-            "• 添加活动时执行者默认使用提交者名称（项目级 > 全局）\n\n"
+            "• 添加活动时执行者默认使用提交者名称（项目级 > 全局）\n"
+            "• 配置成员后执行者从下拉列表选择（编辑项目 → 成员字段）\n\n"
             "【报告生成】\n"
             "• 概况模式：甘特图 + 需求 + 里程碑 + 进度（不含工时）\n"
             "• 细节模式：完整报告含所有工时明细\n\n"
@@ -548,6 +554,11 @@ TEXTS = {
         "main_update_detected": "Main branch has updates, please sync",
         "project_tags": "Project Tags",
         "project_tags_hint": "Comma separated, e.g.: frontend,backend,test",
+        "project_members": "Project Members",
+        "project_members_hint": "Format: name:abbr,name:abbr  e.g.: John:JN,Alice:AL",
+        "invalid_member_format": "Invalid member format, use 'name:abbreviation' separated by commas",
+        "duplicate_member_abbr": "Duplicate abbreviation: {}",
+        "select_executor": "Please select an executor",
         "committer_fallback_hint": "Leave empty to use global: {} <{}>",
         "manage_tags": "Manage Tags",
         "tag_select": "Select Tag",
@@ -713,7 +724,8 @@ TEXTS = {
             "• Direct hours: 3.5\n\n"
             "[Activity]\n"
             "• Activities support multi-line description for background notes\n"
-            "• Executor defaults to committer name (project > global)\n\n"
+            "• Executor defaults to committer name (project > global)\n"
+            "• Configure members to use a dropdown for executor (Edit Project → Members)\n\n"
             "[Reports]\n"
             "• Summary: Gantt + requirements + milestones + progress (no hours)\n"
             "• Detail: Full report with all hour breakdowns\n\n"
