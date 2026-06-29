@@ -721,8 +721,8 @@ class GitSync:
         if not self.remote_url or not self.is_repo():
             return []
         try:
-            # Check for uncommitted changes
-            status = self._run("status", "--porcelain", "project.json", check=False)
+            # Check for uncommitted changes (all tracked project files)
+            status = self._run("status", "--porcelain", check=False)
             uncommitted = bool(status.stdout.strip())
 
             # Get unpushed commit messages
@@ -734,7 +734,19 @@ class GitSync:
                                    self.priv_branch, check=False)
             messages = []
             if uncommitted:
-                messages.append("(*) uncommitted changes")
+                # Show changed file names
+                changed_files = []
+                for line in status.stdout.strip().splitlines():
+                    fname = line[3:].strip().strip('"') if len(line) > 3 else line.strip()
+                    if fname:
+                        changed_files.append(fname)
+                if changed_files:
+                    summary = ", ".join(changed_files[:5])
+                    if len(changed_files) > 5:
+                        summary += f" (+{len(changed_files) - 5})"
+                    messages.append(f"(*) {summary}")
+                else:
+                    messages.append("(*) uncommitted changes")
             for line in result.stdout.strip().splitlines():
                 if line.strip():
                     # strip hash prefix, keep only message
