@@ -709,6 +709,41 @@ class GitSync:
             return False
 
 
+    def get_unpushed_summary(self, max_count=10):
+        """Return a list of commit messages for unpushed commits on the private branch.
+
+        Args:
+            max_count: maximum number of commit messages to return
+
+        Returns:
+            list[str]: commit messages (newest first), empty if none
+        """
+        if not self.remote_url or not self.is_repo():
+            return []
+        try:
+            # Check for uncommitted changes
+            status = self._run("status", "--porcelain", "project.json", check=False)
+            uncommitted = bool(status.stdout.strip())
+
+            # Get unpushed commit messages
+            range_spec = f"origin/{self.priv_branch}..{self.priv_branch}"
+            result = self._run("log", "--oneline", f"-{max_count}", range_spec, check=False)
+            if result.returncode != 0:
+                # Remote branch doesn't exist — show all local commits
+                result = self._run("log", "--oneline", f"-{max_count}",
+                                   self.priv_branch, check=False)
+            messages = []
+            if uncommitted:
+                messages.append("(*) uncommitted changes")
+            for line in result.stdout.strip().splitlines():
+                if line.strip():
+                    # strip hash prefix, keep only message
+                    parts = line.strip().split(" ", 1)
+                    messages.append(parts[1] if len(parts) > 1 else parts[0])
+            return messages
+        except Exception:
+            return []
+
     def manual_rebase(self):
         """手动将私有分支 rebase 到远端主分支最新提交。
 

@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.12.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.13.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -247,7 +247,7 @@ Each project is an independent Git repo stored at `~/.ganttpilot/data/{project_n
 #### How It Works
 
 - Each user works on a private branch: `priv_{committer_name}`
-- Push sends your private branch to the remote (right-click → Push, or `Ctrl+S`)
+- Push sends your private branch to the remote (right-click → Push, or `Ctrl+S`) — a confirmation dialog shows what will be pushed
 - Pull fetches the latest from remote and auto-updates local main branch (right-click → Pull)
 - Changes are merged to the main branch via Pull Request on your Git platform
 - After pull/sync, if main has new commits, a dialog asks whether to rebase your branch to latest main
@@ -275,11 +275,11 @@ After rebase, the remote tracking branch is automatically updated — no manual 
 
 - On startup, all projects auto-fetch from remote (pull only, no push)
 - A periodic background check (default: every 5 minutes, configurable) detects remote updates
-- On exit, a dialog prompts whether to push your private branch to remote
+- On exit, a dialog shows unpushed content and prompts whether to push your private branch to remote
 
 #### Troubleshooting (Sync Log)
 
-If push/pull operations fail intermittently, check the log file at `~/.ganttpilot/ganttpilot.log`. It records important operations with timestamps, success/failure status, and error details. Log files are automatically rotated daily and cleaned up after the configured retention period (default: 30 days, adjustable in Settings → Log Retention Days).
+If push/pull operations fail intermittently, check the log file at `~/.ganttpilot/ganttpilot.log`. It records Git operations, configuration changes, MCP server start/stop, and other important events with timestamps, success/failure status, and error details. Log files are automatically rotated daily and cleaned up after the configured retention period (default: 30 days, adjustable in Settings → Log Retention Days).
 
 ### Reports
 
@@ -631,7 +631,7 @@ python main.py --version    # 显示版本
 #### 协作流程
 
 - 每位用户在私有分支上工作：`priv_{提交者名称}`
-- 推送将私有分支发送到远端（项目右键 → 推送，或 `Ctrl+S`）
+- 推送将私有分支发送到远端（项目右键 → 推送，或 `Ctrl+S`）— 推送前弹出确认对话框显示待推送内容
 - 拉取从远端获取最新数据并自动更新本地 main 分支（项目右键 → 拉取）
 - 通过 Git 平台的 Pull Request 将更改合并到主分支
 - 拉取/同步后如果 main 有新提交，会弹窗询问是否将私有分支变基到最新 main
@@ -659,11 +659,11 @@ python main.py --version    # 显示版本
 
 - 启动时自动拉取所有项目的远端更新（仅拉取，不推送）
 - 定期后台检测远端更新（默认每 5 分钟，可在配置中调整）
-- 退出时弹窗提示是否推送私有分支到远端
+- 退出时弹窗展示未推送内容并提示是否推送私有分支到远端
 
 #### 排查问题（Git 同步日志）
 
-如果推送/拉取操作偶尔失败，可查看日志文件 `~/.ganttpilot/ganttpilot.log`。日志记录重要操作的时间戳、成功/失败状态和错误详情。日志文件按天轮转，超过配置的保留天数后自动清理（默认 30 天，可在设置 → 日志保留天数中调整）。
+如果推送/拉取操作偶尔失败，可查看日志文件 `~/.ganttpilot/ganttpilot.log`。日志记录 Git 操作、配置修改、MCP 服务启停等重要操作的时间戳、成功/失败状态和错误详情。日志文件按天轮转，超过配置的保留天数后自动清理（默认 30 天，可在设置 → 日志保留天数中调整）。
 
 ### 报告
 

@@ -325,18 +325,22 @@ TEXTS = {
             "• -20260510 → 取消跳过（周末变工作日）\n\n"
             "【Git协作】Ctrl+S 推送 / 右键拉取\n"
             "• 每人私有分支，通过 PR 合并到主线\n"
+            "• 推送前弹出确认对话框，显示待推送内容摘要\n"
             "• 启动时自动拉取主线，后台定期检测更新\n"
-            "• 退出时提示推送私有分支，确认即推送\n"
+            "• 退出时展示未推送内容并提示推送\n"
+            "• 撤销/恢复操作同步创建 Git commit，历史标签页可见\n"
             "• 提交包含 project.json 及 requirements/ milestones/ activities/ 目录\n"
             "• 拉取后自动更新本地 main，提示 rebase（变基后自动推送）\n"
             "• 项目右键 → 同步主线：手动将私有分支变基到最新 main\n"
             "• 项目右键 → 升级主线格式：维护者一键迁移到 v2 拆分格式并推送主线\n"
             "• 私有分支名不能为 \"priv\" 或与主分支同名\n"
-            "• 推送失败排查：查看数据目录下 ganttpilot.log 日志文件\n\n"
+            "• 推送失败排查：查看数据目录下 ganttpilot.log 日志文件\n"
+            "• 日志记录 Git 操作、配置修改、MCP 启停等所有重要操作\n\n"
             "【提交者信息】创建项目时必须\n"
             "• 获取顺序：手动输入 → 全局配置(⚙) → 系统 git config\n"
             "• 全部获取不到则阻止创建，请先配置\n\n"
-            "【其他】Ctrl+Z 撤销 / Ctrl+Y 恢复 / 快捷键可自定义\n\n"
+            "【其他】Ctrl+Z 撤销 / Ctrl+Y 恢复 / 快捷键可自定义\n"
+            "• 查看详情、配置、活动编辑等弹窗可最大化，方便查看/填写大段文字\n\n"
             "【MCP Server】AI 助手集成\n"
             "• 点击 ⋯ → MCP服务 打开 MCP 配置，启动/停止服务\n"
             "• 支持 Kiro、Claude Desktop 等 AI 工具直接管理项目\n"
@@ -378,8 +382,12 @@ TEXTS = {
         "report_type_summary_desc": "包含甘特图、需求分析、里程碑、进度概览（不含工时）",
         "report_type_detail_desc": "包含完整工时、备注等详细信息",
         # ── Exit push prompt / 退出推送提示 ──
-        "exit_push_prompt": "是否推送私有分支到远端？",
+        "exit_push_prompt": "以下内容尚未推送到远端，是否现在推送？",
         "exit_push_title": "退出前推送",
+        # ── Manual push confirmation / 手动推送确认 ──
+        "confirm_push_title": "确认推送",
+        "confirm_push_prompt": "确认推送以下内容到远端？",
+        "unpushed_content_header": "\n\n包含内容:",
         # ── Executor default hint / 执行者默认提示 ──
         "executor_default_hint": "默认使用提交者名称: {}（优先级: 活动 > 项目 > 全局）",
         # ── Project creation modes / 项目创建模式 ──
@@ -734,18 +742,22 @@ TEXTS = {
             "• -20260510 → Un-skip (make weekend a workday)\n\n"
             "[Git Collaboration] Ctrl+S Push / Right-click Pull\n"
             "• Each user on private branch, merge via PR\n"
+            "• Push shows confirmation dialog with content summary\n"
             "• Auto-fetch main on startup, periodic background check\n"
-            "• Prompts to push private branch on exit\n"
+            "• Exit dialog shows unpushed content and prompts to push\n"
+            "• Undo/Redo creates Git commits, visible in History tab\n"
             "• Commits include project.json + requirements/ milestones/ activities/\n"
             "• Pull auto-updates local main, prompts rebase (auto-pushes after)\n"
             "• Right-click project → Sync Main: manually rebase to latest main\n"
             "• Right-click project → Upgrade Main Format: migrate to v2 split format and push\n"
             "• Private branch name cannot be \"priv\" or same as main\n"
-            "• Push troubleshooting: check ganttpilot.log in config directory\n\n"
+            "• Push troubleshooting: check ganttpilot.log in config directory\n"
+            "• Log records Git ops, config changes, MCP start/stop and more\n\n"
             "[Committer Info] Required when creating a project\n"
             "• Fallback order: manual input → global config(⚙) → system git config\n"
             "• Blocks creation if none found; configure first\n\n"
-            "[Other] Ctrl+Z Undo / Ctrl+Y Redo / Shortcuts customizable\n\n"
+            "[Other] Ctrl+Z Undo / Ctrl+Y Redo / Shortcuts customizable\n"
+            "• View detail, Config, Activity dialogs support maximize for large text\n\n"
             "[MCP Server] AI Assistant Integration\n"
             "• Click 🔌 to open MCP config, start/stop the server\n"
             "• Supports Kiro, Claude Desktop, and other AI tools\n"
@@ -788,8 +800,12 @@ TEXTS = {
         "report_type_summary_desc": "Gantt chart, requirements, milestones, progress overview (no hours)",
         "report_type_detail_desc": "Full details including hours, notes, etc.",
         # ── Exit push prompt ──
-        "exit_push_prompt": "Push private branch to remote before exit?",
+        "exit_push_prompt": "The following changes have not been pushed. Push now?",
         "exit_push_title": "Push Before Exit",
+        # ── Manual push confirmation ──
+        "confirm_push_title": "Confirm Push",
+        "confirm_push_prompt": "Push the following to remote?",
+        "unpushed_content_header": "\n\nIncludes:",
         # ── Executor default hint ──
         "executor_default_hint": "Default from committer: {} (priority: activity > project > global)",
         # ── Project creation modes ──

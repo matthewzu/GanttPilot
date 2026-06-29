@@ -7,6 +7,7 @@ All CRUD operations via right-click context menus on the tree.
 
 import copy
 import datetime
+import logging
 import os
 import re
 import subprocess
@@ -21,7 +22,7 @@ import json
 from ganttpilot_i18n import t
 from ganttpilot_config import Config
 from ganttpilot_core import DataStore, parse_time_slots, calculate_hours_from_slots
-from ganttpilot_git import GitSync
+from ganttpilot_git import GitSync, _setup_app_logger
 from ganttpilot_gantt import GanttRenderer, CanvasBackend, generate_gantt_markdown
 from ganttpilot_shortcuts import ShortcutManager, tk_event_to_display
 from version import VERSION
@@ -368,6 +369,11 @@ class GanttPilotGUI:
         self.root = root
         self.config = Config()
         self.lang = self.config.language
+
+        # Ensure app logger is initialized with config directory
+        log_dir = self.config.config_dir or os.path.join(os.path.expanduser("~"), ".ganttpilot")
+        _setup_app_logger(log_dir)
+        self._logger = logging.getLogger("ganttpilot")
 
         # Clean up leftover .old file from a previous update
         self._cleanup_old_executable()
@@ -2859,6 +2865,7 @@ class GanttPilotGUI:
         dialog = tk.Toplevel(self.root)
         dialog.title(title)
         dialog.transient(self.root)
+        dialog.resizable(True, True)
         _center_dialog(dialog, self.root, 500, 400)
         self._active_dialog = dialog
         dialog.after(100, lambda: dialog.grab_set() if dialog.winfo_exists() else None)
@@ -3307,6 +3314,8 @@ class GanttPilotGUI:
         self.root.wait_window(dlg.top)
         self._active_dialog = None
         if dlg.saved:
+            self._logger.info("Config saved: data_dir=%s, language=%s",
+                              self.config.data_dir, self.config.language)
             self.store = DataStore(self.config.data_dir)
             self.undo_manager = UndoManager(self.store)
             self.refresh_project_list()
@@ -3452,6 +3461,7 @@ class GanttPilotGUI:
         if getattr(self, '_mcp_thread', None) and self._mcp_thread.is_alive():
             return  # Already running (thread mode)
 
+        self._logger.info("MCP server starting")
         env = os.environ.copy()
         if self.config.data_dir:
             env["GANTTPILOT_DATA_DIR"] = self.config.data_dir
@@ -3467,6 +3477,7 @@ class GanttPilotGUI:
                 mcp.run()
             self._mcp_thread = threading.Thread(target=_run_mcp, daemon=True)
             self._mcp_thread.start()
+            self._logger.info("MCP server started (thread mode)")
             self.status_var.set(self._t("mcp_enabled"))
         else:
             # Running from source: spawn subprocess
@@ -3477,12 +3488,15 @@ class GanttPilotGUI:
                     cmd, env=env,
                     stdin=_sp.PIPE, stdout=_sp.PIPE, stderr=_sp.PIPE,
                 )
+                self._logger.info("MCP server started (subprocess mode, pid=%s)", self._mcp_process.pid)
                 self.status_var.set(self._t("mcp_enabled"))
             except Exception as e:
+                self._logger.error("MCP server start failed: %s", e)
                 self.status_var.set(f"MCP: {e}")
 
     def _stop_mcp_server(self):
         """Stop the MCP server subprocess or thread."""
+        self._logger.info("MCP server stopping")
         if self._mcp_process and self._mcp_process.poll() is None:
             self._mcp_process.terminate()
             try:
@@ -3493,6 +3507,7 @@ class GanttPilotGUI:
         # Thread mode: daemon thread will die with the app; just clear reference
         if getattr(self, '_mcp_thread', None):
             self._mcp_thread = None
+        self._logger.info("MCP server stopped")
         self.status_var.set(self._t("mcp_disabled"))
 
     def _is_mcp_running(self):
@@ -3534,6 +3549,24 @@ class GanttPilotGUI:
         eff_email = proj_comm.get("email", "") or self.config.get("committer_email", "")
         if not eff_name or not eff_email:
             messagebox.showwarning(self._t("warning"), self._t("committer_not_configured"))
+            return
+
+        # Gather unpushed content summary for confirmation
+        try:
+            gs = self._get_project_git(proj)
+            summary_lines = gs.get_unpushed_summary()
+        except Exception:
+            summary_lines = []
+
+        prompt_msg = self._t("confirm_push_prompt") + f"\n\n{self.current_project} → {gs.priv_branch}"
+        if summary_lines:
+            prompt_msg += self._t("unpushed_content_header")
+            for line in summary_lines[:10]:
+                prompt_msg += f"\n  • {line}"
+            if len(summary_lines) > 10:
+                prompt_msg += "\n  ..."
+
+        if not messagebox.askyesno(self._t("confirm_push_title"), prompt_msg):
             return
 
         self.status_var.set(self._t("pushing"))
@@ -3623,9 +3656,18 @@ class GanttPilotGUI:
                         continue
                     if not gs.has_unpushed_commits():
                         continue
+                    # Gather content summary
+                    summary_lines = gs.get_unpushed_summary()
+                    prompt_msg = self._t("exit_push_prompt") + f"\n\n{proj['name']} → {gs.priv_branch}"
+                    if summary_lines:
+                        prompt_msg += self._t("unpushed_content_header")
+                        for line in summary_lines[:10]:
+                            prompt_msg += f"\n  • {line}"
+                        if len(summary_lines) > 10:
+                            prompt_msg += "\n  ..."
                     answer = messagebox.askyesno(
                         self._t("exit_push_title"),
-                        self._t("exit_push_prompt") + f"\n\n{proj['name']} → {gs.priv_branch}",
+                        prompt_msg,
                     )
                     if answer:
                         gs.init_repo()
@@ -3682,6 +3724,7 @@ class GanttPilotGUI:
             return  # Let Entry handle Ctrl+Z natively (don't block with "break")
         if self.undo_manager.undo():
             self.store.save()
+            self._commit("Undo")
             self.refresh_project_list()
             self.refresh_gantt()
             self.refresh_time_report()
@@ -3702,6 +3745,7 @@ class GanttPilotGUI:
             return  # Let Entry handle Ctrl+Y natively (don't block with "break")
         if self.undo_manager.redo():
             self.store.save()
+            self._commit("Redo")
             self.refresh_project_list()
             self.refresh_gantt()
             self.refresh_time_report()
@@ -3940,6 +3984,7 @@ class ActivityDialog:
         self.top.title(t_func("add") + " " + t_func("activity"))
         _center_dialog(self.top, parent, 420, 420)
         self.top.transient(parent)
+        self.top.resizable(True, True)
         self.top.focus_set()
         self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
@@ -4121,6 +4166,7 @@ class ConfigDialog:
         self.top.title(t_func("config"))
         _center_dialog(self.top, parent, 620, 520)
         self.top.transient(parent)
+        self.top.resizable(True, True)
         self.top.focus_set()
         self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
@@ -4356,6 +4402,7 @@ class ProjectEditDialog:
         self.top.title("✏ " + t_func("edit_project"))
         _center_dialog(self.top, parent, 520, 600)
         self.top.transient(parent)
+        self.top.resizable(True, True)
         self.top.focus_set()
         self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
@@ -4537,6 +4584,7 @@ class ActivityEditDialog:
         self.top.title("✏ " + t_func("edit_activity"))
         _center_dialog(self.top, parent, 420, 440)
         self.top.transient(parent)
+        self.top.resizable(True, True)
         self.top.focus_set()
         self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
@@ -5435,6 +5483,7 @@ class MCPConfigDialog:
         self.top.title(t_func("mcp_config_title"))
         _center_dialog(self.top, parent, 620, 520)
         self.top.transient(parent)
+        self.top.resizable(True, True)
         self.top.focus_set()
         self.top.bind("<Escape>", lambda e: self.top.destroy())
 

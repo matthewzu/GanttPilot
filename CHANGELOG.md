@@ -1,5 +1,14 @@
 # 更新日志 / Changelog
 
+## [1.13.0] - 2026-06-29
+
+### 新增 / Added
+- ✅ **推送确认提示 (Push Confirmation)** — 手动推送前弹出确认对话框，显示项目名、目标分支和待推送内容摘要（commit 消息列表），避免误操作
+- 📋 **退出推送内容展示 (Exit Push Content Summary)** — 退出时的推送提示现在显示未推送的变更内容，让用户清楚知道将要推送什么
+- 🔄 **Undo/Redo 同步 Git (Undo/Redo Git Sync)** — 撤销和恢复操作现在同步创建 Git commit，确保项目树回退时 Git 历史也同步回退，历史标签页可见变更
+- 📝 **非 Git 操作日志 (Non-Git Operation Logging)** — 日志文件现在记录配置修改、MCP 服务启动/停止等非 Git 操作，方便问题排查
+- 🪟 **弹窗最大化按钮 (Dialog Maximize Button)** — 查看详情、配置、MCP 配置、编辑项目、编辑活动、添加活动等文本密集型对话框现在支持最大化，方便查看和填写大段文字
+
 ## [1.12.0] - 2026-06-22
 
 ### 新增 / Added

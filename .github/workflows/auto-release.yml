@@ -31,6 +31,14 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.13.0 / v1.13.0 新增
+
+          - ✅ **Push Confirmation** — Manual push now shows a confirmation dialog listing what will be pushed (commit messages), preventing accidental pushes / **推送确认提示** — 手动推送前弹出确认对话框，展示待推送内容摘要
+          - 📋 **Exit Push Content Summary** — Exit push prompt now displays the unpushed changes, so you know exactly what will be pushed / **退出推送内容展示** — 退出推送提示展示未推送的变更内容
+          - 🔄 **Undo/Redo Git Sync** — Undo and Redo now create Git commits, so tree rollback is reflected in Git history / **Undo/Redo 同步 Git** — 撤销恢复同步创建 Git commit，历史标签页可见
+          - 📝 **Non-Git Operation Logging** — Log file now records config changes, MCP server start/stop, and other non-Git events useful for debugging / **非 Git 操作日志** — 日志记录配置修改、MCP 启停等
+          - 🪟 **Dialog Maximize** — Text-heavy dialogs (View Detail, Config, MCP, Project Edit, Activity Edit) now support window maximize for comfortable viewing and editing / **弹窗最大化** — 文本密集型对话框支持最大化
+
           ### ✨ New in v1.12.0 / v1.12.0 新增
 
           - 👥 **Project Members** — Define team members with name-to-abbreviation mapping at the project level (Edit Project → Members field, format `name:abbr`). When members are configured, the executor field becomes a dropdown list, preventing typo errors in abbreviations. Statistics remain based on abbreviations for backward compatibility / **项目成员管理** — 在项目级别配置成员名字与缩写对应关系，添加活动时执行者从下拉列表选择，避免缩写拼写错误
