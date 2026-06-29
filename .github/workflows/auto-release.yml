@@ -31,6 +31,11 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.13.1 / v1.13.1 修复
+
+          - 🪟 **Dialog Maximize Fix** — Removed `transient(parent)` from text-heavy dialogs so the maximize button appears on Windows / **弹窗最大化按钮修复** — 移除 transient 调用，Windows 上正确显示最大化按钮
+          - 📋 **Push Content Detection** — Unpushed content summary now checks all project files and shows changed filenames / **推送内容检测增强** — 检测所有项目文件变更并显示文件名
+
           ### ✨ New in v1.13.0 / v1.13.0 新增
 
           - ✅ **Push Confirmation** — Manual push now shows a confirmation dialog listing what will be pushed (commit messages), preventing accidental pushes / **推送确认提示** — 手动推送前弹出确认对话框，展示待推送内容摘要
