@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.13.2 / v1.13.2 修复
+
+          - 🪟 **All Edit Dialogs Maximizable** — All create/edit dialogs (plan, milestone, requirement, task, project) now show maximize button on Windows / **所有编辑对话框支持最大化** — 所有创建/编辑对话框都显示最大化按钮
+
           ### ✨ New in v1.13.1 / v1.13.1 修复
 
           - 🪟 **Dialog Maximize Fix** — Removed `transient(parent)` from text-heavy dialogs so the maximize button appears on Windows / **弹窗最大化按钮修复** — 移除 transient 调用，Windows 上正确显示最大化按钮

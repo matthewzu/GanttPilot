@@ -77,8 +77,10 @@ def test_property_2a_transient_call_preserved(dialog_class):
     """
     # These dialogs intentionally skip transient() to allow maximize button on Windows
     MAXIMIZABLE_DIALOGS = {
-        "ActivityDialog", "ConfigDialog", "ProjectEditDialog",
-        "ActivityEditDialog", "MCPConfigDialog",
+        "PlanDialog", "PlanEditDialog", "ActivityDialog", "ConfigDialog",
+        "ProjectEditDialog", "MilestoneEditDialog", "ActivityEditDialog",
+        "MCPConfigDialog", "ProjectCreateDialog", "MilestoneCreateDialog",
+        "RequirementDialog", "RequirementEditDialog", "TaskDialog", "TaskEditDialog",
     }
     if dialog_class.__name__ in MAXIMIZABLE_DIALOGS:
         return  # These dialogs use grab_set() only (no transient) for maximize support
