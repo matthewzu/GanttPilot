@@ -1067,6 +1067,22 @@ class GanttPilotGUI:
         self.config_btn = ttk.Button(toolbar, text="⚙", command=self.open_config_dialog, width=3)
         self.config_btn.pack(side=tk.RIGHT, padx=1)
 
+        # Search / Filter bar
+        search_frame = ttk.Frame(left_frame)
+        search_frame.pack(fill=tk.X, pady=(0, 2))
+        self.search_var = tk.StringVar()
+        self.search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
+        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2))
+        self.search_entry.insert(0, self._t("search_placeholder"))
+        self.search_entry.configure(foreground="gray")
+        self.search_entry.bind("<FocusIn>", self._on_search_focus_in)
+        self.search_entry.bind("<FocusOut>", self._on_search_focus_out)
+        self.search_var.trace_add("write", self._on_search_changed)
+        self.search_clear_btn = ttk.Button(search_frame, text="✕", width=3,
+                                           command=self._clear_search)
+        self.search_clear_btn.pack(side=tk.RIGHT)
+        self._search_active = False  # True when user is typing (not placeholder)
+
         # Tree
         tree_frame = ttk.Frame(left_frame)
         tree_frame.pack(fill=tk.BOTH, expand=True)
@@ -1390,12 +1406,15 @@ class GanttPilotGUI:
                 if vals:
                     expanded.add(tuple(vals))
 
+        # Clear detached items before rebuilding tree
+        if hasattr(self, '_detached_items'):
+            self._detached_items = []
         self.tree.delete(*self.tree.get_children())
         for proj in self.store.list_projects():
-            pn = self.tree.insert("", tk.END, text=f"📁 {proj['name']}",
+            pn = self.tree.insert("", tk.END, text=f"📂 {proj['name']}",
                                   values=("project", proj["name"]), open=True)
 
-            # ── 📋 需求分析 (Requirement Analysis) ──
+            # ── 需求分析 (Requirement Analysis) ──
             ra_node = self.tree.insert(pn, tk.END,
                 text=f"📋 {self._t('requirement_analysis')}",
                 values=("req_analysis", proj["name"]))
@@ -1410,16 +1429,16 @@ class GanttPilotGUI:
                     self.tree.insert(req_node, tk.END, text=task_text,
                         values=("task", proj["name"], req["id"], task["id"]))
 
-            # ── 📊 计划执行 (Plan Execution) ──
+            # ── 计划执行 (Plan Execution) ──
             pe_node = self.tree.insert(pn, tk.END,
                 text=f"📊 {self._t('plan_execution')}",
                 values=("plan_execution", proj["name"]))
             for ms in proj.get("milestones", []):
                 dl = f" [{ms['deadline']}]" if ms.get("deadline") else ""
-                mn = self.tree.insert(pe_node, tk.END, text=f"📌 {ms['name']}{dl}",
+                mn = self.tree.insert(pe_node, tk.END, text=f"🚩 {ms['name']}{dl}",
                                       values=("milestone", proj["name"], ms["name"]))
                 for plan in ms.get("plans", []):
-                    icon = "✅" if plan["status"] == "finished" else "📋"
+                    icon = "✅" if plan["status"] == "finished" else "▶"
                     txt = f"{icon} {plan['content']} ({plan['executor']}) [{plan['start_date']}-{plan['end_date']}]"
                     plan_n = self.tree.insert(mn, tk.END, text=txt,
                                              values=("plan", proj["name"], ms["name"], plan["id"]))
@@ -1450,6 +1469,115 @@ class GanttPilotGUI:
         for item in self.tree.get_children(parent):
             yield item
             yield from self._iter_tree_items(item)
+
+    # ── Search / Filter ──────────────────────────────────────
+    def _on_search_focus_in(self, event=None):
+        if not self._search_active:
+            self.search_entry.delete(0, tk.END)
+            self.search_entry.configure(foreground="")
+            self._search_active = True
+
+    def _on_search_focus_out(self, event=None):
+        if not self.search_var.get().strip():
+            self._search_active = False
+            self.search_entry.configure(foreground="gray")
+            self.search_entry.delete(0, tk.END)
+            self.search_entry.insert(0, self._t("search_placeholder"))
+
+    def _on_search_changed(self, *args):
+        if not self._search_active:
+            return
+        query = self.search_var.get().strip().lower()
+        if not query:
+            self._reset_tree_filter()
+            return
+        self._apply_tree_filter(query)
+
+    def _clear_search(self):
+        self._search_active = False
+        self.search_var.set("")
+        self.search_entry.configure(foreground="gray")
+        self.search_entry.delete(0, tk.END)
+        self.search_entry.insert(0, self._t("search_placeholder"))
+        self._reset_tree_filter()
+        self.root.focus_set()
+
+    def _reset_tree_filter(self):
+        """Restore full tree by re-rendering (clears detached items)."""
+        self._reattach_all()
+        self.tree.tag_configure("match", foreground="")
+        for item in self._iter_tree_items(""):
+            current_tags = list(self.tree.item(item, "tags"))
+            if "match" in current_tags:
+                current_tags.remove("match")
+                self.tree.item(item, tags=tuple(current_tags))
+
+    def _apply_tree_filter(self, query):
+        """Detach non-matching items, keep ancestors of matches visible."""
+        # First reattach everything
+        self._reattach_all()
+        self.tree.tag_configure("match", foreground="#0066cc")
+
+        all_items = list(self._iter_tree_items(""))
+        # Determine which items match
+        match_set = set()
+        for item in all_items:
+            text = self.tree.item(item, "text").lower()
+            if query in text:
+                match_set.add(item)
+
+        # Compute items to keep visible: matches + all their ancestors + all their descendants
+        visible_set = set()
+        for item in match_set:
+            visible_set.add(item)
+            # Add ancestors
+            p = self.tree.parent(item)
+            while p:
+                visible_set.add(p)
+                p = self.tree.parent(p)
+            # Add descendants
+            self._collect_descendants(item, visible_set)
+
+        # Detach non-visible items (bottom-up to avoid parent issues)
+        for item in reversed(all_items):
+            if item not in visible_set:
+                self._detach_item(item)
+
+        # Highlight matching items and expand ancestors
+        for item in match_set:
+            if self.tree.exists(item):
+                self.tree.item(item, tags=("match",))
+                p = self.tree.parent(item)
+                while p:
+                    self.tree.item(p, open=True)
+                    p = self.tree.parent(p)
+
+    def _collect_descendants(self, item, result_set):
+        """Add all descendants of item to result_set."""
+        for child in self.tree.get_children(item):
+            result_set.add(child)
+            self._collect_descendants(child, result_set)
+
+    def _detach_item(self, item):
+        """Detach item from tree, remembering its position for reattach."""
+        if not hasattr(self, '_detached_items'):
+            self._detached_items = []
+        parent = self.tree.parent(item)
+        index = self.tree.index(item)
+        self._detached_items.append((item, parent, index))
+        self.tree.detach(item)
+
+    def _reattach_all(self):
+        """Reattach all previously detached items in correct order."""
+        if not hasattr(self, '_detached_items'):
+            return
+        # Reattach in reverse order to maintain original positions
+        for item, parent, index in reversed(self._detached_items):
+            try:
+                self.tree.move(item, parent, index)
+            except tk.TclError:
+                pass  # Item or parent may have been deleted
+        self._detached_items = []
 
     def on_tree_select(self, event):
         sel = self.tree.selection()
@@ -3600,6 +3728,10 @@ class GanttPilotGUI:
         self._show_tooltip(self.tb_down_btn, self._tooltip_with_shortcut(self._t("move_down"), "move_down"))
         self._show_tooltip(self.config_btn, self._t("config"))
         self._show_tooltip(self.about_btn, self._t("more"))
+        # Refresh search placeholder
+        if not self._search_active:
+            self.search_entry.delete(0, tk.END)
+            self.search_entry.insert(0, self._t("search_placeholder"))
         # Refresh tree
         self.refresh_project_list()
         self.refresh_gantt()

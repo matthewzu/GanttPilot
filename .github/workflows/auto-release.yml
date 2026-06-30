@@ -31,6 +31,11 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.16.0 / v1.16.0 新增
+
+          - 🔍 **Tree Search Filter** — Search bar above the project tree for real-time node filtering. Matching nodes are highlighted in blue, non-matching nodes are hidden, and ancestor nodes auto-expand / **左侧搜索过滤** — 项目树上方新增搜索框，实时过滤节点，匹配项蓝色高亮
+          - 🎨 **Tree Node Icons** — Refined emoji icons for better visual differentiation: Project(📂), Requirements(📋), Requirement(📝), Task(🔧), Plan Execution(📊), Milestone(🚩), Active Plan(▶), Finished Plan(✅), Activity(⏱) / **树节点图标优化** — 优化各层级 emoji 图标，提升辨识度
+
           ### ✨ New in v1.15.0 / v1.15.0 改进
 
           - 🎨 **Rounded Task Bars** — Task bars now have rounded corners for a modern look. New `rounded_rectangle` method added to DrawBackend, implemented in both Canvas and Pillow backends / **甘特图圆角任务条** — 任务条改为圆角矩形，视觉更现代

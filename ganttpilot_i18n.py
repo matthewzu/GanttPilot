@@ -67,6 +67,7 @@ TEXTS = {
         "help": "帮助",
         "about": "关于",
         "more": "更多",
+        "search_placeholder": "搜索节点...",
         "version": "版本",
         "exit": "退出",
         "error": "错误",
@@ -292,6 +293,10 @@ TEXTS = {
             "📋 需求分析 → 需求 → 任务（定义做什么）\n"
             "📊 计划执行 → 里程碑 → 计划 → 活动（规划怎么做）\n"
             "🔗 计划可关联任务，形成需求→任务→计划跟踪链\n\n"
+            "【搜索过滤】工具栏下方搜索框\n"
+            "• 输入关键字实时过滤项目树节点\n"
+            "• 匹配节点蓝色高亮，非匹配节点自动隐藏\n"
+            "• 点击 ✕ 或清空内容恢复显示全部节点\n\n"
             "【工具栏】分组显示，根据选中节点自动启用/禁用\n"
             "• ↩↪ 撤销/恢复 │ +✏👁✕ 增删改查 │ 📋✂📌⧉ 剪贴板 │ ↑↓ 排序\n"
             "• 添加(Ctrl+N) / 编辑(F2) / 查看(F3) / 删除(Delete)\n"
@@ -485,6 +490,7 @@ TEXTS = {
         "help": "Help",
         "about": "About",
         "more": "More",
+        "search_placeholder": "Search nodes...",
         "version": "Version",
         "exit": "Exit",
         "error": "Error",
@@ -710,6 +716,10 @@ TEXTS = {
             "📋 Requirement Analysis → Requirement → Task (define what)\n"
             "📊 Plan Execution → Milestone → Plan → Activity (plan how)\n"
             "🔗 Plans can link to tasks for requirement traceability\n\n"
+            "[Search Filter] Search bar below toolbar\n"
+            "• Type keywords to filter tree nodes in real-time\n"
+            "• Matching nodes highlighted in blue, non-matching hidden\n"
+            "• Click ✕ or clear text to show all nodes\n\n"
             "[Toolbar] Grouped with separators, auto-enabled based on selected node\n"
             "• ↩↪ Undo/Redo │ +✏👁✕ CRUD │ 📋✂📌⧉ Clipboard │ ↑↓ Reorder\n"
             "• Add(Ctrl+N) / Edit(F2) / View(F3) / Delete(Delete)\n"
