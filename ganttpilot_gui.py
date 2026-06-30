@@ -881,36 +881,57 @@ class GanttPilotGUI:
         left_frame = ttk.Frame(self.paned, width=320)
         self.paned.add(left_frame, weight=1)
 
-        # Minimal toolbar: undo/redo, unified buttons, config, about
+        # Grouped toolbar: undo/redo │ CRUD │ clipboard │ move │ config/more
         toolbar = ttk.Frame(left_frame)
         toolbar.pack(fill=tk.X, pady=(0, 2))
-        self.undo_btn = ttk.Button(toolbar, text="↩", command=self.do_undo, width=3, state=tk.DISABLED)
+
+        # Group 1: Undo / Redo
+        undo_group = ttk.Frame(toolbar)
+        undo_group.pack(side=tk.LEFT, padx=(0, 2))
+        self.undo_btn = ttk.Button(undo_group, text="↩", command=self.do_undo, width=3, state=tk.DISABLED)
         self.undo_btn.pack(side=tk.LEFT, padx=1)
-        self.redo_btn = ttk.Button(toolbar, text="↪", command=self.do_redo, width=3, state=tk.DISABLED)
+        self.redo_btn = ttk.Button(undo_group, text="↪", command=self.do_redo, width=3, state=tk.DISABLED)
         self.redo_btn.pack(side=tk.LEFT, padx=1)
 
-        # Unified toolbar buttons: Add, Edit, Delete | Copy, Paste, Duplicate | Move Up, Move Down
-        self.tb_add_btn = ttk.Button(toolbar, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED)
+        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
+
+        # Group 2: Add / Edit / View / Delete
+        crud_group = ttk.Frame(toolbar)
+        crud_group.pack(side=tk.LEFT, padx=(0, 2))
+        self.tb_add_btn = ttk.Button(crud_group, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED)
         self.tb_add_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_edit_btn = ttk.Button(toolbar, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED)
+        self.tb_edit_btn = ttk.Button(crud_group, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED)
         self.tb_edit_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_view_btn = ttk.Button(toolbar, text="👁", command=self.toolbar_view, width=4, state=tk.DISABLED)
+        self.tb_view_btn = ttk.Button(crud_group, text="👁", command=self.toolbar_view, width=4, state=tk.DISABLED)
         self.tb_view_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_delete_btn = ttk.Button(toolbar, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED)
+        self.tb_delete_btn = ttk.Button(crud_group, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED)
         self.tb_delete_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_copy_btn = ttk.Button(toolbar, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED)
+
+        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
+
+        # Group 3: Copy / Cut / Paste / Duplicate
+        clip_group = ttk.Frame(toolbar)
+        clip_group.pack(side=tk.LEFT, padx=(0, 2))
+        self.tb_copy_btn = ttk.Button(clip_group, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED)
         self.tb_copy_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_cut_btn = ttk.Button(toolbar, text="✂", command=self.toolbar_cut, width=4, state=tk.DISABLED)
+        self.tb_cut_btn = ttk.Button(clip_group, text="✂", command=self.toolbar_cut, width=4, state=tk.DISABLED)
         self.tb_cut_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_paste_btn = ttk.Button(toolbar, text="📌", command=self.toolbar_paste, width=4, state=tk.DISABLED)
+        self.tb_paste_btn = ttk.Button(clip_group, text="📌", command=self.toolbar_paste, width=4, state=tk.DISABLED)
         self.tb_paste_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_dup_btn = ttk.Button(toolbar, text="⧉", command=self.toolbar_duplicate, width=4, state=tk.DISABLED)
+        self.tb_dup_btn = ttk.Button(clip_group, text="⧉", command=self.toolbar_duplicate, width=4, state=tk.DISABLED)
         self.tb_dup_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_up_btn = ttk.Button(toolbar, text="↑", command=self.toolbar_move_up, width=4, state=tk.DISABLED)
+
+        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
+
+        # Group 4: Move Up / Move Down
+        move_group = ttk.Frame(toolbar)
+        move_group.pack(side=tk.LEFT, padx=(0, 2))
+        self.tb_up_btn = ttk.Button(move_group, text="↑", command=self.toolbar_move_up, width=4, state=tk.DISABLED)
         self.tb_up_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_down_btn = ttk.Button(toolbar, text="↓", command=self.toolbar_move_down, width=4, state=tk.DISABLED)
+        self.tb_down_btn = ttk.Button(move_group, text="↓", command=self.toolbar_move_down, width=4, state=tk.DISABLED)
         self.tb_down_btn.pack(side=tk.LEFT, padx=1)
 
+        # Right side: Config / More
         self.about_btn = ttk.Button(toolbar, text="⋯", command=self.show_more_menu, width=3)
         self.about_btn.pack(side=tk.RIGHT, padx=1)
         self.config_btn = ttk.Button(toolbar, text="⚙", command=self.open_config_dialog, width=3)
