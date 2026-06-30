@@ -425,6 +425,11 @@ TEXTS = {
         "migrate_main_confirm": "将存储格式升级提交到主线分支并推送到远端。\n\n其他成员变基时将自动迁移到新格式。\n\n确定执行？",
         "migrate_main_running": "正在升级主线格式...",
         "migrate_main_success": "主线格式升级完成，已推送到远端。",
+        # ── Appearance / 外观模式 ──
+        "appearance_mode": "外观模式",
+        "system_mode": "跟随系统",
+        "dark_mode": "深色",
+        "light_mode": "浅色",
     },
     "en": {
         "app_title": "GanttPilot - Collaborative Project Manager",
@@ -849,6 +854,11 @@ TEXTS = {
         "migrate_main_confirm": "This will commit the storage format upgrade to the main branch and push to remote.\n\nOther members will auto-migrate when they rebase.\n\nProceed?",
         "migrate_main_running": "Upgrading main branch format...",
         "migrate_main_success": "Main branch format upgraded and pushed to remote.",
+        # ── Appearance ──
+        "appearance_mode": "Appearance",
+        "system_mode": "System",
+        "dark_mode": "Dark",
+        "light_mode": "Light",
     },
 }
 

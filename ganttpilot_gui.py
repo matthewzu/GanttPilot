@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""GanttPilot - GUI Interface (tkinter) / 图形界面
+"""GanttPilot - GUI Interface (CustomTkinter + tkinter) / 图形界面
 
 All CRUD operations via right-click context menus on the tree.
 """
@@ -19,6 +19,13 @@ import webbrowser
 import urllib.request
 import json
 
+from ganttpilot_ctk import (
+    CTK_AVAILABLE, init_appearance, set_appearance_mode, create_root,
+    get_appearance_mode, get_canvas_bg, get_treeview_colors,
+    make_frame, make_button, make_label, make_entry, make_combobox,
+    make_textbox, make_scrollbar, make_separator, make_toplevel,
+    set_button_state, apply_treeview_theme,
+)
 from ganttpilot_i18n import t
 from ganttpilot_config import Config
 from ganttpilot_core import DataStore, parse_time_slots, calculate_hours_from_slots
@@ -1008,67 +1015,67 @@ class GanttPilotGUI:
         self.paned.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         # Left: tree only (no buttons)
-        left_frame = ttk.Frame(self.paned, width=320)
+        left_frame = make_frame(self.paned, width=320)
         self.paned.add(left_frame, weight=1)
 
         # Grouped toolbar: undo/redo │ CRUD │ clipboard │ move │ config/more
-        toolbar = ttk.Frame(left_frame)
+        toolbar = make_frame(left_frame)
         toolbar.pack(fill=tk.X, pady=(0, 2))
 
         # Group 1: Undo / Redo
-        undo_group = ttk.Frame(toolbar)
+        undo_group = make_frame(toolbar)
         undo_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.undo_btn = ttk.Button(undo_group, text="↩", command=self.do_undo, width=3, state=tk.DISABLED)
+        self.undo_btn = make_button(undo_group, text="↩", command=self.do_undo, width=3, state=tk.DISABLED)
         self.undo_btn.pack(side=tk.LEFT, padx=1)
-        self.redo_btn = ttk.Button(undo_group, text="↪", command=self.do_redo, width=3, state=tk.DISABLED)
+        self.redo_btn = make_button(undo_group, text="↪", command=self.do_redo, width=3, state=tk.DISABLED)
         self.redo_btn.pack(side=tk.LEFT, padx=1)
 
-        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
+        make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
 
         # Group 2: Add / Edit / View / Delete
-        crud_group = ttk.Frame(toolbar)
+        crud_group = make_frame(toolbar)
         crud_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.tb_add_btn = ttk.Button(crud_group, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED)
+        self.tb_add_btn = make_button(crud_group, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED)
         self.tb_add_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_edit_btn = ttk.Button(crud_group, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED)
+        self.tb_edit_btn = make_button(crud_group, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED)
         self.tb_edit_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_view_btn = ttk.Button(crud_group, text="👁", command=self.toolbar_view, width=4, state=tk.DISABLED)
+        self.tb_view_btn = make_button(crud_group, text="👁", command=self.toolbar_view, width=4, state=tk.DISABLED)
         self.tb_view_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_delete_btn = ttk.Button(crud_group, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED)
+        self.tb_delete_btn = make_button(crud_group, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED)
         self.tb_delete_btn.pack(side=tk.LEFT, padx=1)
 
-        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
+        make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
 
         # Group 3: Copy / Cut / Paste / Duplicate
-        clip_group = ttk.Frame(toolbar)
+        clip_group = make_frame(toolbar)
         clip_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.tb_copy_btn = ttk.Button(clip_group, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED)
+        self.tb_copy_btn = make_button(clip_group, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED)
         self.tb_copy_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_cut_btn = ttk.Button(clip_group, text="✂", command=self.toolbar_cut, width=4, state=tk.DISABLED)
+        self.tb_cut_btn = make_button(clip_group, text="✂", command=self.toolbar_cut, width=4, state=tk.DISABLED)
         self.tb_cut_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_paste_btn = ttk.Button(clip_group, text="📌", command=self.toolbar_paste, width=4, state=tk.DISABLED)
+        self.tb_paste_btn = make_button(clip_group, text="📌", command=self.toolbar_paste, width=4, state=tk.DISABLED)
         self.tb_paste_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_dup_btn = ttk.Button(clip_group, text="⧉", command=self.toolbar_duplicate, width=4, state=tk.DISABLED)
+        self.tb_dup_btn = make_button(clip_group, text="⧉", command=self.toolbar_duplicate, width=4, state=tk.DISABLED)
         self.tb_dup_btn.pack(side=tk.LEFT, padx=1)
 
-        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
+        make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
 
         # Group 4: Move Up / Move Down
-        move_group = ttk.Frame(toolbar)
+        move_group = make_frame(toolbar)
         move_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.tb_up_btn = ttk.Button(move_group, text="↑", command=self.toolbar_move_up, width=4, state=tk.DISABLED)
+        self.tb_up_btn = make_button(move_group, text="↑", command=self.toolbar_move_up, width=4, state=tk.DISABLED)
         self.tb_up_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_down_btn = ttk.Button(move_group, text="↓", command=self.toolbar_move_down, width=4, state=tk.DISABLED)
+        self.tb_down_btn = make_button(move_group, text="↓", command=self.toolbar_move_down, width=4, state=tk.DISABLED)
         self.tb_down_btn.pack(side=tk.LEFT, padx=1)
 
         # Right side: Config / More
-        self.about_btn = ttk.Button(toolbar, text="⋯", command=self.show_more_menu, width=3)
+        self.about_btn = make_button(toolbar, text="⋯", command=self.show_more_menu, width=3)
         self.about_btn.pack(side=tk.RIGHT, padx=1)
-        self.config_btn = ttk.Button(toolbar, text="⚙", command=self.open_config_dialog, width=3)
+        self.config_btn = make_button(toolbar, text="⚙", command=self.open_config_dialog, width=3)
         self.config_btn.pack(side=tk.RIGHT, padx=1)
 
         # Search / Filter bar
-        search_frame = ttk.Frame(left_frame)
+        search_frame = make_frame(left_frame)
         search_frame.pack(fill=tk.X, pady=(0, 2))
         self.search_var = tk.StringVar()
         self.search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
@@ -1078,7 +1085,7 @@ class GanttPilotGUI:
         self.search_entry.bind("<FocusIn>", self._on_search_focus_in)
         self.search_entry.bind("<FocusOut>", self._on_search_focus_out)
         self.search_var.trace_add("write", self._on_search_changed)
-        self.search_clear_btn = ttk.Button(search_frame, text="✕", width=3,
+        self.search_clear_btn = make_button(search_frame, text="✕", width=3,
                                            command=self._clear_search)
         self.search_clear_btn.pack(side=tk.RIGHT)
         self._search_active = False  # True when user is typing (not placeholder)
@@ -1104,24 +1111,27 @@ class GanttPilotGUI:
         self.tree.bind("<Alt-Up>", _tree_move_up)
         self.tree.bind("<Alt-Down>", _tree_move_down)
 
+        # Apply dark mode styling to Treeview
+        apply_treeview_theme()
+
         # Right: branch selector + notebook (gantt + history) + report
         right_frame = ttk.Frame(self.paned)
         self.paned.add(right_frame, weight=3)
 
         # Branch selector above notebook
-        branch_frame = ttk.Frame(right_frame)
+        branch_frame = make_frame(right_frame)
         branch_frame.pack(fill=tk.X, pady=(0, 2))
-        self.branch_label = ttk.Label(branch_frame, text=self._t("branch"))
+        self.branch_label = make_label(branch_frame, text=self._t("branch"))
         self.branch_label.pack(side=tk.LEFT, padx=(0, 4))
         self.branch_selector = ttk.Combobox(branch_frame, state="readonly", width=30)
         self.branch_selector.pack(side=tk.LEFT, padx=2)
         self.branch_selector.bind("<<ComboboxSelected>>", self.on_branch_changed)
 
         # Update banner (hidden by default) — between branch selector and notebook
-        self.update_banner = ttk.Frame(right_frame)
-        self.update_banner_label = ttk.Label(self.update_banner, text=self._t("main_updated"))
+        self.update_banner = make_frame(right_frame)
+        self.update_banner_label = make_label(self.update_banner, text=self._t("main_updated"))
         self.update_banner_label.pack(side=tk.LEFT, padx=(4, 8))
-        self.update_banner_btn = ttk.Button(self.update_banner, text=self._t("sync_main"),
+        self.update_banner_btn = make_button(self.update_banner, text=self._t("sync_main"),
                                             command=self.do_manual_rebase)
         self.update_banner_btn.pack(side=tk.LEFT, padx=2)
         # Don't pack update_banner — it starts hidden
@@ -1139,13 +1149,13 @@ class GanttPilotGUI:
         self.right_notebook.add(gantt_tab_frame, text=self._t("gantt_chart"))
 
         # Gantt zoom toolbar
-        gantt_toolbar = ttk.Frame(gantt_tab_frame)
+        gantt_toolbar = make_frame(gantt_tab_frame)
         gantt_toolbar.pack(fill=tk.X, pady=(0, 2))
-        ttk.Label(gantt_toolbar, text="🔍").pack(side=tk.LEFT, padx=2)
-        ttk.Button(gantt_toolbar, text="+", command=self.gantt_zoom_in, width=2).pack(side=tk.LEFT, padx=1)
-        ttk.Button(gantt_toolbar, text="-", command=self.gantt_zoom_out, width=2).pack(side=tk.LEFT, padx=1)
+        make_label(gantt_toolbar, text="🔍").pack(side=tk.LEFT, padx=2)
+        make_button(gantt_toolbar, text="+", command=self.gantt_zoom_in, width=2).pack(side=tk.LEFT, padx=1)
+        make_button(gantt_toolbar, text="-", command=self.gantt_zoom_out, width=2).pack(side=tk.LEFT, padx=1)
 
-        self.gantt_canvas = tk.Canvas(gantt_tab_frame, bg="white")
+        self.gantt_canvas = tk.Canvas(gantt_tab_frame, bg=get_canvas_bg())
         gy = ttk.Scrollbar(gantt_tab_frame, orient=tk.VERTICAL, command=self.gantt_canvas.yview)
         gx = ttk.Scrollbar(gantt_tab_frame, orient=tk.HORIZONTAL, command=self.gantt_canvas.xview)
         self.gantt_canvas.configure(yscrollcommand=gy.set, xscrollcommand=gx.set)
@@ -4082,8 +4092,7 @@ class PlanDialog:
     """Dialog for adding a plan"""
     def __init__(self, parent, t_func, lang, project_name=None, store=None):
         self.result = None
-        self.top = tk.Toplevel(parent)
-        self.top.title(t_func("add") + " " + t_func("plan"))
+        self.top = make_toplevel(parent, t_func("add") + " " + t_func("plan"))
         _center_dialog(self.top, parent, 420, 400)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -4169,8 +4178,7 @@ class PlanEditDialog:
     """Dialog for editing an existing plan's properties"""
     def __init__(self, parent, t_func, lang, plan, project_name=None, store=None):
         self.result = None
-        self.top = tk.Toplevel(parent)
-        self.top.title("✏ " + t_func("plan"))
+        self.top = make_toplevel(parent, "\u270f " + t_func("plan"))
         _center_dialog(self.top, parent, 420, 400)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -4264,8 +4272,7 @@ class ActivityDialog:
         self.t_func = t_func
         self.project_tags = project_tags or []
         self.project_members = project_members or {}
-        self.top = tk.Toplevel(parent)
-        self.top.title(t_func("add") + " " + t_func("activity"))
+        self.top = make_toplevel(parent, t_func("add") + " " + t_func("activity"))
         _center_dialog(self.top, parent, 420, 420)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -4445,8 +4452,7 @@ class ConfigDialog:
         self.t_func = t_func
         self.lang = lang
         self.shortcut_manager = shortcut_manager
-        self.top = tk.Toplevel(parent)
-        self.top.title(t_func("config"))
+        self.top = make_toplevel(parent, t_func("config"))
         _center_dialog(self.top, parent, 620, 520)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -4485,6 +4491,19 @@ class ConfigDialog:
                                        values=["中文", "English"])
         self.lang_combo.set("中文" if lang == "zh" else "English")
         self.lang_combo.grid(row=next_row, column=1, padx=4, pady=4, sticky=tk.EW)
+        next_row += 1
+
+        # Appearance mode selector (dark mode support)
+        ttk.Label(self.top, text=t_func("appearance_mode")).grid(row=next_row, column=0, padx=8, pady=4, sticky=tk.W)
+        appearance_values = [t_func("system_mode"), t_func("dark_mode"), t_func("light_mode")]
+        self._appearance_map = {t_func("system_mode"): "System", t_func("dark_mode"): "Dark", t_func("light_mode"): "Light"}
+        self._appearance_reverse = {"System": t_func("system_mode"), "Dark": t_func("dark_mode"), "Light": t_func("light_mode")}
+        self.appearance_combo = ttk.Combobox(self.top, state="readonly", width=33,
+                                             values=appearance_values)
+        current_mode = config.get("appearance_mode", "System")
+        self.appearance_combo.set(self._appearance_reverse.get(current_mode, t_func("system_mode")))
+        self.appearance_combo.grid(row=next_row, column=1, padx=4, pady=4, sticky=tk.EW)
+        self.appearance_combo.bind("<<ComboboxSelected>>", self._on_appearance_changed)
         next_row += 1
 
         # ── Shortcut configuration section ───────────────────
@@ -4668,9 +4687,20 @@ class ConfigDialog:
             self.shortcut_manager.save_to_config(self.config)
             self.shortcut_manager.register_all()
 
+        # Save appearance mode
+        appearance_display = self.appearance_combo.get()
+        appearance_value = self._appearance_map.get(appearance_display, "System")
+        self.config.set("appearance_mode", appearance_value)
+
         self.config.save()
         self.saved = True
         self.top.destroy()
+
+    def _on_appearance_changed(self, event=None):
+        """Live-update appearance mode when user changes selection."""
+        appearance_display = self.appearance_combo.get()
+        appearance_value = self._appearance_map.get(appearance_display, "System")
+        set_appearance_mode(appearance_value)
 
 
 class ProjectEditDialog:
@@ -4680,8 +4710,7 @@ class ProjectEditDialog:
         self.t_func = t_func
         self.config = config
         self.proj_name = project.get("name", "")
-        self.top = tk.Toplevel(parent)
-        self.top.title("✏ " + t_func("edit_project"))
+        self.top = make_toplevel(parent, "\u270f " + t_func("edit_project"))
         _center_dialog(self.top, parent, 520, 600)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -4813,8 +4842,7 @@ class MilestoneEditDialog:
     """Dialog for editing milestone name, description and deadline"""
     def __init__(self, parent, t_func, lang, milestone):
         self.result = None
-        self.top = tk.Toplevel(parent)
-        self.top.title("✏ " + t_func("edit_milestone"))
+        self.top = make_toplevel(parent, "\u270f " + t_func("edit_milestone"))
         _center_dialog(self.top, parent, 400, 250)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -4861,8 +4889,7 @@ class ActivityEditDialog:
         self.t_func = t_func
         self.project_tags = project_tags or []
         self.project_members = project_members or {}
-        self.top = tk.Toplevel(parent)
-        self.top.title("✏ " + t_func("edit_activity"))
+        self.top = make_toplevel(parent, "\u270f " + t_func("edit_activity"))
         _center_dialog(self.top, parent, 420, 440)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -5032,8 +5059,7 @@ class ProjectGitConfigDialog:
         self.t_func = t_func
         self.lang = lang
         self.config = config
-        self.top = tk.Toplevel(parent)
-        self.top.title("🔗 " + t_func("git_config"))
+        self.top = make_toplevel(parent, "\U0001f517 " + t_func("git_config"))
         _center_dialog(self.top, parent, 560, 380)
         self.top.transient(parent)
         self.top.focus_set()
@@ -5154,8 +5180,7 @@ class ProjectCreateDialog:
         self.parent = parent
         self.config = config
 
-        self.top = tk.Toplevel(parent)
-        self.top.title(t_func("add") + " " + t_func("project"))
+        self.top = make_toplevel(parent, t_func("add") + " " + t_func("project"))
         _center_dialog(self.top, parent, 450, 200)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -5464,8 +5489,7 @@ class MilestoneCreateDialog:
     def __init__(self, parent, t_func, lang):
         self.result = None
         self.t_func = t_func
-        self.top = tk.Toplevel(parent)
-        self.top.title(t_func("add") + " " + t_func("milestone"))
+        self.top = make_toplevel(parent, t_func("add") + " " + t_func("milestone"))
         _center_dialog(self.top, parent, 450, 280)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -5512,8 +5536,7 @@ class RequirementDialog:
     def __init__(self, parent, t_func, lang):
         self.result = None
         self.t_func = t_func
-        self.top = tk.Toplevel(parent)
-        self.top.title(t_func("add_requirement"))
+        self.top = make_toplevel(parent, t_func("add_requirement"))
         _center_dialog(self.top, parent, 420, 280)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -5559,8 +5582,7 @@ class RequirementEditDialog:
     def __init__(self, parent, t_func, lang, requirement):
         self.result = None
         self.t_func = t_func
-        self.top = tk.Toplevel(parent)
-        self.top.title(t_func("edit_requirement"))
+        self.top = make_toplevel(parent, t_func("edit_requirement"))
         _center_dialog(self.top, parent, 420, 280)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -5609,8 +5631,7 @@ class TaskDialog:
     def __init__(self, parent, t_func, lang):
         self.result = None
         self.t_func = t_func
-        self.top = tk.Toplevel(parent)
-        self.top.title(t_func("add_task"))
+        self.top = make_toplevel(parent, t_func("add_task"))
         _center_dialog(self.top, parent, 420, 280)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -5665,8 +5686,7 @@ class TaskEditDialog:
     def __init__(self, parent, t_func, lang, task):
         self.result = None
         self.t_func = t_func
-        self.top = tk.Toplevel(parent)
-        self.top.title(t_func("edit_task"))
+        self.top = make_toplevel(parent, t_func("edit_task"))
         _center_dialog(self.top, parent, 420, 280)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -5723,8 +5743,7 @@ class ProgressDialog:
     def __init__(self, parent, t_func, lang):
         self.result = None
         self.t_func = t_func
-        self.top = tk.Toplevel(parent)
-        self.top.title(t_func("set_progress"))
+        self.top = make_toplevel(parent, t_func("set_progress"))
         _center_dialog(self.top, parent, 350, 130)
         self.top.transient(parent)
         self.top.focus_set()
@@ -5759,8 +5778,7 @@ class MCPConfigDialog:
         self.t_func = t_func
         self.lang = lang
         self.gui = gui
-        self.top = tk.Toplevel(parent)
-        self.top.title(t_func("mcp_config_title"))
+        self.top = make_toplevel(parent, t_func("mcp_config_title"))
         _center_dialog(self.top, parent, 620, 520)
         self.top.resizable(True, True)
         self.top.focus_set()
@@ -5928,6 +5946,9 @@ class MCPConfigDialog:
 
 
 def main():
-    root = tk.Tk()
+    config = Config()
+    appearance = config.get("appearance_mode", "System")
+    init_appearance(appearance)
+    root = create_root()
     app = GanttPilotGUI(root)
     root.mainloop()

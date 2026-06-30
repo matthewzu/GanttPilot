@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.17.0 / v1.17.0 新增
+
+          - 🌙 **Dark Mode + CustomTkinter** — Full migration to CustomTkinter for modern UI appearance. Supports System/Dark/Light theme selection in Config dialog. Falls back gracefully to standard tkinter if CustomTkinter is not installed / **深色模式 + CustomTkinter 迁移** — 全面迁移到 CustomTkinter 现代 UI 框架，支持系统/深色/浅色主题切换，未安装时自动回退到标准 tkinter
+
           ### ✨ New in v1.16.0 / v1.16.0 新增
 
           - 🔍 **Tree Search Filter** — Search bar above the project tree for real-time node filtering. Matching nodes are highlighted in blue, non-matching nodes are hidden, and ancestor nodes auto-expand / **左侧搜索过滤** — 项目树上方新增搜索框，实时过滤节点，匹配项蓝色高亮
@@ -180,8 +184,8 @@ jobs:
       with:
         python-version: '3.9'
     - run: |
-        pip install pyinstaller Pillow
-        pyinstaller --onefile --windowed --name=GanttPilot --icon=ganttpilot.ico --add-data "ganttpilot.ico;." --add-data "examples;examples" --hidden-import PIL main.py
+        pip install pyinstaller Pillow customtkinter
+        pyinstaller --onefile --windowed --name=GanttPilot --icon=ganttpilot.ico --add-data "ganttpilot.ico;." --add-data "examples;examples" --hidden-import PIL --hidden-import customtkinter --collect-data customtkinter main.py
     - uses: softprops/action-gh-release@v1
       with:
         files: dist/GanttPilot.exe
@@ -197,8 +201,8 @@ jobs:
       with:
         python-version: '3.9'
     - run: |
-        pip install pyinstaller Pillow
-        pyinstaller --onefile --windowed --name=GanttPilot --add-data "ganttpilot.ico:." --add-data "examples:examples" --hidden-import PIL main.py
+        pip install pyinstaller Pillow customtkinter
+        pyinstaller --onefile --windowed --name=GanttPilot --add-data "ganttpilot.ico:." --add-data "examples:examples" --hidden-import PIL --hidden-import customtkinter --collect-data customtkinter main.py
         mkdir dmg_temp
         cp dist/GanttPilot dmg_temp/
         hdiutil create -volname "GanttPilot" -srcfolder dmg_temp -ov -format UDZO GanttPilot.dmg
@@ -217,8 +221,8 @@ jobs:
       with:
         python-version: '3.9'
     - run: |
-        pip install pyinstaller Pillow
-        pyinstaller --onefile --windowed --name=GanttPilot --icon=ganttpilot.ico --add-data "ganttpilot.ico:." --add-data "examples:examples" --hidden-import PIL main.py
+        pip install pyinstaller Pillow customtkinter
+        pyinstaller --onefile --windowed --name=GanttPilot --icon=ganttpilot.ico --add-data "ganttpilot.ico:." --add-data "examples:examples" --hidden-import PIL --hidden-import customtkinter --collect-data customtkinter main.py
     - uses: softprops/action-gh-release@v1
       with:
         files: dist/GanttPilot

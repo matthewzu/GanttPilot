@@ -23,6 +23,7 @@ DEFAULT_CONFIG = {
     "pull_interval": 5,
     "git_log_max_days": 30,
     "mcp_enabled": False,
+    "appearance_mode": "System",
 }
 
 

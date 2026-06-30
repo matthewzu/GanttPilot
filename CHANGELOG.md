@@ -1,5 +1,12 @@
 # 更新日志 / Changelog
 
+## [1.17.0] - 2026-07-01
+
+### 新增 / Added
+- 🌙 **深色模式 (Dark Mode)** — 配置对话框新增外观模式选择器（跟随系统/深色/浅色），实时切换主题，甘特图画布和树视图自动适配深色背景
+- 🎨 **CustomTkinter 全量迁移 (CustomTkinter Migration)** — 主窗口、工具栏、对话框全面迁移到 CustomTkinter 现代 UI 框架，圆角按钮、暗色面板，视觉更现代
+- 🔄 **优雅回退 (Graceful Fallback)** — 未安装 customtkinter 时自动回退到标准 tkinter，确保兼容性
+
 ## [1.16.0] - 2026-06-30
 
 ### 新增 / Added
