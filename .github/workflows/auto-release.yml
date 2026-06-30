@@ -31,6 +31,12 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.17.1 / v1.17.1 修复
+
+          - 🎨 **Toolbar Style Fix** — Toolbar buttons now use transparent background with subtle hover highlight instead of solid blue blocks / **工具栏配色修复** — 按钮改为透明背景 + hover 灰色高亮
+          - 🌙 **Dark Mode Color Refinement** — Switched to "dark-blue" theme, VS Code-style dark background (#1E1E1E), adaptive group header colors / **深色模式配色优化** — 切换 dark-blue 主题，VS Code 风格深色背景，分组表头自适应
+          - 🖱️ **Gantt Chart Mouse Wheel Zoom** — Ctrl+Scroll to zoom in/out the Gantt chart, plain scroll for vertical navigation / **甘特图鼠标滚轮缩放** — Ctrl+滚轮缩放，普通滚轮垂直滚动
+
           ### ✨ New in v1.17.0 / v1.17.0 新增
 
           - 🌙 **Dark Mode + CustomTkinter** — Full migration to CustomTkinter for modern UI appearance. Supports System/Dark/Light theme selection in Config dialog. Falls back gracefully to standard tkinter if CustomTkinter is not installed / **深色模式 + CustomTkinter 迁移** — 全面迁移到 CustomTkinter 现代 UI 框架，支持系统/深色/浅色主题切换，未安装时自动回退到标准 tkinter

@@ -22,6 +22,7 @@ import json
 from ganttpilot_ctk import (
     CTK_AVAILABLE, init_appearance, set_appearance_mode, create_root,
     get_appearance_mode, get_canvas_bg, get_treeview_colors,
+    get_group_header_colors,
     make_frame, make_button, make_label, make_entry, make_combobox,
     make_textbox, make_scrollbar, make_separator, make_toplevel,
     set_button_state, apply_treeview_theme,
@@ -1025,9 +1026,9 @@ class GanttPilotGUI:
         # Group 1: Undo / Redo
         undo_group = make_frame(toolbar)
         undo_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.undo_btn = make_button(undo_group, text="↩", command=self.do_undo, width=3, state=tk.DISABLED)
+        self.undo_btn = make_button(undo_group, text="↩", command=self.do_undo, width=3, state=tk.DISABLED, toolbar=True)
         self.undo_btn.pack(side=tk.LEFT, padx=1)
-        self.redo_btn = make_button(undo_group, text="↪", command=self.do_redo, width=3, state=tk.DISABLED)
+        self.redo_btn = make_button(undo_group, text="↪", command=self.do_redo, width=3, state=tk.DISABLED, toolbar=True)
         self.redo_btn.pack(side=tk.LEFT, padx=1)
 
         make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
@@ -1035,13 +1036,13 @@ class GanttPilotGUI:
         # Group 2: Add / Edit / View / Delete
         crud_group = make_frame(toolbar)
         crud_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.tb_add_btn = make_button(crud_group, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED)
+        self.tb_add_btn = make_button(crud_group, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_add_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_edit_btn = make_button(crud_group, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED)
+        self.tb_edit_btn = make_button(crud_group, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_edit_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_view_btn = make_button(crud_group, text="👁", command=self.toolbar_view, width=4, state=tk.DISABLED)
+        self.tb_view_btn = make_button(crud_group, text="👁", command=self.toolbar_view, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_view_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_delete_btn = make_button(crud_group, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED)
+        self.tb_delete_btn = make_button(crud_group, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_delete_btn.pack(side=tk.LEFT, padx=1)
 
         make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
@@ -1049,13 +1050,13 @@ class GanttPilotGUI:
         # Group 3: Copy / Cut / Paste / Duplicate
         clip_group = make_frame(toolbar)
         clip_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.tb_copy_btn = make_button(clip_group, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED)
+        self.tb_copy_btn = make_button(clip_group, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_copy_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_cut_btn = make_button(clip_group, text="✂", command=self.toolbar_cut, width=4, state=tk.DISABLED)
+        self.tb_cut_btn = make_button(clip_group, text="✂", command=self.toolbar_cut, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_cut_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_paste_btn = make_button(clip_group, text="📌", command=self.toolbar_paste, width=4, state=tk.DISABLED)
+        self.tb_paste_btn = make_button(clip_group, text="📌", command=self.toolbar_paste, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_paste_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_dup_btn = make_button(clip_group, text="⧉", command=self.toolbar_duplicate, width=4, state=tk.DISABLED)
+        self.tb_dup_btn = make_button(clip_group, text="⧉", command=self.toolbar_duplicate, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_dup_btn.pack(side=tk.LEFT, padx=1)
 
         make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
@@ -1063,15 +1064,15 @@ class GanttPilotGUI:
         # Group 4: Move Up / Move Down
         move_group = make_frame(toolbar)
         move_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.tb_up_btn = make_button(move_group, text="↑", command=self.toolbar_move_up, width=4, state=tk.DISABLED)
+        self.tb_up_btn = make_button(move_group, text="↑", command=self.toolbar_move_up, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_up_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_down_btn = make_button(move_group, text="↓", command=self.toolbar_move_down, width=4, state=tk.DISABLED)
+        self.tb_down_btn = make_button(move_group, text="↓", command=self.toolbar_move_down, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_down_btn.pack(side=tk.LEFT, padx=1)
 
         # Right side: Config / More
-        self.about_btn = make_button(toolbar, text="⋯", command=self.show_more_menu, width=3)
+        self.about_btn = make_button(toolbar, text="⋯", command=self.show_more_menu, width=3, toolbar=True)
         self.about_btn.pack(side=tk.RIGHT, padx=1)
-        self.config_btn = make_button(toolbar, text="⚙", command=self.open_config_dialog, width=3)
+        self.config_btn = make_button(toolbar, text="⚙", command=self.open_config_dialog, width=3, toolbar=True)
         self.config_btn.pack(side=tk.RIGHT, padx=1)
 
         # Search / Filter bar
@@ -1086,7 +1087,7 @@ class GanttPilotGUI:
         self.search_entry.bind("<FocusOut>", self._on_search_focus_out)
         self.search_var.trace_add("write", self._on_search_changed)
         self.search_clear_btn = make_button(search_frame, text="✕", width=3,
-                                           command=self._clear_search)
+                                           command=self._clear_search, toolbar=True)
         self.search_clear_btn.pack(side=tk.RIGHT)
         self._search_active = False  # True when user is typing (not placeholder)
 
@@ -1163,6 +1164,21 @@ class GanttPilotGUI:
         gx.pack(side=tk.BOTTOM, fill=tk.X)
         self.gantt_canvas.pack(fill=tk.BOTH, expand=True)
 
+        # Mouse wheel zoom on gantt canvas (Ctrl+Scroll = zoom, plain Scroll = vertical scroll)
+        def _gantt_mousewheel(event):
+            if event.state & 0x4:  # Ctrl held
+                if event.delta > 0:
+                    self.gantt_zoom_in()
+                else:
+                    self.gantt_zoom_out()
+                return "break"
+            else:
+                self.gantt_canvas.yview_scroll(-1 * (event.delta // 120), "units")
+        self.gantt_canvas.bind("<MouseWheel>", _gantt_mousewheel)
+        # Linux support
+        self.gantt_canvas.bind("<Control-Button-4>", lambda e: (self.gantt_zoom_in(), "break")[-1])
+        self.gantt_canvas.bind("<Control-Button-5>", lambda e: (self.gantt_zoom_out(), "break")[-1])
+
         # Tab 2: Requirement Tracking (between Gantt and History)
         tracking_tab_frame = ttk.Frame(self.right_notebook)
         self.right_notebook.add(tracking_tab_frame, text=self._t("tracking_tab"))
@@ -1189,7 +1205,9 @@ class GanttPilotGUI:
         self.tracking_tree.configure(yscrollcommand=tracking_sb.set)
         tracking_sb.pack(side=tk.RIGHT, fill=tk.Y)
         self.tracking_tree.pack(fill=tk.BOTH, expand=True)
-        self.tracking_tree.tag_configure("req_header", font=("", self.config.font_size, "bold"), background="#d0d0e8")
+        hdr_bg, hdr_fg = get_group_header_colors()
+        self.tracking_tree.tag_configure("req_header", font=("", self.config.font_size, "bold"),
+                                         background=hdr_bg, foreground=hdr_fg)
 
         # Tracking tree hover tooltip (scrollable & zoomable)
         self._tracking_tooltip = None
@@ -1271,7 +1289,9 @@ class GanttPilotGUI:
         self.report_tree.column("days", width=90, anchor="center")
         self.report_tree.column("percentage", width=80, anchor="center")
         self.report_tree.pack(fill=tk.BOTH, expand=True, pady=(0, 4))
-        self.report_tree.tag_configure("group_header", font=("", self.config.font_size, "bold"), background="#d0d0e8")
+        rpt_bg, rpt_fg = get_group_header_colors()
+        self.report_tree.tag_configure("group_header", font=("", self.config.font_size, "bold"),
+                                       background=rpt_bg, foreground=rpt_fg)
 
         # Status bar
         self.status_var = tk.StringVar(value=f"GanttPilot v{VERSION}")

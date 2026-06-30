@@ -21,7 +21,7 @@ def init_appearance(mode="System"):
     """Initialize CustomTkinter appearance mode and color theme."""
     if CTK_AVAILABLE:
         ctk.set_appearance_mode(mode)
-        ctk.set_default_color_theme("blue")
+        ctk.set_default_color_theme("dark-blue")
 
 
 def set_appearance_mode(mode):
@@ -47,7 +47,7 @@ def get_appearance_mode():
 def get_canvas_bg():
     """Return canvas background color based on current appearance mode."""
     if get_appearance_mode() == "dark":
-        return "#2B2B2B"
+        return "#1E1E1E"
     return "white"
 
 
@@ -55,11 +55,11 @@ def get_treeview_colors():
     """Return color dict for Treeview dark/light mode styling."""
     if get_appearance_mode() == "dark":
         return {
-            "background": "#2B2B2B",
-            "foreground": "#DCE4EE",
-            "fieldbackground": "#2B2B2B",
-            "selectbackground": "#1F6AA5",
-            "selectforeground": "#DCE4EE",
+            "background": "#1E1E1E",
+            "foreground": "#D4D4D4",
+            "fieldbackground": "#1E1E1E",
+            "selectbackground": "#264F78",
+            "selectforeground": "#FFFFFF",
         }
     return {
         "background": "white",
@@ -70,6 +70,13 @@ def get_treeview_colors():
     }
 
 
+def get_group_header_colors():
+    """Return (background, foreground) for Treeview group header tags."""
+    if get_appearance_mode() == "dark":
+        return ("#2D3748", "#E2E8F0")
+    return ("#d0d0e8", "#000000")
+
+
 def make_frame(parent, **kwargs):
     """Create a CTkFrame or ttk.Frame."""
     if CTK_AVAILABLE:
@@ -78,18 +85,33 @@ def make_frame(parent, **kwargs):
             ctk_kwargs["width"] = kwargs["width"]
         if "height" in kwargs:
             ctk_kwargs["height"] = kwargs["height"]
+        # Default to transparent for layout frames (no visible border/bg)
+        ctk_kwargs.setdefault("fg_color", "transparent")
         return ctk.CTkFrame(parent, **ctk_kwargs)
     return ttk.Frame(parent, **kwargs)
 
 
-def make_button(parent, text="", command=None, width=None, state=None, **kwargs):
-    """Create a CTkButton or ttk.Button."""
+def make_button(parent, text="", command=None, width=None, state=None, toolbar=False, **kwargs):
+    """Create a CTkButton or ttk.Button.
+
+    Args:
+        toolbar: If True, use compact transparent style suitable for toolbar icons.
+    """
     if CTK_AVAILABLE:
         ctk_kwargs = {"text": text}
         if command:
             ctk_kwargs["command"] = command
-        if width is not None:
-            ctk_kwargs["width"] = width * 10
+        if toolbar:
+            # Compact transparent buttons for toolbar — no blue background
+            char_w = max(len(text) + 1, width or 3)
+            ctk_kwargs["width"] = char_w * 9
+            ctk_kwargs["height"] = 28
+            ctk_kwargs["fg_color"] = "transparent"
+            ctk_kwargs["text_color"] = ("gray10", "gray90")
+            ctk_kwargs["hover_color"] = ("gray80", "gray30")
+            ctk_kwargs["corner_radius"] = 4
+        elif width is not None:
+            ctk_kwargs["width"] = width * 8
         if state == tk.DISABLED:
             ctk_kwargs["state"] = "disabled"
         return ctk.CTkButton(parent, **ctk_kwargs)
@@ -203,8 +225,10 @@ def make_separator(parent, orient=tk.VERTICAL):
     """Create a thin frame as separator (CTk) or ttk.Separator."""
     if CTK_AVAILABLE:
         if orient == tk.VERTICAL:
-            return ctk.CTkFrame(parent, width=2, height=20)
-        return ctk.CTkFrame(parent, height=2)
+            return ctk.CTkFrame(parent, width=2, height=20,
+                                fg_color=("gray70", "gray40"))
+        return ctk.CTkFrame(parent, height=2,
+                            fg_color=("gray70", "gray40"))
     return ttk.Separator(parent, orient=orient)
 
 
