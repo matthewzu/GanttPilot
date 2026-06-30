@@ -1,5 +1,12 @@
 # 更新日志 / Changelog
 
+## [1.15.0] - 2026-06-30
+
+### 改进 / Improved
+- 🎨 **甘特图圆角任务条 (Rounded Task Bars)** — 任务条从直角矩形改为圆角矩形，DrawBackend 新增 `rounded_rectangle` 抽象方法，CanvasBackend 和 PillowBackend 均已实现
+- 🎨 **甘特图行交替底色 (Alternating Row Backgrounds)** — 偶数行白色、奇数行浅灰蓝（#F4F6F8），里程碑行保持原有背景色不变，提升行间可辨识度
+- 🖱️ **甘特图悬浮高亮与提示 (Hover Highlight & Tooltip)** — 鼠标悬停在任务条上时条形变亮，300ms 后弹出浮窗显示任务名称、执行者、起止日期、工期和进度（仅 GUI，不影响 PNG 导出）
+
 ## [1.14.0] - 2026-06-30
 
 ### 改进 / Improved

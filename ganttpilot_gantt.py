@@ -9,6 +9,7 @@ Also generates PlantUML @startgantt markup for browser viewing.
 import zlib
 import webbrowser
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional, Sequence, Tuple
 
@@ -38,6 +39,9 @@ COLOR_HEADER_BG = "#FAFAFA"
 COLOR_LABEL_BG = "#F8F8F8"
 COLOR_BORDER = "#CCCCCC"
 COLOR_ARROW = "#666666"
+COLOR_ROW_EVEN = "#FFFFFF"
+COLOR_ROW_ODD = "#F4F6F8"
+DEFAULT_CORNER_RADIUS = 6
 
 
 def darken_color(hex_color, factor=0.6):
@@ -51,6 +55,17 @@ def darken_color(hex_color, factor=0.6):
     r = max(0, min(255, r))
     g = max(0, min(255, g))
     b = max(0, min(255, b))
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def brighten_color(hex_color, factor=1.3):
+    """Increase each RGB channel by factor, clamping to 255."""
+    hex_color = hex_color.lstrip("#")
+    if len(hex_color) != 6:
+        return "#ffffff"
+    r = min(255, int(int(hex_color[0:2], 16) * factor))
+    g = min(255, int(int(hex_color[2:4], 16) * factor))
+    b = min(255, int(int(hex_color[4:6], 16) * factor))
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
@@ -109,6 +124,21 @@ class DrawBackend(ABC):
         ...
 
     @abstractmethod
+    def rounded_rectangle(self, x1: float, y1: float, x2: float, y2: float,
+                          fill: str = "", outline: str = "", width: int = 0,
+                          radius: int = 6) -> None:
+        """Draw a rectangle with rounded corners.
+
+        Args:
+            x1, y1, x2, y2: Bounding box coordinates.
+            fill: Fill color (hex string or empty).
+            outline: Outline color (hex string or empty).
+            width: Outline width in pixels.
+            radius: Corner radius in pixels.
+        """
+        ...
+
+    @abstractmethod
     def polygon(self, points: Sequence[Tuple[float, float]],
                 fill: str = "", outline: str = "", width: int = 1) -> None:
         """绘制多边形"""
@@ -147,6 +177,51 @@ class CanvasBackend(DrawBackend):
     def polygon(self, points, fill="", outline="", width=1):
         flat = [coord for pt in points for coord in pt]
         self._canvas.create_polygon(*flat, fill=fill, outline=outline, width=width)
+
+    def rounded_rectangle(self, x1, y1, x2, y2, fill="", outline="", width=0, radius=6):
+        """Draw a rounded rectangle using create_polygon with quarter-circle corner points.
+
+        Returns the canvas item ID for the polygon.
+        """
+        import math
+        # Edge cases
+        if x2 <= x1 or y2 <= y1:
+            return None
+        if radius <= 0:
+            return self._canvas.create_rectangle(x1, y1, x2, y2,
+                                                  fill=fill, outline=outline, width=width)
+        # Clamp radius to half the smaller dimension
+        max_r = min((x2 - x1) / 2, (y2 - y1) / 2)
+        r = min(radius, max_r)
+
+        # Number of segments per quarter-circle arc
+        n = 8
+        points = []
+
+        # Top-left corner (center at x1+r, y1+r)
+        for i in range(n + 1):
+            angle = math.pi + (math.pi / 2) * (i / n)
+            points.append((x1 + r + r * math.cos(angle), y1 + r + r * math.sin(angle)))
+
+        # Top-right corner (center at x2-r, y1+r)
+        for i in range(n + 1):
+            angle = (3 * math.pi / 2) + (math.pi / 2) * (i / n)
+            points.append((x2 - r + r * math.cos(angle), y1 + r + r * math.sin(angle)))
+
+        # Bottom-right corner (center at x2-r, y2-r)
+        for i in range(n + 1):
+            angle = 0 + (math.pi / 2) * (i / n)
+            points.append((x2 - r + r * math.cos(angle), y2 - r + r * math.sin(angle)))
+
+        # Bottom-left corner (center at x1+r, y2-r)
+        for i in range(n + 1):
+            angle = (math.pi / 2) + (math.pi / 2) * (i / n)
+            points.append((x1 + r + r * math.cos(angle), y2 - r + r * math.sin(angle)))
+
+        flat = [coord for pt in points for coord in pt]
+        item_id = self._canvas.create_polygon(*flat, fill=fill, outline=outline,
+                                               width=width, smooth=False)
+        return item_id
 
 
 # ── PillowBackend ────────────────────────────────────────────
@@ -195,6 +270,21 @@ class PillowBackend(DrawBackend):
         fill = fill if fill else None
         outline = outline if outline else None
         self._draw.polygon(points, fill=fill, outline=outline, width=width)
+
+    def rounded_rectangle(self, x1, y1, x2, y2, fill="", outline="", width=0, radius=6):
+        """Draw a rounded rectangle using Pillow's native rounded_rectangle."""
+        # Edge cases
+        if x2 <= x1 or y2 <= y1:
+            return None
+        if radius <= 0:
+            self.rectangle(x1, y1, x2, y2, fill=fill, outline=outline, width=width)
+            return None
+        fill = fill if fill else None
+        outline = outline if outline else None
+        self._draw.rounded_rectangle([x1, y1, x2, y2], radius=radius,
+                                      fill=fill, outline=outline,
+                                      width=max(width, 0))
+        return None
 
     def save(self, path: str) -> None:
         """保存图片到文件"""
@@ -245,6 +335,22 @@ class PillowBackend(DrawBackend):
 
 
 
+@dataclass
+class BarHitBox:
+    """Bounding rectangle and metadata for a drawn task bar, used for hover hit-testing."""
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+    task_name: str
+    executor: str
+    start_date: str
+    end_date: str
+    duration_days: int
+    progress: int
+    canvas_item_id: object = None  # Canvas item ID for highlight/restore
+
+
 class GanttRenderer:
     """Renders a Gantt chart via DrawBackend with per-executor coloring."""
 
@@ -275,6 +381,12 @@ class GanttRenderer:
         self.font_size_tiny = max(6, font_size - 3)
         self._executor_colors = {}
         self._color_idx = 0
+        self.bar_hitboxes: list = []
+        self._canvas_item_ids: list = []
+
+    def _clamp_radius(self, bar_height, radius):
+        """Clamp radius so it never exceeds half the bar height."""
+        return min(radius, bar_height // 2)
 
     def _get_executor_color(self, executor):
         """Assign a consistent color per executor"""
@@ -287,6 +399,8 @@ class GanttRenderer:
 
     def draw(self):
         self.backend.clear()
+        self.bar_hitboxes = []
+        self._canvas_item_ids = []
         if not self.project:
             return
 
@@ -344,6 +458,15 @@ class GanttRenderer:
                     x, 0, x + self.day_width, total_height,
                     fill=COLOR_WEEKEND_BG, outline="",
                 )
+
+        # ── Alternating row backgrounds ──────────────────────
+        for row, task_info in enumerate(tasks):
+            row_y = self.header_height + row * self.row_height
+            if task_info[0] == "milestone":
+                continue  # milestone rows keep their own background
+            bg = COLOR_ROW_ODD if row % 2 == 1 else COLOR_ROW_EVEN
+            self.backend.rectangle(0, row_y, total_width, row_y + self.row_height,
+                                   fill=bg, outline="")
 
         # ── Grid lines (vertical) ───────────────────────────
         for i, d in enumerate(dates):
@@ -467,20 +590,36 @@ class GanttRenderer:
                     else:
                         color = self._get_executor_color(executor)
 
-                    # Bar with rounded feel (two rects)
-                    self.backend.rectangle(bx1, by1, bx2, by2, fill=color, outline="", width=0)
-                    # Slight border
-                    self.backend.rectangle(bx1, by1, bx2, by2, fill="", outline=color, width=1)
+                    # Rounded task bar
+                    bar_height = by2 - by1
+                    effective_radius = self._clamp_radius(bar_height, DEFAULT_CORNER_RADIUS)
+                    item_id = self.backend.rounded_rectangle(
+                        bx1, by1, bx2, by2, fill=color, outline=color,
+                        width=1, radius=effective_radius)
 
                     # Progress bar overlay
                     if progress > 0:
                         bar_total_width = bx2 - bx1
                         progress_width = bar_total_width * progress / 100
                         dark_color = darken_color(color, 0.6)
-                        self.backend.rectangle(
+                        self.backend.rounded_rectangle(
                             bx1, by1, bx1 + progress_width, by2,
                             fill=dark_color, outline="", width=0,
+                            radius=effective_radius,
                         )
+
+                    # Record hit-box for hover detection
+                    duration = (end - start).days + 1
+                    hitbox = BarHitBox(
+                        x1=bx1, y1=by1, x2=bx2, y2=by2,
+                        task_name=label, executor=executor,
+                        start_date=start.strftime("%Y%m%d"),
+                        end_date=end.strftime("%Y%m%d"),
+                        duration_days=duration,
+                        progress=progress,
+                        canvas_item_id=item_id,
+                    )
+                    self.bar_hitboxes.append(hitbox)
 
                     # Text on bar
                     bar_width = bx2 - bx1

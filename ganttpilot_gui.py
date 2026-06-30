@@ -23,7 +23,8 @@ from ganttpilot_i18n import t
 from ganttpilot_config import Config
 from ganttpilot_core import DataStore, parse_time_slots, calculate_hours_from_slots
 from ganttpilot_git import GitSync, _setup_app_logger
-from ganttpilot_gantt import GanttRenderer, CanvasBackend, generate_gantt_markdown
+from ganttpilot_gantt import (GanttRenderer, CanvasBackend, generate_gantt_markdown,
+                              brighten_color, BarHitBox)
 from ganttpilot_shortcuts import ShortcutManager, tk_event_to_display
 from version import VERSION
 
@@ -145,6 +146,135 @@ def _force_rmtree(path):
         except Exception:
             pass
     shutil.rmtree(path, onerror=_on_error)
+
+
+class HoverController:
+    """Lightweight hover highlight and tooltip controller for the Gantt canvas.
+
+    Binds <Motion> and <Leave> on the canvas. When the cursor enters a task bar
+    bounding box it brightens the bar fill and, after 300ms, shows a Toplevel tooltip.
+    """
+
+    TOOLTIP_DELAY_MS = 300
+
+    def __init__(self, canvas, hitboxes):
+        self._canvas = canvas
+        self._hitboxes = hitboxes
+        self._current_hitbox = None
+        self._original_fill = None
+        self._tooltip_window = None
+        self._hover_after_id = None
+
+        self._canvas.bind("<Motion>", self._on_motion)
+        self._canvas.bind("<Leave>", self._on_leave)
+
+    def _on_motion(self, event):
+        """Hit-test cursor against bar_hitboxes, highlight on enter."""
+        cx = self._canvas.canvasx(event.x)
+        cy = self._canvas.canvasy(event.y)
+        hit = self._hit_test(cx, cy)
+
+        if hit is self._current_hitbox:
+            return  # still on same bar
+
+        # Left previous bar
+        if self._current_hitbox is not None:
+            self._restore_bar()
+            self._hide_tooltip()
+
+        if hit is not None:
+            self._current_hitbox = hit
+            self._highlight_bar(hit)
+            # Schedule tooltip
+            self._hover_after_id = self._canvas.after(
+                self.TOOLTIP_DELAY_MS,
+                lambda: self._show_tooltip(hit, event.x_root, event.y_root),
+            )
+        else:
+            self._current_hitbox = None
+
+    def _on_leave(self, event):
+        """Restore bar and hide tooltip when cursor leaves canvas."""
+        if self._current_hitbox is not None:
+            self._restore_bar()
+            self._hide_tooltip()
+            self._current_hitbox = None
+
+    def _hit_test(self, x, y):
+        """Return first BarHitBox containing (x, y), or None."""
+        for hb in self._hitboxes:
+            if hb.x1 <= x <= hb.x2 and hb.y1 <= y <= hb.y2:
+                return hb
+        return None
+
+    def _highlight_bar(self, hitbox):
+        """Brighten the bar fill color via itemconfigure."""
+        item_id = hitbox.canvas_item_id
+        if item_id is None:
+            return
+        try:
+            current_fill = self._canvas.itemcget(item_id, "fill")
+            self._original_fill = current_fill
+            bright = brighten_color(current_fill, 1.3)
+            self._canvas.itemconfigure(item_id, fill=bright)
+        except Exception:
+            pass
+
+    def _restore_bar(self):
+        """Restore original fill color."""
+        if self._current_hitbox is None:
+            return
+        item_id = self._current_hitbox.canvas_item_id
+        if item_id is None or self._original_fill is None:
+            return
+        try:
+            self._canvas.itemconfigure(item_id, fill=self._original_fill)
+        except Exception:
+            pass
+        self._original_fill = None
+
+    def _show_tooltip(self, hitbox, x_root, y_root):
+        """Create a Toplevel tooltip near the cursor with task details."""
+        self._hide_tooltip()
+        tw = tk.Toplevel(self._canvas)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x_root + 12}+{y_root + 12}")
+
+        # Format dates for display
+        start_str = hitbox.start_date
+        end_str = hitbox.end_date
+        if len(start_str) == 8:
+            start_str = f"{start_str[:4]}-{start_str[4:6]}-{start_str[6:]}"
+        if len(end_str) == 8:
+            end_str = f"{end_str[:4]}-{end_str[4:6]}-{end_str[6:]}"
+
+        lines = [
+            f"Task: {hitbox.task_name}",
+            f"Executor: {hitbox.executor or '-'}",
+            f"Start: {start_str}",
+            f"End: {end_str}",
+            f"Duration: {hitbox.duration_days} days",
+            f"Progress: {hitbox.progress}%",
+        ]
+        text = "\n".join(lines)
+
+        label = tk.Label(tw, text=text, justify=tk.LEFT, background="#FFFFC0",
+                         relief=tk.SOLID, borderwidth=1, padx=6, pady=4,
+                         font=("", 9))
+        label.pack()
+        self._tooltip_window = tw
+
+    def _hide_tooltip(self):
+        """Destroy tooltip and cancel pending after() call."""
+        if self._hover_after_id is not None:
+            self._canvas.after_cancel(self._hover_after_id)
+            self._hover_after_id = None
+        if self._tooltip_window is not None:
+            try:
+                self._tooltip_window.destroy()
+            except Exception:
+                pass
+            self._tooltip_window = None
 
 
 def _center_dialog(dialog, parent, width, height):
@@ -1396,6 +1526,8 @@ class GanttPilotGUI:
         backend = CanvasBackend(self.gantt_canvas)
         renderer = GanttRenderer(backend, proj, self.lang, self.gantt_zoom)
         renderer.draw()
+        # Attach hover controller for interactive highlight/tooltip
+        self._hover_controller = HoverController(self.gantt_canvas, renderer.bar_hitboxes)
         self.status_var.set(f"{self._t('gantt_chart')}: {self.current_project}")
 
     def refresh_time_report(self):

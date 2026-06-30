@@ -31,6 +31,12 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.15.0 / v1.15.0 改进
+
+          - 🎨 **Rounded Task Bars** — Task bars now have rounded corners for a modern look. New `rounded_rectangle` method added to DrawBackend, implemented in both Canvas and Pillow backends / **甘特图圆角任务条** — 任务条改为圆角矩形，视觉更现代
+          - 🎨 **Alternating Row Backgrounds** — Even/odd rows have subtle background color difference for easier row tracking. Milestone rows keep their own color / **甘特图行交替底色** — 奇偶行底色交替，提升可读性
+          - 🖱️ **Hover Highlight & Tooltip** — Mouse hover over task bars brightens the bar and shows a tooltip with task details (name, executor, dates, duration, progress). GUI only, does not affect PNG export / **悬浮高亮与提示** — 鼠标悬停任务条变亮并显示详情浮窗
+
           ### ✨ New in v1.14.0 / v1.14.0 改进
 
           - 🎨 **Toolbar Grouping** — Toolbar buttons are now visually grouped by function with vertical separators: Undo/Redo │ CRUD │ Clipboard │ Reorder. Improves discoverability and reduces visual clutter / **工具栏分组优化** — 按功能分组并用竖线分隔，视觉层次更清晰
