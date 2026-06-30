@@ -47,26 +47,32 @@ def get_appearance_mode():
 def get_canvas_bg():
     """Return canvas background color based on current appearance mode."""
     if get_appearance_mode() == "dark":
-        return "#1E1E1E"
-    return "white"
+        return "#2D2D2D"
+    return "#FAFAFA"
 
 
 def get_treeview_colors():
-    """Return color dict for Treeview dark/light mode styling."""
+    """Return color dict for ttk widget dark/light mode styling."""
     if get_appearance_mode() == "dark":
         return {
-            "background": "#1E1E1E",
+            "background": "#2D2D2D",
             "foreground": "#D4D4D4",
-            "fieldbackground": "#1E1E1E",
+            "fieldbackground": "#2D2D2D",
             "selectbackground": "#264F78",
             "selectforeground": "#FFFFFF",
+            "heading_bg": "#3C3C3C",
+            "tab_bg": "#3C3C3C",
+            "tab_selected_bg": "#2D2D2D",
         }
     return {
-        "background": "white",
-        "foreground": "black",
-        "fieldbackground": "white",
+        "background": "#FAFAFA",
+        "foreground": "#1E1E1E",
+        "fieldbackground": "#FAFAFA",
         "selectbackground": "#0078D4",
         "selectforeground": "white",
+        "heading_bg": "#E8E8E8",
+        "tab_bg": "#E8E8E8",
+        "tab_selected_bg": "#FAFAFA",
     }
 
 
@@ -252,9 +258,11 @@ def set_button_state(btn, enabled):
 
 
 def apply_treeview_theme():
-    """Apply dark/light mode styling to ttk.Treeview widgets."""
+    """Apply dark/light mode styling to ttk widgets (Treeview, Notebook, PanedWindow, etc.)."""
     colors = get_treeview_colors()
     style = ttk.Style()
+
+    # Treeview
     style.configure("Treeview",
                     background=colors["background"],
                     foreground=colors["foreground"],
@@ -262,3 +270,27 @@ def apply_treeview_theme():
     style.map("Treeview",
               background=[("selected", colors["selectbackground"])],
               foreground=[("selected", colors["selectforeground"])])
+    style.configure("Treeview.Heading",
+                    background=colors.get("heading_bg", "#E8E8E8"),
+                    foreground=colors["foreground"])
+
+    # Notebook tabs
+    style.configure("TNotebook",
+                    background=colors["background"])
+    style.configure("TNotebook.Tab",
+                    background=colors.get("tab_bg", "#E0E0E0"),
+                    foreground=colors["foreground"],
+                    padding=[8, 4])
+    style.map("TNotebook.Tab",
+              background=[("selected", colors.get("tab_selected_bg", "#FFFFFF"))],
+              foreground=[("selected", colors["foreground"])])
+
+    # PanedWindow
+    style.configure("TPanedwindow",
+                    background=colors["background"])
+
+    # Frame / Label / general
+    style.configure("TFrame", background=colors["background"])
+    style.configure("TLabel", background=colors["background"], foreground=colors["foreground"])
+    style.configure("TLabelframe", background=colors["background"], foreground=colors["foreground"])
+    style.configure("TLabelframe.Label", background=colors["background"], foreground=colors["foreground"])

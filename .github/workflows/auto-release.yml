@@ -31,6 +31,12 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.17.2 / v1.17.2 修复
+
+          - 🎨 **Color Hierarchy Refinement** — Light mode uses soft `#FAFAFA` instead of pure white; Dark mode uses `#2D2D2D` (medium gray) instead of near-black. Three-level gradient: background → panel → heading / **配色层级优化** — 浅色柔和灰白，深色中灰，三层灰度层级
+          - 🧩 **Unified ttk Styling** — `apply_treeview_theme()` now covers Notebook tabs, PanedWindow, TFrame, TLabel for consistent appearance across all native widgets / **原生组件样式统一** — 所有 ttk 组件深浅模式下视觉一致
+          - ⚙️ **Default Light Mode** — Changed default appearance from "System" to "Light" to avoid dark/light widget mismatch on Windows / **默认浅色模式** — 避免 Windows 深色系统下混搭
+
           ### ✨ New in v1.17.1 / v1.17.1 修复
 
           - 🎨 **Toolbar Style Fix** — Toolbar buttons now use transparent background with subtle hover highlight instead of solid blue blocks / **工具栏配色修复** — 按钮改为透明背景 + hover 灰色高亮
