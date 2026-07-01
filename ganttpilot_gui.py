@@ -1026,9 +1026,9 @@ class GanttPilotGUI:
         # Group 1: Undo / Redo
         undo_group = make_frame(toolbar)
         undo_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.undo_btn = make_button(undo_group, text="↩", command=self.do_undo, width=3, state=tk.DISABLED, toolbar=True)
+        self.undo_btn = make_button(undo_group, text="Un", command=self.do_undo, width=3, state=tk.DISABLED, toolbar=True)
         self.undo_btn.pack(side=tk.LEFT, padx=1)
-        self.redo_btn = make_button(undo_group, text="↪", command=self.do_redo, width=3, state=tk.DISABLED, toolbar=True)
+        self.redo_btn = make_button(undo_group, text="Re", command=self.do_redo, width=3, state=tk.DISABLED, toolbar=True)
         self.redo_btn.pack(side=tk.LEFT, padx=1)
 
         make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
@@ -1038,11 +1038,11 @@ class GanttPilotGUI:
         crud_group.pack(side=tk.LEFT, padx=(0, 2))
         self.tb_add_btn = make_button(crud_group, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED, toolbar=True, fg_color="#2563EB", hover_color="#1D4ED8")
         self.tb_add_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_edit_btn = make_button(crud_group, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED, toolbar=True, fg_color="#2563EB", hover_color="#1D4ED8")
+        self.tb_edit_btn = make_button(crud_group, text="E", command=self.toolbar_edit, width=4, state=tk.DISABLED, toolbar=True, fg_color="#2563EB", hover_color="#1D4ED8")
         self.tb_edit_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_view_btn = make_button(crud_group, text="👁", command=self.toolbar_view, width=4, state=tk.DISABLED, toolbar=True, fg_color="#3B82F6", hover_color="#2563EB")
+        self.tb_view_btn = make_button(crud_group, text="V", command=self.toolbar_view, width=4, state=tk.DISABLED, toolbar=True, fg_color="#3B82F6", hover_color="#2563EB")
         self.tb_view_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_delete_btn = make_button(crud_group, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED, toolbar=True, fg_color="#DC2626", hover_color="#B91C1C")
+        self.tb_delete_btn = make_button(crud_group, text="X", command=self.toolbar_delete, width=4, state=tk.DISABLED, toolbar=True, fg_color="#DC2626", hover_color="#B91C1C")
         self.tb_delete_btn.pack(side=tk.LEFT, padx=1)
 
         make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
@@ -1050,13 +1050,13 @@ class GanttPilotGUI:
         # Group 3: Copy / Cut / Paste / Duplicate — teal/green (clipboard)
         clip_group = make_frame(toolbar)
         clip_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.tb_copy_btn = make_button(clip_group, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
+        self.tb_copy_btn = make_button(clip_group, text="Cp", command=self.toolbar_copy, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
         self.tb_copy_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_cut_btn = make_button(clip_group, text="✂", command=self.toolbar_cut, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
+        self.tb_cut_btn = make_button(clip_group, text="Ct", command=self.toolbar_cut, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
         self.tb_cut_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_paste_btn = make_button(clip_group, text="📌", command=self.toolbar_paste, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
+        self.tb_paste_btn = make_button(clip_group, text="Ps", command=self.toolbar_paste, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
         self.tb_paste_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_dup_btn = make_button(clip_group, text="⧉", command=self.toolbar_duplicate, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
+        self.tb_dup_btn = make_button(clip_group, text="Dp", command=self.toolbar_duplicate, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
         self.tb_dup_btn.pack(side=tk.LEFT, padx=1)
 
         make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
@@ -1064,9 +1064,9 @@ class GanttPilotGUI:
         # Group 4: Move Up / Move Down
         move_group = make_frame(toolbar)
         move_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.tb_up_btn = make_button(move_group, text="↑", command=self.toolbar_move_up, width=4, state=tk.DISABLED, toolbar=True)
+        self.tb_up_btn = make_button(move_group, text="Up", command=self.toolbar_move_up, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_up_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_down_btn = make_button(move_group, text="↓", command=self.toolbar_move_down, width=4, state=tk.DISABLED, toolbar=True)
+        self.tb_down_btn = make_button(move_group, text="Dn", command=self.toolbar_move_down, width=4, state=tk.DISABLED, toolbar=True)
         self.tb_down_btn.pack(side=tk.LEFT, padx=1)
 
         # Right side: Config / More
@@ -1086,7 +1086,7 @@ class GanttPilotGUI:
         self.search_entry.bind("<FocusIn>", self._on_search_focus_in)
         self.search_entry.bind("<FocusOut>", self._on_search_focus_out)
         self.search_var.trace_add("write", self._on_search_changed)
-        self.search_clear_btn = make_button(search_frame, text="✕", width=3,
+        self.search_clear_btn = make_button(search_frame, text="x", width=3,
                                            command=self._clear_search, toolbar=True)
         self.search_clear_btn.pack(side=tk.RIGHT)
         self._search_active = False  # True when user is typing (not placeholder)

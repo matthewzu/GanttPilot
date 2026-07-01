@@ -98,13 +98,14 @@ def make_frame(parent, **kwargs):
 
 
 def make_button(parent, text="", command=None, width=None, state=None, toolbar=False,
-               fg_color=None, hover_color=None, **kwargs):
+               fg_color=None, hover_color=None, text_color=None, **kwargs):
     """Create a CTkButton or ttk.Button.
 
     Args:
         toolbar: If True, use compact sizing for toolbar icon buttons.
         fg_color: Custom foreground/fill color (CTk only).
         hover_color: Custom hover color (CTk only).
+        text_color: Custom text color (CTk only).
     """
     if CTK_AVAILABLE:
         ctk_kwargs = {"text": text}
@@ -115,12 +116,15 @@ def make_button(parent, text="", command=None, width=None, state=None, toolbar=F
             ctk_kwargs["width"] = 32
             ctk_kwargs["height"] = 28
             ctk_kwargs["font"] = ctk.CTkFont(size=13)
+            ctk_kwargs["text_color"] = text_color or "#FFFFFF"
         elif width is not None:
             ctk_kwargs["width"] = width * 8
         if fg_color:
             ctk_kwargs["fg_color"] = fg_color
         if hover_color:
             ctk_kwargs["hover_color"] = hover_color
+        if text_color and not toolbar:
+            ctk_kwargs["text_color"] = text_color
         if state == tk.DISABLED:
             ctk_kwargs["state"] = "disabled"
         return ctk.CTkButton(parent, **ctk_kwargs)

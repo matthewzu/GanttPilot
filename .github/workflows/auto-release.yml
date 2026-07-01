@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.17.4 / v1.17.4 改进
+
+          - 🔤 **Clear Text Toolbar Buttons** — All toolbar buttons use English abbreviations (Un/Re/+/E/V/X/Cp/Ct/Ps/Dp/Up/Dn) instead of Unicode symbols that render poorly on Windows. Tooltips show full action names / **工具栏按钮全部英文缩写** — 放弃渲染模糊的 Unicode 符号，统一使用清晰英文缩写
+
           ### ✨ New in v1.17.3 / v1.17.3 改进
 
           - 🎨 **Toolbar Button Group Colors** — CRUD buttons blue, Delete red, Clipboard teal, others default gray. Matches CalcPaper visual style / **工具栏按钮分组配色** — 增删改查蓝色、删除红色、剪贴板青绿色
