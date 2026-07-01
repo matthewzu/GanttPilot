@@ -940,6 +940,41 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
         h3_num += 1
         return f"### {h2_num}.{h3_num} {title}"
 
+    # Project Overview / 项目概况 section
+    try:
+        from ganttpilot_dashboard import aggregate_dashboard
+        dash_data = aggregate_dashboard(project)
+        overview_label = "项目概况" if zh else "Project Overview"
+        lines.append(h2(overview_label))
+        lines.append("")
+        ps = dash_data.progress_summary
+        hs = dash_data.hour_stats
+        total_lbl = "总计划" if zh else "Total Plans"
+        fin_lbl = "已完结" if zh else "Finished"
+        act_lbl = "进行中" if zh else "Active"
+        rate_lbl = "完成率" if zh else "Completion Rate"
+        lines.append(f"- {total_lbl}: {ps.total_plans} | {fin_lbl}: {ps.finished_plans} | {act_lbl}: {ps.active_plans} | {rate_lbl}: {ps.overall_completion_rate * 100:.0f}%")
+        planned_lbl = "计划工时" if zh else "Planned Hours"
+        actual_lbl = "实际工时" if zh else "Actual Hours"
+        var_lbl = "差异" if zh else "Variance"
+        if hs.variance > 0:
+            var_text = f"+{hs.variance:.1f}h ({'超出' if zh else 'over'})"
+        elif hs.variance < 0:
+            var_text = f"{hs.variance:.1f}h ({'少用' if zh else 'under'})"
+        else:
+            var_text = "0.0h"
+        lines.append(f"- {planned_lbl}: {hs.total_planned_hours:.1f}h | {actual_lbl}: {hs.total_actual_hours:.1f}h | {var_lbl}: {var_text}")
+        # Executor summary
+        if dash_data.executor_distribution:
+            exec_lbl = "执行者分布" if zh else "Executor Distribution"
+            lines.append(f"- {exec_lbl}: " + ", ".join(
+                f"{e.executor}({e.actual_hours:.1f}h/{e.percentage * 100:.0f}%)"
+                for e in dash_data.executor_distribution
+            ))
+        lines.append("")
+    except Exception:
+        pass  # Skip overview if dashboard module unavailable
+
     # Gantt chart section
     chart_label = "甘特图" if zh else "Gantt Chart"
     if png_filename:

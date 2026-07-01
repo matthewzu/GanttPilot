@@ -69,7 +69,7 @@
       "name": "Requirements Analysis",
       "description": "Complete requirements research and documentation",
       "color": "#7BC67E",
-      "deadline": "20250131",
+      "deadline": "20260620",
       "plans": [
         {
           "id": "p01",
@@ -173,14 +173,14 @@
           "id": "p02",
           "content": "Requirements Documentation",
           "executor": "Bob",
-          "start_date": "20250113",
-          "end_date": "20250124",
+          "start_date": "20260613",
+          "end_date": "20260624",
           "skip_non_workdays": true,
           "skip_dates": [],
           "color": "",
-          "status": "active",
-          "progress": 70,
-          "actual_end_date": "",
+          "status": "finished",
+          "progress": 100,
+          "actual_end_date": "20260625",
           "activities": [
             {
               "id": "a07",
@@ -272,7 +272,7 @@
       "name": "Development",
       "description": "Core feature development and testing",
       "color": "#4A90D9",
-      "deadline": "20250228",
+      "deadline": "20260625",
       "plans": [
         {
           "id": "p03",
@@ -616,7 +616,7 @@
       "name": "Operations",
       "description": "System operations, monitoring, and continuous improvement",
       "color": "#E8A838",
-      "deadline": "20250331",
+      "deadline": "20260930",
       "plans": [
         {
           "id": "p06",

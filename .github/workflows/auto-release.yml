@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v2.0.1 / v2.0.1 改进
+
+          - 📊 **Report Project Overview** — Reports now include a project overview summary at the top: completion rate, planned/actual/variance hours, executor distribution / **报告新增项目概况** — 导出报告开头自动插入项目概况摘要
+
           ### ✨ New in v2.0.0 / v2.0.0 新增
 
           - 📊 **Dashboard View** — New tab showing project overview at a glance: progress summary with completion bar, milestone cards (green=completed, red=overdue), hour statistics (planned/actual/variance), executor workload distribution. Auto-refreshes, supports dark/light mode / **仪表盘视图** — 一页展示项目全貌：进度汇总、里程碑卡片、工时统计、执行者分布
