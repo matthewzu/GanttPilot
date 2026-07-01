@@ -1,2 +1,2 @@
 """GanttPilot version number - single source of truth"""
-VERSION = "2.0.2"
+VERSION = "2.0.3"

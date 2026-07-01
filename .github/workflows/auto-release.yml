@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v2.0.3 / v2.0.3 改进
+
+          - 👥 **Plan Executor Dropdown** — When project members are configured, the plan add/edit dialog shows executor as a dropdown list (same as activity dialog), preventing abbreviation typos / **计划执行者下拉选择** — 配置成员后添加/编辑计划时执行者从下拉列表选择
+
           ### ✨ New in v2.0.2 / v2.0.2 改进
 
           - 👤 **Example Project Committer** — Loading examples now auto-configures committer as "GanttPilot / demo@ganttpilot.example", keeping your real identity out of example Git history / **示例项目测试提交者** — 加载示例时自动使用测试身份提交

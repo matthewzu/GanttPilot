@@ -2565,7 +2565,8 @@ class GanttPilotGUI:
             return
         if self._has_active_dialog():
             return
-        dlg = PlanDialog(self.root, self._t, self.lang, project_name=proj, store=self.store)
+        dlg = PlanDialog(self.root, self._t, self.lang, project_name=proj, store=self.store,
+                         project_members=self.store.get_project(proj).get("members", {}) or {})
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
         self._active_dialog = None
@@ -2885,7 +2886,8 @@ class GanttPilotGUI:
             return
         if self._has_active_dialog():
             return
-        dlg = PlanEditDialog(self.root, self._t, self.lang, plan, project_name=proj, store=self.store)
+        dlg = PlanEditDialog(self.root, self._t, self.lang, plan, project_name=proj, store=self.store,
+                             project_members=self.store.get_project(proj).get("members", {}) or {})
         self._active_dialog = dlg.top
         self.root.wait_window(dlg.top)
         self._active_dialog = None
@@ -4145,8 +4147,9 @@ class GanttPilotGUI:
 
 class PlanDialog:
     """Dialog for adding a plan"""
-    def __init__(self, parent, t_func, lang, project_name=None, store=None):
+    def __init__(self, parent, t_func, lang, project_name=None, store=None, project_members=None):
         self.result = None
+        self.project_members = project_members or {}
         self.top = make_toplevel(parent, t_func("add") + " " + t_func("plan"))
         _center_dialog(self.top, parent, 420, 400)
         self.top.resizable(True, True)
@@ -4157,7 +4160,6 @@ class PlanDialog:
 
         fields = [
             ("content", t_func("content")),
-            ("executor", t_func("executor")),
             ("start_date", t_func("start_date") + " (YYYYMMDD)"),
             ("end_date", t_func("end_date") + " (YYYYMMDD)"),
             ("skip_dates", t_func("skip_dates") + " (D1,D2,...)"),
@@ -4165,7 +4167,30 @@ class PlanDialog:
         ]
         self.entries = {}
         row = 0
-        for key, label in fields:
+
+        # Content field
+        ttk.Label(self.top, text=t_func("content")).grid(row=row, column=0, padx=8, pady=3, sticky=tk.W)
+        content_entry = ttk.Entry(self.top, width=30)
+        content_entry.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
+        self.entries["content"] = content_entry
+        row += 1
+
+        # Executor field — Combobox if project has members, otherwise Entry
+        ttk.Label(self.top, text=t_func("executor")).grid(row=row, column=0, padx=8, pady=3, sticky=tk.W)
+        if self.project_members:
+            self._member_abbrs = list(self.project_members.values())
+            display_values = [f"{abbr} ({name})" for name, abbr in self.project_members.items()]
+            executor_combo = ttk.Combobox(self.top, width=28, values=display_values, state="readonly")
+            executor_combo.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
+            self.entries["executor"] = executor_combo
+        else:
+            entry = ttk.Entry(self.top, width=30)
+            entry.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
+            self.entries["executor"] = entry
+        row += 1
+
+        # Remaining fields
+        for key, label in fields[1:]:  # skip content, already handled
             ttk.Label(self.top, text=label).grid(row=row, column=0, padx=8, pady=3, sticky=tk.W)
             entry = ttk.Entry(self.top, width=30)
             entry.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
@@ -4204,7 +4229,13 @@ class PlanDialog:
 
     def _ok(self):
         content = self.entries["content"].get().strip()
-        executor = self.entries["executor"].get().strip()
+        # Extract executor: if Combobox with members, parse abbreviation
+        executor_raw = self.entries["executor"].get().strip()
+        if self.project_members and executor_raw:
+            # Format is "abbr (full_name)" — extract abbreviation
+            executor = executor_raw.split(" (")[0].strip()
+        else:
+            executor = executor_raw
         start = self.entries["start_date"].get().strip()
         end = self.entries["end_date"].get().strip()
         skip_str = self.entries["skip_dates"].get().strip()
@@ -4231,8 +4262,9 @@ class PlanDialog:
 
 class PlanEditDialog:
     """Dialog for editing an existing plan's properties"""
-    def __init__(self, parent, t_func, lang, plan, project_name=None, store=None):
+    def __init__(self, parent, t_func, lang, plan, project_name=None, store=None, project_members=None):
         self.result = None
+        self.project_members = project_members or {}
         self.top = make_toplevel(parent, "\u270f " + t_func("plan"))
         _center_dialog(self.top, parent, 420, 400)
         self.top.resizable(True, True)
@@ -4241,17 +4273,47 @@ class PlanEditDialog:
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
 
-        fields = [
-            ("content", t_func("content"), plan.get("content", "")),
-            ("executor", t_func("executor"), plan.get("executor", "")),
+        self.entries = {}
+        row = 0
+
+        # Content field
+        ttk.Label(self.top, text=t_func("content")).grid(row=row, column=0, padx=8, pady=3, sticky=tk.W)
+        content_entry = ttk.Entry(self.top, width=30)
+        content_entry.insert(0, plan.get("content", ""))
+        content_entry.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
+        self.entries["content"] = content_entry
+        row += 1
+
+        # Executor field — Combobox if project has members, otherwise Entry
+        ttk.Label(self.top, text=t_func("executor")).grid(row=row, column=0, padx=8, pady=3, sticky=tk.W)
+        current_executor = plan.get("executor", "")
+        if self.project_members:
+            self._member_abbrs = list(self.project_members.values())
+            display_values = [f"{abbr} ({name})" for name, abbr in self.project_members.items()]
+            executor_combo = ttk.Combobox(self.top, width=28, values=display_values, state="readonly")
+            # Pre-select current executor
+            if current_executor:
+                for i, abbr in enumerate(self._member_abbrs):
+                    if abbr == current_executor:
+                        executor_combo.current(i)
+                        break
+            executor_combo.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
+            self.entries["executor"] = executor_combo
+        else:
+            entry = ttk.Entry(self.top, width=30)
+            entry.insert(0, current_executor)
+            entry.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
+            self.entries["executor"] = entry
+        row += 1
+
+        # Remaining fields
+        remaining_fields = [
             ("start_date", t_func("start_date"), plan.get("start_date", "")),
             ("end_date", t_func("end_date"), plan.get("end_date", "")),
             ("skip_dates", t_func("skip_dates"), ",".join(plan.get("skip_dates", []))),
             ("color", "🎨 Color", plan.get("color", "")),
         ]
-        self.entries = {}
-        row = 0
-        for key, label, val in fields:
+        for key, label, val in remaining_fields:
             ttk.Label(self.top, text=label).grid(row=row, column=0, padx=8, pady=3, sticky=tk.W)
             entry = ttk.Entry(self.top, width=30)
             entry.insert(0, val)
@@ -4307,9 +4369,15 @@ class PlanEditDialog:
                 if display == selected:
                     linked_task_id = tid
                     break
+        # Extract executor: if Combobox with members, parse abbreviation
+        executor_raw = self.entries["executor"].get().strip()
+        if self.project_members and executor_raw:
+            executor = executor_raw.split(" (")[0].strip()
+        else:
+            executor = executor_raw
         self.result = {
             "content": self.entries["content"].get().strip(),
-            "executor": self.entries["executor"].get().strip(),
+            "executor": executor,
             "start_date": self.entries["start_date"].get().strip(),
             "end_date": self.entries["end_date"].get().strip(),
             "skip_dates": [d.strip() for d in skip_str.replace("\uff0c", ",").split(",") if d.strip()] if skip_str else [],
