@@ -389,13 +389,15 @@ class GanttRenderer:
         return min(radius, bar_height // 2)
 
     def _get_executor_color(self, executor):
-        """Assign a consistent color per executor"""
+        """Assign a consistent color per executor (uses first executor if comma-separated)"""
         if not executor:
             return EXECUTOR_PALETTE[0]
-        if executor not in self._executor_colors:
-            self._executor_colors[executor] = EXECUTOR_PALETTE[self._color_idx % len(EXECUTOR_PALETTE)]
+        # For multi-executor plans, use first executor for coloring
+        primary = executor.split(",")[0].strip() if "," in executor else executor
+        if primary not in self._executor_colors:
+            self._executor_colors[primary] = EXECUTOR_PALETTE[self._color_idx % len(EXECUTOR_PALETTE)]
             self._color_idx += 1
-        return self._executor_colors[executor]
+        return self._executor_colors[primary]
 
     def draw(self):
         self.backend.clear()

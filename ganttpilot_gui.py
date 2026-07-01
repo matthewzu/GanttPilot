@@ -4151,7 +4151,7 @@ class PlanDialog:
         self.result = None
         self.project_members = project_members or {}
         self.top = make_toplevel(parent, t_func("add") + " " + t_func("plan"))
-        _center_dialog(self.top, parent, 420, 400)
+        _center_dialog(self.top, parent, 450, 520)
         self.top.resizable(True, True)
         self.top.focus_set()
         self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
@@ -4175,14 +4175,20 @@ class PlanDialog:
         self.entries["content"] = content_entry
         row += 1
 
-        # Executor field — Combobox if project has members, otherwise Entry
-        ttk.Label(self.top, text=t_func("executor")).grid(row=row, column=0, padx=8, pady=3, sticky=tk.W)
+        # Executor field — Multi-select Listbox if project has members, otherwise Entry
+        ttk.Label(self.top, text=t_func("executor")).grid(row=row, column=0, padx=8, pady=3, sticky=tk.NW)
         if self.project_members:
             self._member_abbrs = list(self.project_members.values())
-            display_values = [f"{abbr} ({name})" for name, abbr in self.project_members.items()]
-            executor_combo = ttk.Combobox(self.top, width=28, values=display_values, state="readonly")
-            executor_combo.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
-            self.entries["executor"] = executor_combo
+            self._member_display = [f"{abbr} ({name})" for name, abbr in self.project_members.items()]
+            exec_frame = ttk.Frame(self.top)
+            exec_frame.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
+            self.executor_listbox = tk.Listbox(exec_frame, selectmode=tk.MULTIPLE,
+                                               height=min(len(self._member_display), 4),
+                                               exportselection=False)
+            for item in self._member_display:
+                self.executor_listbox.insert(tk.END, item)
+            self.executor_listbox.pack(fill=tk.X)
+            self.entries["executor"] = self.executor_listbox
         else:
             entry = ttk.Entry(self.top, width=30)
             entry.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
@@ -4229,13 +4235,13 @@ class PlanDialog:
 
     def _ok(self):
         content = self.entries["content"].get().strip()
-        # Extract executor: if Combobox with members, parse abbreviation
-        executor_raw = self.entries["executor"].get().strip()
-        if self.project_members and executor_raw:
-            # Format is "abbr (full_name)" — extract abbreviation
-            executor = executor_raw.split(" (")[0].strip()
+        # Extract executor: multi-select Listbox or Entry
+        if self.project_members:
+            selected_indices = self.executor_listbox.curselection()
+            selected_abbrs = [self._member_abbrs[i] for i in selected_indices]
+            executor = ",".join(selected_abbrs)
         else:
-            executor = executor_raw
+            executor = self.entries["executor"].get().strip()
         start = self.entries["start_date"].get().strip()
         end = self.entries["end_date"].get().strip()
         skip_str = self.entries["skip_dates"].get().strip()
@@ -4266,7 +4272,7 @@ class PlanEditDialog:
         self.result = None
         self.project_members = project_members or {}
         self.top = make_toplevel(parent, "\u270f " + t_func("plan"))
-        _center_dialog(self.top, parent, 420, 400)
+        _center_dialog(self.top, parent, 450, 520)
         self.top.resizable(True, True)
         self.top.focus_set()
         self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
@@ -4284,21 +4290,27 @@ class PlanEditDialog:
         self.entries["content"] = content_entry
         row += 1
 
-        # Executor field — Combobox if project has members, otherwise Entry
-        ttk.Label(self.top, text=t_func("executor")).grid(row=row, column=0, padx=8, pady=3, sticky=tk.W)
+        # Executor field — Multi-select Listbox if project has members, otherwise Entry
+        ttk.Label(self.top, text=t_func("executor")).grid(row=row, column=0, padx=8, pady=3, sticky=tk.NW)
         current_executor = plan.get("executor", "")
         if self.project_members:
             self._member_abbrs = list(self.project_members.values())
-            display_values = [f"{abbr} ({name})" for name, abbr in self.project_members.items()]
-            executor_combo = ttk.Combobox(self.top, width=28, values=display_values, state="readonly")
-            # Pre-select current executor
+            self._member_display = [f"{abbr} ({name})" for name, abbr in self.project_members.items()]
+            exec_frame = ttk.Frame(self.top)
+            exec_frame.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
+            self.executor_listbox = tk.Listbox(exec_frame, selectmode=tk.MULTIPLE,
+                                               height=min(len(self._member_display), 4),
+                                               exportselection=False)
+            for item in self._member_display:
+                self.executor_listbox.insert(tk.END, item)
+            # Pre-select current executors (comma-separated)
             if current_executor:
+                current_abbrs = [a.strip() for a in current_executor.split(",")]
                 for i, abbr in enumerate(self._member_abbrs):
-                    if abbr == current_executor:
-                        executor_combo.current(i)
-                        break
-            executor_combo.grid(row=row, column=1, padx=8, pady=3, sticky=tk.EW)
-            self.entries["executor"] = executor_combo
+                    if abbr in current_abbrs:
+                        self.executor_listbox.selection_set(i)
+            self.executor_listbox.pack(fill=tk.X)
+            self.entries["executor"] = self.executor_listbox
         else:
             entry = ttk.Entry(self.top, width=30)
             entry.insert(0, current_executor)
@@ -4369,11 +4381,13 @@ class PlanEditDialog:
                 if display == selected:
                     linked_task_id = tid
                     break
-        # Extract executor: if Combobox with members, parse abbreviation
-        executor_raw = self.entries["executor"].get().strip()
-        if self.project_members and executor_raw:
-            executor = executor_raw.split(" (")[0].strip()
+        # Extract executor: multi-select Listbox or Entry
+        if self.project_members:
+            selected_indices = self.executor_listbox.curselection()
+            selected_abbrs = [self._member_abbrs[i] for i in selected_indices]
+            executor = ",".join(selected_abbrs)
         else:
+            executor_raw = self.entries["executor"].get().strip()
             executor = executor_raw
         self.result = {
             "content": self.entries["content"].get().strip(),

@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v2.0.4 / v2.0.4 新增
+
+          - 👥 **Plan Multi-Executor** — Plans now support multiple executors. When members are configured, a multi-select list replaces the single dropdown. Stored as comma-separated abbreviations (e.g. "Alice,Bob"). Gantt chart colors by first executor. Fully backward compatible / **计划执行者多选** — 计划支持多执行者，成员列表多选，逗号分隔存储，甘特图按第一个执行者着色
+
           ### ✨ New in v2.0.3 / v2.0.3 改进
 
           - 👥 **Plan Executor Dropdown** — When project members are configured, the plan add/edit dialog shows executor as a dropdown list (same as activity dialog), preventing abbreviation typos / **计划执行者下拉选择** — 配置成员后添加/编辑计划时执行者从下拉列表选择

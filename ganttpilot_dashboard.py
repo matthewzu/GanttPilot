@@ -299,6 +299,8 @@ def aggregate_dashboard(project):
 
     for plan in all_plans:
         plan_executor = plan.get("executor", "") or ""
+        # For multi-executor plans, use first as fallback for activities without executor
+        plan_executor_primary = plan_executor.split(",")[0].strip() if "," in plan_executor else plan_executor
         activities = plan.get("activities", [])
         if not isinstance(activities, list):
             continue
@@ -314,8 +316,8 @@ def aggregate_dashboard(project):
             act_executor = activity.get("executor", "") or ""
             if act_executor:
                 executor_name = act_executor
-            elif plan_executor:
-                executor_name = plan_executor
+            elif plan_executor_primary:
+                executor_name = plan_executor_primary
             else:
                 executor_name = "未指定"
 
