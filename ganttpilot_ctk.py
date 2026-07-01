@@ -21,7 +21,7 @@ def init_appearance(mode="System"):
     """Initialize CustomTkinter appearance mode and color theme."""
     if CTK_AVAILABLE:
         ctk.set_appearance_mode(mode)
-        ctk.set_default_color_theme("dark-blue")
+        ctk.set_default_color_theme("blue")
 
 
 def set_appearance_mode(mode):
@@ -97,27 +97,30 @@ def make_frame(parent, **kwargs):
     return ttk.Frame(parent, **kwargs)
 
 
-def make_button(parent, text="", command=None, width=None, state=None, toolbar=False, **kwargs):
+def make_button(parent, text="", command=None, width=None, state=None, toolbar=False,
+               fg_color=None, hover_color=None, **kwargs):
     """Create a CTkButton or ttk.Button.
 
     Args:
-        toolbar: If True, use compact transparent style suitable for toolbar icons.
+        toolbar: If True, use compact sizing for toolbar icon buttons.
+        fg_color: Custom foreground/fill color (CTk only).
+        hover_color: Custom hover color (CTk only).
     """
     if CTK_AVAILABLE:
         ctk_kwargs = {"text": text}
         if command:
             ctk_kwargs["command"] = command
         if toolbar:
-            # Compact transparent buttons for toolbar — no blue background
-            char_w = max(len(text) + 1, width or 3)
-            ctk_kwargs["width"] = char_w * 9
+            # Compact icon buttons for toolbar
+            ctk_kwargs["width"] = 32
             ctk_kwargs["height"] = 28
-            ctk_kwargs["fg_color"] = "transparent"
-            ctk_kwargs["text_color"] = ("gray10", "gray90")
-            ctk_kwargs["hover_color"] = ("gray80", "gray30")
-            ctk_kwargs["corner_radius"] = 4
+            ctk_kwargs["font"] = ctk.CTkFont(size=13)
         elif width is not None:
             ctk_kwargs["width"] = width * 8
+        if fg_color:
+            ctk_kwargs["fg_color"] = fg_color
+        if hover_color:
+            ctk_kwargs["hover_color"] = hover_color
         if state == tk.DISABLED:
             ctk_kwargs["state"] = "disabled"
         return ctk.CTkButton(parent, **ctk_kwargs)

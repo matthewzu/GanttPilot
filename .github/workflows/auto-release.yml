@@ -31,6 +31,12 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v1.17.3 / v1.17.3 改进
+
+          - 🎨 **Toolbar Button Group Colors** — CRUD buttons blue, Delete red, Clipboard teal, others default gray. Matches CalcPaper visual style / **工具栏按钮分组配色** — 增删改查蓝色、删除红色、剪贴板青绿色
+          - 🌳 **Tree Node Color Coding** — Project blue, Requirements purple, Plan Execution teal, Milestone amber, Active Plan green, Finished/Activity gray / **树节点颜色区分** — 不同层级不同颜色，一目了然
+          - 🎨 **"blue" Color Theme** — Switched back to "blue" theme (matching CalcPaper), default appearance mode "System" / **回归 blue 主题** — 与 CalcPaper 保持一致
+
           ### ✨ New in v1.17.2 / v1.17.2 修复
 
           - 🎨 **Color Hierarchy Refinement** — Light mode uses soft `#FAFAFA` instead of pure white; Dark mode uses `#2D2D2D` (medium gray) instead of near-black. Three-level gradient: background → panel → heading / **配色层级优化** — 浅色柔和灰白，深色中灰，三层灰度层级

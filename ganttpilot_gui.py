@@ -1033,30 +1033,30 @@ class GanttPilotGUI:
 
         make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
 
-        # Group 2: Add / Edit / View / Delete
+        # Group 2: Add / Edit / View / Delete — blue (primary actions)
         crud_group = make_frame(toolbar)
         crud_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.tb_add_btn = make_button(crud_group, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED, toolbar=True)
+        self.tb_add_btn = make_button(crud_group, text="+", command=self.toolbar_add, width=4, state=tk.DISABLED, toolbar=True, fg_color="#2563EB", hover_color="#1D4ED8")
         self.tb_add_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_edit_btn = make_button(crud_group, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED, toolbar=True)
+        self.tb_edit_btn = make_button(crud_group, text="✏", command=self.toolbar_edit, width=4, state=tk.DISABLED, toolbar=True, fg_color="#2563EB", hover_color="#1D4ED8")
         self.tb_edit_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_view_btn = make_button(crud_group, text="👁", command=self.toolbar_view, width=4, state=tk.DISABLED, toolbar=True)
+        self.tb_view_btn = make_button(crud_group, text="👁", command=self.toolbar_view, width=4, state=tk.DISABLED, toolbar=True, fg_color="#3B82F6", hover_color="#2563EB")
         self.tb_view_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_delete_btn = make_button(crud_group, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED, toolbar=True)
+        self.tb_delete_btn = make_button(crud_group, text="✕", command=self.toolbar_delete, width=4, state=tk.DISABLED, toolbar=True, fg_color="#DC2626", hover_color="#B91C1C")
         self.tb_delete_btn.pack(side=tk.LEFT, padx=1)
 
         make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
 
-        # Group 3: Copy / Cut / Paste / Duplicate
+        # Group 3: Copy / Cut / Paste / Duplicate — teal/green (clipboard)
         clip_group = make_frame(toolbar)
         clip_group.pack(side=tk.LEFT, padx=(0, 2))
-        self.tb_copy_btn = make_button(clip_group, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED, toolbar=True)
+        self.tb_copy_btn = make_button(clip_group, text="📋", command=self.toolbar_copy, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
         self.tb_copy_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_cut_btn = make_button(clip_group, text="✂", command=self.toolbar_cut, width=4, state=tk.DISABLED, toolbar=True)
+        self.tb_cut_btn = make_button(clip_group, text="✂", command=self.toolbar_cut, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
         self.tb_cut_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_paste_btn = make_button(clip_group, text="📌", command=self.toolbar_paste, width=4, state=tk.DISABLED, toolbar=True)
+        self.tb_paste_btn = make_button(clip_group, text="📌", command=self.toolbar_paste, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
         self.tb_paste_btn.pack(side=tk.LEFT, padx=1)
-        self.tb_dup_btn = make_button(clip_group, text="⧉", command=self.toolbar_duplicate, width=4, state=tk.DISABLED, toolbar=True)
+        self.tb_dup_btn = make_button(clip_group, text="⧉", command=self.toolbar_duplicate, width=4, state=tk.DISABLED, toolbar=True, fg_color="#0D9488", hover_color="#0F766E")
         self.tb_dup_btn.pack(side=tk.LEFT, padx=1)
 
         make_separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=3, pady=2)
@@ -1114,6 +1114,17 @@ class GanttPilotGUI:
 
         # Apply dark mode styling to Treeview
         apply_treeview_theme()
+
+        # Tree node color tags for visual differentiation
+        self.tree.tag_configure("project", foreground="#2563EB")       # blue
+        self.tree.tag_configure("req_analysis", foreground="#7C3AED")  # purple
+        self.tree.tag_configure("requirement", foreground="#7C3AED")   # purple
+        self.tree.tag_configure("task", foreground="#6B7280")          # gray
+        self.tree.tag_configure("plan_execution", foreground="#0D9488")# teal
+        self.tree.tag_configure("milestone", foreground="#D97706")     # amber
+        self.tree.tag_configure("plan_active", foreground="#059669")   # green
+        self.tree.tag_configure("plan_finished", foreground="#6B7280") # gray
+        self.tree.tag_configure("activity", foreground="#6B7280")      # gray
 
         # Right: branch selector + notebook (gantt + history) + report
         right_frame = ttk.Frame(self.paned)
@@ -1442,43 +1453,44 @@ class GanttPilotGUI:
         self.tree.delete(*self.tree.get_children())
         for proj in self.store.list_projects():
             pn = self.tree.insert("", tk.END, text=f"📂 {proj['name']}",
-                                  values=("project", proj["name"]), open=True)
+                                  values=("project", proj["name"]), open=True, tags=("project",))
 
             # ── 需求分析 (Requirement Analysis) ──
             ra_node = self.tree.insert(pn, tk.END,
                 text=f"📋 {self._t('requirement_analysis')}",
-                values=("req_analysis", proj["name"]))
+                values=("req_analysis", proj["name"]), tags=("req_analysis",))
             for req in proj.get("requirements", []):
                 req_text = format_requirement_display(req.get("category", ""), req.get("subject", ""))
                 req_node = self.tree.insert(ra_node, tk.END,
                     text=f"📝 {req_text}",
-                    values=("requirement", proj["name"], req["id"]))
+                    values=("requirement", proj["name"], req["id"]), tags=("requirement",))
                 for task in req.get("tasks", []):
                     effort = task.get("effort_days", 0)
                     task_text = f"🔧 {task['subject']} ({effort}d)"
                     self.tree.insert(req_node, tk.END, text=task_text,
-                        values=("task", proj["name"], req["id"], task["id"]))
+                        values=("task", proj["name"], req["id"], task["id"]), tags=("task",))
 
             # ── 计划执行 (Plan Execution) ──
             pe_node = self.tree.insert(pn, tk.END,
                 text=f"📊 {self._t('plan_execution')}",
-                values=("plan_execution", proj["name"]))
+                values=("plan_execution", proj["name"]), tags=("plan_execution",))
             for ms in proj.get("milestones", []):
                 dl = f" [{ms['deadline']}]" if ms.get("deadline") else ""
                 mn = self.tree.insert(pe_node, tk.END, text=f"🚩 {ms['name']}{dl}",
-                                      values=("milestone", proj["name"], ms["name"]))
+                                      values=("milestone", proj["name"], ms["name"]), tags=("milestone",))
                 for plan in ms.get("plans", []):
                     icon = "✅" if plan["status"] == "finished" else "▶"
+                    plan_tag = "plan_finished" if plan["status"] == "finished" else "plan_active"
                     txt = f"{icon} {plan['content']} ({plan['executor']}) [{plan['start_date']}-{plan['end_date']}]"
                     plan_n = self.tree.insert(mn, tk.END, text=txt,
-                                             values=("plan", proj["name"], ms["name"], plan["id"]))
+                                             values=("plan", proj["name"], ms["name"], plan["id"]), tags=(plan_tag,))
                     for act in plan.get("activities", []):
                         tag = act.get("tag", "")
                         hours = act.get("hours", 0)
                         tag_part = f" [{tag}]" if tag else ""
                         atxt = f"⏱ {act['date']} {act['executor']} {hours}h - {act['content']}{tag_part}"
                         self.tree.insert(plan_n, tk.END, text=atxt,
-                                         values=("activity", proj["name"], ms["name"], plan["id"], act["id"]))
+                                         values=("activity", proj["name"], ms["name"], plan["id"], act["id"]), tags=("activity",))
 
         # Restore expanded state
         for item in self._iter_tree_items(""):
