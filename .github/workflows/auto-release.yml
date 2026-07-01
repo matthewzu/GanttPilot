@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v2.0.0 / v2.0.0 新增
+
+          - 📊 **Dashboard View** — New tab showing project overview at a glance: progress summary with completion bar, milestone cards (green=completed, red=overdue), hour statistics (planned/actual/variance), executor workload distribution. Auto-refreshes, supports dark/light mode / **仪表盘视图** — 一页展示项目全貌：进度汇总、里程碑卡片、工时统计、执行者分布
+
           ### ✨ New in v1.17.4 / v1.17.4 改进
 
           - 🔤 **Clear Text Toolbar Buttons** — All toolbar buttons use English abbreviations (Un/Re/+/E/V/X/Cp/Ct/Ps/Dp/Up/Dn) instead of Unicode symbols that render poorly on Windows. Tooltips show full action names / **工具栏按钮全部英文缩写** — 放弃渲染模糊的 Unicode 符号，统一使用清晰英文缩写

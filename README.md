@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.17.4-blue.svg)
+![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.6+-green.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/license-GPL--3.0-orange.svg)
@@ -119,7 +119,7 @@ For local-only projects (no remote), a dialog prompts on startup offering one-cl
 The main window has two areas:
 
 - **Left panel**: Project tree — all your projects, requirements, milestones, plans, and activities in a tree view
-- **Right panel**: Tabbed view with Gantt Chart, Time Statistics, Requirement Tracking, and History
+- **Right panel**: Tabbed view with Gantt Chart, Dashboard, Time Statistics, Requirement Tracking, and History
 
 #### Toolbar
 

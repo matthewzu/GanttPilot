@@ -33,6 +33,7 @@ from ganttpilot_core import DataStore, parse_time_slots, calculate_hours_from_sl
 from ganttpilot_git import GitSync, _setup_app_logger
 from ganttpilot_gantt import (GanttRenderer, CanvasBackend, generate_gantt_markdown,
                               brighten_color, BarHitBox)
+from ganttpilot_dashboard import DashboardTab
 from ganttpilot_shortcuts import ShortcutManager, tk_event_to_display
 from version import VERSION
 
@@ -1190,7 +1191,16 @@ class GanttPilotGUI:
         self.gantt_canvas.bind("<Control-Button-4>", lambda e: (self.gantt_zoom_in(), "break")[-1])
         self.gantt_canvas.bind("<Control-Button-5>", lambda e: (self.gantt_zoom_out(), "break")[-1])
 
-        # Tab 2: Requirement Tracking (between Gantt and History)
+        # Tab 2: Dashboard (between Gantt and Tracking)
+        dashboard_tab_frame = ttk.Frame(self.right_notebook)
+        self.right_notebook.add(dashboard_tab_frame, text=self._t("dashboard"))
+        self.dashboard_tab = DashboardTab(
+            dashboard_tab_frame,
+            get_project_fn=lambda: self.store.get_project(self.current_project) if self.current_project else None,
+            get_lang_fn=lambda: self.lang,
+        )
+
+        # Tab 3: Requirement Tracking (between Gantt and History)
         tracking_tab_frame = ttk.Frame(self.right_notebook)
         self.right_notebook.add(tracking_tab_frame, text=self._t("tracking_tab"))
 
@@ -1226,7 +1236,7 @@ class GanttPilotGUI:
         self.tracking_tree.bind("<Motion>", self._on_tracking_motion)
         self.tracking_tree.bind("<Leave>", self._on_tracking_leave)
 
-        # Tab 3: History
+        # Tab 4: History
         history_tab_frame = ttk.Frame(self.right_notebook)
         self.right_notebook.add(history_tab_frame, text=self._t("history"))
 
@@ -1938,9 +1948,11 @@ class GanttPilotGUI:
         """Refresh content when user switches tabs."""
         try:
             idx = self.right_notebook.index(self.right_notebook.select())
-            if idx == 1:  # Tracking tab
+            if idx == 1:  # Dashboard tab
+                self.dashboard_tab.refresh()
+            elif idx == 2:  # Tracking tab
                 self.refresh_tracking()
-            elif idx == 2:  # History tab
+            elif idx == 3:  # History tab
                 self.refresh_history()
         except Exception:
             pass
@@ -3734,8 +3746,9 @@ class GanttPilotGUI:
         self.report_tree.heading("percentage", text=self._t("percentage"))
         # Update notebook tab labels
         self.right_notebook.tab(0, text=self._t("gantt_chart"))
-        self.right_notebook.tab(1, text=self._t("tracking_tab"))
-        self.right_notebook.tab(2, text=self._t("history"))
+        self.right_notebook.tab(1, text=self._t("dashboard"))
+        self.right_notebook.tab(2, text=self._t("tracking_tab"))
+        self.right_notebook.tab(3, text=self._t("history"))
         # Update branch label
         self.branch_label.configure(text=self._t("branch"))
         # Update banner labels

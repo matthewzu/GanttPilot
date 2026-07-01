@@ -313,6 +313,7 @@ TEXTS = {
             "• 活动 → 编辑、复制、剪切、克隆、删除\n\n"
             "【右侧标签页】\n"
             "• 甘特图 — 可视化项目进度，🔍+/- 独立缩放\n"
+            "• 仪表盘 — 项目概览：进度汇总、里程碑卡片、工时统计、执行者分布\n"
             "• 工时统计 — 按项目/里程碑/计划/标签四种模式查看，已完结计划显示超出/少用\n"
             "• 需求跟踪 — 需求→任务→计划→进度→差异完整链条，已完结计划显示工时差异\n"
             "• 历史记录 — Git提交日志，可切换分支、回退、撤销\n\n"
@@ -430,6 +431,28 @@ TEXTS = {
         "system_mode": "跟随系统",
         "dark_mode": "深色",
         "light_mode": "浅色",
+        # ── Dashboard / 仪表盘 ──
+        "dashboard": "仪表盘",
+        "dashboard_no_project": "请选择一个项目",
+        "dashboard_no_milestones": "暂无里程碑",
+        "dashboard_no_hours_data": "暂无工时数据",
+        "dashboard_progress_summary": "进度汇总",
+        "dashboard_milestone_overview": "里程碑概览",
+        "dashboard_hour_stats": "工时统计",
+        "dashboard_executor_dist": "执行者分布",
+        "dashboard_total_plans": "总计划数",
+        "dashboard_finished_plans": "已完结",
+        "dashboard_active_plans": "进行中",
+        "dashboard_overall_rate": "整体完成率",
+        "dashboard_planned_hours": "计划工时",
+        "dashboard_actual_hours": "实际工时",
+        "dashboard_variance": "工时差异",
+        "dashboard_completed": "已完成",
+        "dashboard_overdue": "逾期",
+        "dashboard_unassigned": "未指定",
+        "dashboard_deadline": "截止",
+        "dashboard_over": "超出",
+        "dashboard_under": "少用",
     },
     "en": {
         "app_title": "GanttPilot - Collaborative Project Manager",
@@ -741,6 +764,7 @@ TEXTS = {
             "• Activity → Edit, Copy, Cut, Duplicate, Delete\n\n"
             "[Right Panel Tabs]\n"
             "• Gantt Chart — Visualize progress, 🔍+/- to zoom\n"
+            "• Dashboard — Project overview: progress summary, milestone cards, hour stats, executor distribution\n"
             "• Time Statistics — View by project/milestone/plan/tag, overtime/undertime for finished plans\n"
             "• Requirement Tracking — Requirement→Task→Plan→Progress→Variance chain, shows hours variance for finished plans\n"
             "• History — Git log, switch branches, reset, revert\n\n"
@@ -859,6 +883,28 @@ TEXTS = {
         "system_mode": "System",
         "dark_mode": "Dark",
         "light_mode": "Light",
+        # ── Dashboard ──
+        "dashboard": "Dashboard",
+        "dashboard_no_project": "Please select a project",
+        "dashboard_no_milestones": "No milestones",
+        "dashboard_no_hours_data": "No hours data",
+        "dashboard_progress_summary": "Progress Summary",
+        "dashboard_milestone_overview": "Milestone Overview",
+        "dashboard_hour_stats": "Hour Statistics",
+        "dashboard_executor_dist": "Executor Distribution",
+        "dashboard_total_plans": "Total Plans",
+        "dashboard_finished_plans": "Finished",
+        "dashboard_active_plans": "Active",
+        "dashboard_overall_rate": "Overall Rate",
+        "dashboard_planned_hours": "Planned Hours",
+        "dashboard_actual_hours": "Actual Hours",
+        "dashboard_variance": "Variance",
+        "dashboard_completed": "Completed",
+        "dashboard_overdue": "Overdue",
+        "dashboard_unassigned": "Unassigned",
+        "dashboard_deadline": "Deadline",
+        "dashboard_over": "Over",
+        "dashboard_under": "Under",
     },
 }
 

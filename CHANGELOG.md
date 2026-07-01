@@ -1,5 +1,11 @@
 # 更新日志 / Changelog
 
+## [2.0.0] - 2026-07-01
+
+### 新增 / Added
+- 📊 **仪表盘视图 (Dashboard View)** — 右侧标签页新增仪表盘，选中项目后一页展示：进度汇总（完成率进度条）、里程碑概览卡片（绿色已完成/红色逾期）、工时统计（计划/实际/差异）、执行者工作量分布。数据切换标签时自动刷新，支持深色/浅色模式
+- 📊 **Dashboard View** — New tab in right panel showing project overview at a glance: progress summary with progress bar, milestone cards (green=completed, red=overdue), hour statistics (planned/actual/variance), executor workload distribution. Auto-refreshes on tab switch, supports dark/light mode
+
 ## [1.17.4] - 2026-07-01
 
 ### 改进 / Improved
