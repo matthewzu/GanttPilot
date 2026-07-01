@@ -1,5 +1,10 @@
 # 更新日志 / Changelog
 
+## [2.0.2] - 2026-07-01
+
+### 改进 / Improved
+- 👤 **示例项目使用测试提交者 (Example Committer)** — 加载示例时自动配置提交者为 "GanttPilot / demo@ganttpilot.example"，避免将用户真实信息写入示例项目的 Git 记录
+
 ## [2.0.1] - 2026-07-01
 
 ### 改进 / Improved

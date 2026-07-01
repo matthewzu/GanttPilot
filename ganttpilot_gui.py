@@ -2716,6 +2716,16 @@ class GanttPilotGUI:
         if existing:
             # Remove existing before re-importing
             self.store.delete_project(proj_data["name"])
+        # Extract example committer info and apply to local project_committers
+        ex_committer_name = proj_data.pop("committer_name", "")
+        ex_committer_email = proj_data.pop("committer_email", "")
+        if ex_committer_name or ex_committer_email:
+            proj_committers = self.config.get("project_committers", {}) or {}
+            proj_committers[proj_data["name"]] = {
+                "name": ex_committer_name,
+                "email": ex_committer_email,
+            }
+            self.config.set("project_committers", proj_committers)
         self.store.data["projects"].append(proj_data)
         self.store.save()
         proj_name = proj_data.get("name", "")

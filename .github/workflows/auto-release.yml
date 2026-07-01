@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v2.0.2 / v2.0.2 改进
+
+          - 👤 **Example Project Committer** — Loading examples now auto-configures committer as "GanttPilot / demo@ganttpilot.example", keeping your real identity out of example Git history / **示例项目测试提交者** — 加载示例时自动使用测试身份提交
+
           ### ✨ New in v2.0.1 / v2.0.1 改进
 
           - 📊 **Report Project Overview** — Reports now include a project overview summary at the top: completion rate, planned/actual/variance hours, executor distribution / **报告新增项目概况** — 导出报告开头自动插入项目概况摘要
