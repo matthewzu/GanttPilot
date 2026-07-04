@@ -31,6 +31,10 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v2.1.1 / v2.1.1 修复
+
+          - 🪟 **Project Create Dialog Size Fix** — Local mode height 200px→340px, Collaboration mode height 480px→580px. All fields and OK button now fully visible in both modes / **添加项目对话框尺寸修复** — 本地模式高度 200→340，协作模式高度 480→580，所有字段和按钮完整可见
+
           ### ✨ New in v2.1.0 / v2.1.0 新增
 
           - 📑 **Report TOC** — Exported Markdown reports now include an auto-generated Table of Contents after the title, with anchor links to all h2/h3 sections. Supports `include_toc` parameter (default True). Summary mode TOC only includes present sections. Anchors compatible with GitHub/Obsidian/VS Code / **导出报告添加目录** — 导出报告自动生成目录，支持文档内快速导航，兼容主流 Markdown 渲染器

@@ -5306,8 +5306,8 @@ def validate_remote_url(url: str) -> bool:
 class ProjectCreateDialog:
     """Dialog for creating a new project with local/collaboration mode support."""
 
-    DIALOG_SIZE_LOCAL = "450x200"
-    DIALOG_SIZE_COLLAB = "500x480"
+    DIALOG_SIZE_LOCAL = "450x340"
+    DIALOG_SIZE_COLLAB = "500x580"
 
     def __init__(self, parent, t_func, lang, config=None):
         self.result = None
@@ -5318,7 +5318,7 @@ class ProjectCreateDialog:
         self.config = config
 
         self.top = make_toplevel(parent, t_func("add") + " " + t_func("project"))
-        _center_dialog(self.top, parent, 450, 200)
+        _center_dialog(self.top, parent, 450, 340)
         self.top.resizable(True, True)
         self.top.focus_set()
         self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
@@ -5476,10 +5476,10 @@ class ProjectCreateDialog:
         if self.mode_var.get() == "collab":
             self.collab_frame.pack(fill=tk.X, padx=8, pady=2,
                                    before=self.btn_frame)
-            _center_dialog(self.top, self.parent, 500, 480)
+            _center_dialog(self.top, self.parent, 500, 580)
         else:
             self.collab_frame.pack_forget()
-            _center_dialog(self.top, self.parent, 450, 200)
+            _center_dialog(self.top, self.parent, 450, 340)
 
     # ──────────────────────────────────────────────
     # Task 4.5: Validation and confirm logic
