@@ -31,6 +31,14 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v2.0.6 / v2.0.6 修复
+
+          - 📅 **Example Project Timeline Fix** — Fixed milestone deadlines and activity dates being inconsistent in both CN/EN example projects. Activities now fall within their parent plan's date range, milestones set after all child plans complete / **示例项目时间线修正** — 修复示例项目活动日期与计划时间范围不匹配的问题，甘特图时间逻辑一致
+
+          ### ✨ New in v2.0.5 / v2.0.5 修复
+
+          - 🔧 **Plan Dialog Size Fix** — Plan add/edit dialog resized from 420×400 to 450×520, fixing incomplete display when multi-select Listbox is shown / **计划对话框尺寸修复** — 修复多选 Listbox 导致界面显示不全
+
           ### ✨ New in v2.0.4 / v2.0.4 新增
 
           - 👥 **Plan Multi-Executor** — Plans now support multiple executors. When members are configured, a multi-select list replaces the single dropdown. Stored as comma-separated abbreviations (e.g. "Alice,Bob"). Gantt chart colors by first executor. Fully backward compatible / **计划执行者多选** — 计划支持多执行者，成员列表多选，逗号分隔存储，甘特图按第一个执行者着色

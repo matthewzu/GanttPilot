@@ -71,7 +71,7 @@
       "name": "需求分析",
       "description": "完成需求调研和文档编写",
       "color": "#7BC67E",
-      "deadline": "20260620",
+      "deadline": "20260627",
       "plans": [
         {
           "id": "p01",
@@ -84,13 +84,13 @@
           "color": "",
           "status": "finished",
           "progress": 100,
-          "actual_end_date": "20250115",
+          "actual_end_date": "20260612",
           "linked_task_id": "task0001",
           "activities": [
             {
               "id": "a01",
               "executor": "Alice",
-              "date": "20250106",
+              "date": "20260601",
               "hours": 3.0,
               "time_slots": "0900/1200",
               "tag": "调研",
@@ -100,7 +100,7 @@
             {
               "id": "a02",
               "executor": "Alice",
-              "date": "20250107",
+              "date": "20260602",
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "调研",
@@ -109,7 +109,7 @@
             {
               "id": "a03",
               "executor": "Alice",
-              "date": "20250108",
+              "date": "20260603",
               "hours": 2.0,
               "time_slots": "1400/1600",
               "tag": "会议",
@@ -118,7 +118,7 @@
             {
               "id": "a04",
               "executor": "Bob",
-              "date": "20250109",
+              "date": "20260604",
               "hours": 4.5,
               "time_slots": "0900/1200,1400/1530",
               "tag": "文档",
@@ -127,7 +127,7 @@
             {
               "id": "a05",
               "executor": "Alice",
-              "date": "20250110",
+              "date": "20260605",
               "hours": 7.0,
               "time_slots": "0830/1130,1300/1500,1530/1730",
               "tag": "调研",
@@ -136,7 +136,7 @@
             {
               "id": "a06",
               "executor": "Alice",
-              "date": "20250113",
+              "date": "20260608",
               "hours": 1.5,
               "time_slots": "1000/1130",
               "tag": "评审",
@@ -145,7 +145,7 @@
             {
               "id": "a31",
               "executor": "Bob",
-              "date": "20250113",
+              "date": "20260608",
               "hours": 3.0,
               "time_slots": "1300/1600",
               "tag": "调研",
@@ -154,7 +154,7 @@
             {
               "id": "a32",
               "executor": "Eve",
-              "date": "20250114",
+              "date": "20260609",
               "hours": 5.0,
               "time_slots": "0900/1200,1400/1600",
               "tag": "设计",
@@ -163,7 +163,7 @@
             {
               "id": "a33",
               "executor": "Alice",
-              "date": "20250115",
+              "date": "20260610",
               "hours": 2.0,
               "time_slots": "",
               "tag": "",
@@ -182,12 +182,12 @@
           "color": "",
           "status": "finished",
           "progress": 100,
-          "actual_end_date": "20260625",
+          "actual_end_date": "20260624",
           "activities": [
             {
               "id": "a07",
               "executor": "Bob",
-              "date": "20250113",
+              "date": "20260615",
               "hours": 8.0,
               "time_slots": "0900/1200,1300/1800",
               "tag": "文档",
@@ -196,7 +196,7 @@
             {
               "id": "a08",
               "executor": "Bob",
-              "date": "20250114",
+              "date": "20260616",
               "hours": 3.0,
               "time_slots": "0900/1200",
               "tag": "文档",
@@ -205,7 +205,7 @@
             {
               "id": "a09",
               "executor": "Alice",
-              "date": "20250115",
+              "date": "20260617",
               "hours": 2.0,
               "time_slots": "1400/1600",
               "tag": "评审",
@@ -214,7 +214,7 @@
             {
               "id": "a10",
               "executor": "Bob",
-              "date": "20250116",
+              "date": "20260618",
               "hours": 4.0,
               "time_slots": "",
               "tag": "文档",
@@ -223,7 +223,7 @@
             {
               "id": "a11",
               "executor": "Charlie",
-              "date": "20250117",
+              "date": "20260619",
               "hours": 1.5,
               "time_slots": "1500/1630",
               "tag": "会议",
@@ -232,7 +232,7 @@
             {
               "id": "a34",
               "executor": "Bob",
-              "date": "20250120",
+              "date": "20260622",
               "hours": 7.0,
               "time_slots": "0830/1130,1300/1500,1530/1730",
               "tag": "文档",
@@ -241,7 +241,7 @@
             {
               "id": "a35",
               "executor": "Eve",
-              "date": "20250121",
+              "date": "20260623",
               "hours": 4.0,
               "time_slots": "0900/1100,1400/1600",
               "tag": "设计",
@@ -250,7 +250,7 @@
             {
               "id": "a36",
               "executor": "Charlie",
-              "date": "20250122",
+              "date": "20260624",
               "hours": 2.5,
               "time_slots": "1000/1230",
               "tag": "评审",
@@ -259,7 +259,7 @@
             {
               "id": "a37",
               "executor": "Bob",
-              "date": "20250123",
+              "date": "20260624",
               "hours": 3.0,
               "time_slots": "0900/1200",
               "tag": "文档",
@@ -274,14 +274,14 @@
       "name": "开发实现",
       "description": "核心功能开发与测试",
       "color": "#4A90D9",
-      "deadline": "20260625",
+      "deadline": "20260815",
       "plans": [
         {
           "id": "p03",
           "content": "后端API开发",
           "executor": "Charlie",
-          "start_date": "20250120",
-          "end_date": "20250214",
+          "start_date": "20260629",
+          "end_date": "20260717",
           "skip_non_workdays": true,
           "skip_dates": [],
           "color": "",
@@ -293,7 +293,7 @@
             {
               "id": "a12",
               "executor": "Charlie",
-              "date": "20250120",
+              "date": "20260629",
               "hours": 7.0,
               "time_slots": "0830/1130,1300/1500,1530/1730",
               "tag": "开发",
@@ -303,7 +303,7 @@
             {
               "id": "a13",
               "executor": "Charlie",
-              "date": "20250121",
+              "date": "20260630",
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "设计",
@@ -312,7 +312,7 @@
             {
               "id": "a14",
               "executor": "Charlie",
-              "date": "20250122",
+              "date": "20260701",
               "hours": 3.0,
               "time_slots": "0900/1200",
               "tag": "开发",
@@ -321,7 +321,7 @@
             {
               "id": "a15",
               "executor": "Charlie",
-              "date": "20250123",
+              "date": "20260702",
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "开发",
@@ -330,7 +330,7 @@
             {
               "id": "a16",
               "executor": "David",
-              "date": "20250124",
+              "date": "20260703",
               "hours": 5.0,
               "time_slots": "0900/1200,1400/1600",
               "tag": "测试",
@@ -339,7 +339,7 @@
             {
               "id": "a17",
               "executor": "Charlie",
-              "date": "20250125",
+              "date": "20260706",
               "hours": 2.5,
               "time_slots": "1000/1230",
               "tag": "",
@@ -348,7 +348,7 @@
             {
               "id": "a18",
               "executor": "David",
-              "date": "20250127",
+              "date": "20260707",
               "hours": 3.75,
               "time_slots": "0900/1100,1400/1545",
               "tag": "测试",
@@ -357,7 +357,7 @@
             {
               "id": "a38",
               "executor": "Charlie",
-              "date": "20250128",
+              "date": "20260708",
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "开发",
@@ -366,7 +366,7 @@
             {
               "id": "a39",
               "executor": "Frank",
-              "date": "20250129",
+              "date": "20260709",
               "hours": 4.0,
               "time_slots": "1300/1700",
               "tag": "开发",
@@ -375,7 +375,7 @@
             {
               "id": "a40",
               "executor": "David",
-              "date": "20250130",
+              "date": "20260710",
               "hours": 8.0,
               "time_slots": "0830/1200,1300/1530,1600/1800",
               "tag": "测试",
@@ -384,7 +384,7 @@
             {
               "id": "a41",
               "executor": "Charlie",
-              "date": "20250210",
+              "date": "20260713",
               "hours": 2.0,
               "time_slots": "1400/1600",
               "tag": "评审",
@@ -396,20 +396,20 @@
           "id": "p04",
           "content": "前端界面开发",
           "executor": "Alice",
-          "start_date": "20250127",
-          "end_date": "20250221",
+          "start_date": "20260706",
+          "end_date": "20260724",
           "skip_non_workdays": true,
           "skip_dates": [],
           "color": "",
           "status": "finished",
           "progress": 100,
-          "actual_end_date": "20250225",
+          "actual_end_date": "20260727",
           "linked_task_id": "task0004",
           "activities": [
             {
               "id": "a19",
               "executor": "Alice",
-              "date": "20250127",
+              "date": "20260706",
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "设计",
@@ -419,7 +419,7 @@
             {
               "id": "a20",
               "executor": "Alice",
-              "date": "20250128",
+              "date": "20260707",
               "hours": 7.0,
               "time_slots": "0830/1130,1300/1500,1530/1730",
               "tag": "开发",
@@ -428,7 +428,7 @@
             {
               "id": "a21",
               "executor": "Alice",
-              "date": "20250129",
+              "date": "20260708",
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "开发",
@@ -437,7 +437,7 @@
             {
               "id": "a22",
               "executor": "Bob",
-              "date": "20250130",
+              "date": "20260709",
               "hours": 3.0,
               "time_slots": "0900/1200",
               "tag": "文档",
@@ -446,7 +446,7 @@
             {
               "id": "a23",
               "executor": "Alice",
-              "date": "20250210",
+              "date": "20260713",
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "测试",
@@ -455,7 +455,7 @@
             {
               "id": "a24",
               "executor": "David",
-              "date": "20250211",
+              "date": "20260714",
               "hours": 4.0,
               "time_slots": "1300/1700",
               "tag": "测试",
@@ -464,7 +464,7 @@
             {
               "id": "a25",
               "executor": "Alice",
-              "date": "20250212",
+              "date": "20260715",
               "hours": 2.0,
               "time_slots": "1000/1200",
               "tag": "部署",
@@ -473,7 +473,7 @@
             {
               "id": "a42",
               "executor": "Eve",
-              "date": "20250213",
+              "date": "20260716",
               "hours": 5.0,
               "time_slots": "0900/1200,1400/1600",
               "tag": "设计",
@@ -482,7 +482,7 @@
             {
               "id": "a43",
               "executor": "Alice",
-              "date": "20250214",
+              "date": "20260717",
               "hours": 3.75,
               "time_slots": "0900/1100,1400/1545",
               "tag": "开发",
@@ -491,7 +491,7 @@
             {
               "id": "a44",
               "executor": "Frank",
-              "date": "20250217",
+              "date": "20260720",
               "hours": 8.0,
               "time_slots": "",
               "tag": "开发",
@@ -500,7 +500,7 @@
             {
               "id": "a45",
               "executor": "Alice",
-              "date": "20250218",
+              "date": "20260721",
               "hours": 1.5,
               "time_slots": "1500/1630",
               "tag": "会议",
@@ -512,8 +512,8 @@
           "id": "p05",
           "content": "系统集成与发布",
           "executor": "David",
-          "start_date": "20250217",
-          "end_date": "20250228",
+          "start_date": "20260727",
+          "end_date": "20260814",
           "skip_non_workdays": true,
           "skip_dates": [],
           "color": "",
@@ -524,7 +524,7 @@
             {
               "id": "a26",
               "executor": "David",
-              "date": "20250217",
+              "date": "20260727",
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "测试",
@@ -533,7 +533,7 @@
             {
               "id": "a27",
               "executor": "Charlie",
-              "date": "20250218",
+              "date": "20260728",
               "hours": 3.0,
               "time_slots": "0900/1200",
               "tag": "部署",
@@ -542,7 +542,7 @@
             {
               "id": "a28",
               "executor": "David",
-              "date": "20250219",
+              "date": "20260729",
               "hours": 5.0,
               "time_slots": "",
               "tag": "部署",
@@ -551,7 +551,7 @@
             {
               "id": "a29",
               "executor": "Alice",
-              "date": "20250220",
+              "date": "20260730",
               "hours": 2.0,
               "time_slots": "1400/1600",
               "tag": "会议",
@@ -560,7 +560,7 @@
             {
               "id": "a30",
               "executor": "David",
-              "date": "20250221",
+              "date": "20260731",
               "hours": 5.0,
               "time_slots": "0900/1130,1400/1630",
               "tag": "部署",
@@ -569,7 +569,7 @@
             {
               "id": "a46",
               "executor": "Frank",
-              "date": "20250224",
+              "date": "20260803",
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "部署",
@@ -578,7 +578,7 @@
             {
               "id": "a47",
               "executor": "David",
-              "date": "20250225",
+              "date": "20260804",
               "hours": 3.0,
               "time_slots": "0900/1200",
               "tag": "测试",
@@ -587,7 +587,7 @@
             {
               "id": "a48",
               "executor": "Charlie",
-              "date": "20250226",
+              "date": "20260805",
               "hours": 2.0,
               "time_slots": "1000/1200",
               "tag": "",
@@ -596,7 +596,7 @@
             {
               "id": "a49",
               "executor": "Bob",
-              "date": "20250227",
+              "date": "20260806",
               "hours": 4.0,
               "time_slots": "0900/1100,1400/1600",
               "tag": "文档",
@@ -605,7 +605,7 @@
             {
               "id": "a50",
               "executor": "David",
-              "date": "20250228",
+              "date": "20260807",
               "hours": 1.5,
               "time_slots": "1000/1130",
               "tag": "会议",
@@ -626,8 +626,8 @@
           "id": "p06",
           "content": "监控体系搭建",
           "executor": "Frank",
-          "start_date": "20250303",
-          "end_date": "20250314",
+          "start_date": "20260817",
+          "end_date": "20260828",
           "skip_non_workdays": true,
           "skip_dates": [],
           "color": "",
@@ -639,7 +639,7 @@
             {
               "id": "a51",
               "executor": "Frank",
-              "date": "20250303",
+              "date": "20260817",
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "开发",
@@ -648,7 +648,7 @@
             {
               "id": "a52",
               "executor": "Frank",
-              "date": "20250304",
+              "date": "20260818",
               "hours": 7.0,
               "time_slots": "0830/1130,1300/1500,1530/1730",
               "tag": "开发",
@@ -657,7 +657,7 @@
             {
               "id": "a53",
               "executor": "David",
-              "date": "20250305",
+              "date": "20260819",
               "hours": 3.0,
               "time_slots": "0900/1200",
               "tag": "测试",
@@ -666,7 +666,7 @@
             {
               "id": "a54",
               "executor": "Frank",
-              "date": "20250306",
+              "date": "20260820",
               "hours": 4.0,
               "time_slots": "1300/1700",
               "tag": "部署",
@@ -675,7 +675,7 @@
             {
               "id": "a55",
               "executor": "Charlie",
-              "date": "20250307",
+              "date": "20260821",
               "hours": 2.0,
               "time_slots": "1400/1600",
               "tag": "评审",
@@ -684,7 +684,7 @@
             {
               "id": "a56",
               "executor": "Frank",
-              "date": "20250310",
+              "date": "20260824",
               "hours": 5.0,
               "time_slots": "0900/1200,1400/1600",
               "tag": "开发",
@@ -693,7 +693,7 @@
             {
               "id": "a57",
               "executor": "Bob",
-              "date": "20250311",
+              "date": "20260825",
               "hours": 3.75,
               "time_slots": "0900/1100,1400/1545",
               "tag": "文档",
@@ -705,8 +705,8 @@
           "id": "p07",
           "content": "用户培训与反馈",
           "executor": "Eve",
-          "start_date": "20250310",
-          "end_date": "20250321",
+          "start_date": "20260824",
+          "end_date": "20260904",
           "skip_non_workdays": true,
           "skip_dates": [],
           "color": "",
@@ -717,7 +717,7 @@
             {
               "id": "a58",
               "executor": "Eve",
-              "date": "20250310",
+              "date": "20260824",
               "hours": 6.0,
               "time_slots": "0900/1200,1400/1700",
               "tag": "文档",
@@ -726,7 +726,7 @@
             {
               "id": "a59",
               "executor": "Eve",
-              "date": "20250311",
+              "date": "20260825",
               "hours": 3.0,
               "time_slots": "0900/1200",
               "tag": "设计",
@@ -735,7 +735,7 @@
             {
               "id": "a60",
               "executor": "Eve",
-              "date": "20250312",
+              "date": "20260826",
               "hours": 4.0,
               "time_slots": "0900/1100,1400/1600",
               "tag": "会议",
@@ -744,7 +744,7 @@
             {
               "id": "a61",
               "executor": "Alice",
-              "date": "20250313",
+              "date": "20260827",
               "hours": 4.0,
               "time_slots": "0900/1100,1400/1600",
               "tag": "会议",
@@ -753,7 +753,7 @@
             {
               "id": "a62",
               "executor": "Eve",
-              "date": "20250314",
+              "date": "20260828",
               "hours": 2.5,
               "time_slots": "1000/1230",
               "tag": "调研",
@@ -762,7 +762,7 @@
             {
               "id": "a63",
               "executor": "Bob",
-              "date": "20250317",
+              "date": "20260831",
               "hours": 5.0,
               "time_slots": "",
               "tag": "文档",
@@ -771,7 +771,7 @@
             {
               "id": "a64",
               "executor": "Eve",
-              "date": "20250318",
+              "date": "20260901",
               "hours": 3.0,
               "time_slots": "1400/1700",
               "tag": "",
@@ -780,7 +780,7 @@
             {
               "id": "a65",
               "executor": "Alice",
-              "date": "20250319",
+              "date": "20260902",
               "hours": 7.0,
               "time_slots": "0830/1200,1330/1530,1600/1730",
               "tag": "开发",
@@ -789,7 +789,7 @@
             {
               "id": "a66",
               "executor": "Eve",
-              "date": "20250320",
+              "date": "20260903",
               "hours": 1.5,
               "time_slots": "1500/1630",
               "tag": "会议",
