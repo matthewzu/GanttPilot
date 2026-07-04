@@ -31,6 +31,11 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v2.1.0 / v2.1.0 新增
+
+          - 📑 **Report TOC** — Exported Markdown reports now include an auto-generated Table of Contents after the title, with anchor links to all h2/h3 sections. Supports `include_toc` parameter (default True). Summary mode TOC only includes present sections. Anchors compatible with GitHub/Obsidian/VS Code / **导出报告添加目录** — 导出报告自动生成目录，支持文档内快速导航，兼容主流 Markdown 渲染器
+          - 🪟 **Add Project Dialog Size Fix** — Fixed "Add Project" dialog in local mode being too small (200px→320px height), bottom fields and OK button were clipped / **添加项目对话框尺寸修复** — 本地模式对话框高度不足，底部字段被截断
+
           ### ✨ New in v2.0.6 / v2.0.6 修复
 
           - 📅 **Example Project Timeline Fix** — Fixed milestone deadlines and activity dates being inconsistent in both CN/EN example projects. Activities now fall within their parent plan's date range, milestones set after all child plans complete / **示例项目时间线修正** — 修复示例项目活动日期与计划时间范围不匹配的问题，甘特图时间逻辑一致

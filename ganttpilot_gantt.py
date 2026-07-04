@@ -6,6 +6,7 @@ DrawBackend abstraction with CanvasBackend (GUI) and PillowBackend (PNG export).
 Also generates PlantUML @startgantt markup for browser viewing.
 """
 
+import re
 import zlib
 import webbrowser
 from abc import ABC, abstractmethod
@@ -916,13 +917,82 @@ def open_gantt_in_browser(project, lang="zh"):
 
 
 
-def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=False):
+def heading_to_anchor(heading_text: str) -> str:
+    """将标题文本转换为 GitHub 风格的 Markdown 锚点。
+
+    规则:
+    - 转换为小写
+    - 空格替换为连字符 `-`
+    - 移除不支持的字符（保留字母、数字、中文、连字符、下划线）
+    - 移除开头/结尾的连字符
+
+    Args:
+        heading_text: 标题文本（不含 ## 前缀）
+
+    Returns:
+        锚点字符串
+    """
+    anchor = heading_text.lower()
+    anchor = anchor.replace(" ", "-")
+    # Keep letters, digits, CJK characters, hyphens, and underscores
+    anchor = re.sub(r'[^\w\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff-]', '', anchor)
+    anchor = anchor.strip("-")
+    if not anchor:
+        return "section"
+    return anchor
+
+
+def generate_toc(lines: list[str], lang: str = "zh") -> list[str]:
+    """从 Markdown 行列表中提取 h2/h3 标题，生成 TOC 行列表。
+
+    Args:
+        lines: 已生成的报告行列表
+        lang: 语言代码，影响 TOC 标题文字
+
+    Returns:
+        TOC 行列表（包含 TOC 标题和所有条目）
+    """
+    toc_title = "## 目录" if lang == "zh" else "## Table of Contents"
+    toc_lines = [toc_title, ""]
+
+    seen_anchors: dict[str, int] = {}
+
+    for line in lines:
+        if line.startswith("### "):
+            text = line[4:].strip()
+            if not text:
+                continue
+            anchor = heading_to_anchor(text)
+            if anchor in seen_anchors:
+                seen_anchors[anchor] += 1
+                anchor = f"{anchor}-{seen_anchors[anchor] - 1}"
+            else:
+                seen_anchors[anchor] = 1
+            toc_lines.append(f"  - [{text}](#{anchor})")
+        elif line.startswith("## "):
+            text = line[3:].strip()
+            if not text:
+                continue
+            anchor = heading_to_anchor(text)
+            if anchor in seen_anchors:
+                seen_anchors[anchor] += 1
+                anchor = f"{anchor}-{seen_anchors[anchor] - 1}"
+            else:
+                seen_anchors[anchor] = 1
+            toc_lines.append(f"- [{text}](#{anchor})")
+
+    toc_lines.append("")
+    return toc_lines
+
+
+def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=False, include_toc=True):
     """Generate a comprehensive project report in Markdown.
     
     Args:
         png_filename: A single filename (str) or a list of filenames for segmented charts.
         summary_only: If True, only include gantt chart, requirement analysis,
                       and milestones overview (no hours/notes details).
+        include_toc: If True (default), insert a Table of Contents after the title.
     """
     zh = lang == "zh"
     lines = [f"# {project['name']}", ""]
@@ -1099,6 +1169,18 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
                         plan_progress = f"{plan_info[1]}%" if plan_info else "-"
                         lines.append(f"| {r_cat} | {r_subj} | {t_subj} | {effort_str} | {linked_plan} | {plan_progress} |")
             lines.append("")
+
+        if include_toc:
+            toc_lines = generate_toc(lines, lang)
+            insert_idx = 2
+            for i, line in enumerate(lines):
+                if i == 0:
+                    continue
+                if line == "":
+                    insert_idx = i + 1
+                    break
+            for i, toc_line in enumerate(toc_lines):
+                lines.insert(insert_idx + i, toc_line)
 
         return "\n".join(lines)
 
@@ -1502,6 +1584,18 @@ def generate_gantt_markdown(project, lang="zh", png_filename=None, summary_only=
                 pct = f"{h / group_total * 100:.1f}%" if group_total > 0 else "0.0%"
                 lines.append(f"| {ex} | {h:.1f} | {d} | {pct} |")
             lines.append("")
+
+    if include_toc:
+        toc_lines = generate_toc(lines, lang)
+        insert_idx = 2
+        for i, line in enumerate(lines):
+            if i == 0:
+                continue
+            if line == "":
+                insert_idx = i + 1
+                break
+        for i, toc_line in enumerate(toc_lines):
+            lines.insert(insert_idx + i, toc_line)
 
     return "\n".join(lines)
 

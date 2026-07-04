@@ -1,5 +1,13 @@
 # 更新日志 / Changelog
 
+## [2.1.0] - 2026-07-04
+
+### 新增 / Added
+- 📑 **导出报告添加目录 (Report TOC)** — 导出 Markdown 报告时自动在标题后生成目录（Table of Contents），包含所有 h2/h3 章节的锚点链接，支持文档内快速导航。支持 `include_toc` 参数控制开关（默认开启），Summary 模式下仅包含实际存在的章节。锚点生成兼容 GitHub/Obsidian/VS Code 渲染器
+
+### 修复 / Fixed
+- 🪟 **添加项目对话框尺寸修复 (Add Project Dialog Size Fix)** — 本地模式下"添加项目"对话框高度从 200px 调整为 320px，修复底部字段（提交者姓名/邮箱）和 OK 按钮被截断的问题
+
 ## [2.0.6] - 2026-07-04
 
 ### 修复 / Fixed
