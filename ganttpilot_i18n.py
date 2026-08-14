@@ -412,6 +412,9 @@ TEXTS = {
         "url_required": "请填写远端仓库地址",
         "invalid_url_format": "远端仓库地址格式无效",
         "desc_optional": "(可选)",
+        "ssh_auth_hint": "使用 SSH 密钥认证，请确保已在服务器端添加公钥",
+        "https_auth_hint": "若服务器已配置 SSH 公钥免密，可留空",
+        "https_cred_optional": "若服务器已配置 SSH 公钥免密，用户名和密码可留空",
         # ── Private branch validation / 私有分支名校验 ──
         "priv_branch_invalid_priv": "不能使用 'priv' 作为私有分支名称",
         "priv_branch_same_as_main": "私有分支名称不能与主分支相同",
@@ -864,6 +867,9 @@ TEXTS = {
         "url_required": "Remote URL is required",
         "invalid_url_format": "Invalid remote URL format",
         "desc_optional": "(Optional)",
+        "ssh_auth_hint": "SSH key auth — ensure public key is added on server",
+        "https_auth_hint": "Leave empty if SSH key is configured on server",
+        "https_cred_optional": "Username and password can be left empty if SSH key is configured on server",
         # ── Private branch validation ──
         "priv_branch_invalid_priv": "Cannot use 'priv' as private branch name",
         "priv_branch_same_as_main": "Private branch name cannot be the same as main branch",

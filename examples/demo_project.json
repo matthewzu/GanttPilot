@@ -3,8 +3,6 @@
   "name": "示例项目",
   "description": "GanttPilot 功能演示项目，包含需求分析、开发实现和运维保障三个里程碑，全面演示工时（小时数）直接填写、工时（时间段）和 tag 标签功能",
   "remote_url": "",
-  "remote_username": "",
-  "remote_password": "",
   "committer_name": "GanttPilot",
   "committer_email": "demo@ganttpilot.example",
   "tags": ["前端", "后端", "测试", "运维", "设计"],

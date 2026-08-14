@@ -1,5 +1,12 @@
 # 更新日志 / Changelog
 
+## [2.2.0] - 2026-08-14
+
+### 改进 / Improved
+- 🔒 **Git 凭据本地化存储 (Credential Local Storage)** — `remote_username` 和 `remote_password` 不再保存在 `project.json` 中（避免凭据随仓库泄露），改为存储到本地全局配置。旧项目首次加载时自动迁移
+- 🎛️ **Git 配置对话框简化 (Git Config Dialog Simplify)** — 根据远端 URL 协议（SSH/HTTPS）动态显示凭据字段：SSH 模式隐藏用户名密码并提示使用密钥认证；HTTPS 模式显示"若服务器已配置 SSH 公钥免密，用户名和密码可留空"；移除私有分支配置项
+- 🎛️ **协作模式对话框简化 (Collab Mode Dialog Simplify)** — 提交者名称/邮箱只出现一次，自动从全局配置或 git config 预填充；私有分支名跟随提交者名称自动生成（只读）；凭据字段同样支持协议感知
+
 ## [2.1.1] - 2026-07-04
 
 ### 修复 / Fixed

@@ -31,6 +31,12 @@ jobs:
 
           CLI 模式 / CLI mode: `GanttPilot --cli`
 
+          ### ✨ New in v2.2.0 / v2.2.0 改进
+
+          - 🔒 **Credential Local Storage** — `remote_username` and `remote_password` are no longer stored in `project.json` (preventing credential leakage via Git). Now stored in local global config. Old projects auto-migrate on first load / **Git 凭据本地化存储** — 凭据不再保存在 project.json 中，改为本地存储，旧项目自动迁移
+          - 🎛️ **Git Config Dialog Simplify** — Dynamic field visibility based on URL protocol: SSH hides credentials with key-auth hint; HTTPS shows "credentials can be left empty if SSH key configured"; removed private branch field / **Git 配置对话框简化** — 根据协议动态显示字段，SSH 提示密钥认证，HTTPS 提示可留空
+          - 🎛️ **Collab Mode Dialog Simplify** — Committer name/email shown once with auto-fill from global config or git config; private branch auto-generated from committer name (readonly); credentials support same protocol-aware hints / **协作模式对话框简化** — 提交者信息自动填充，私有分支自动生成，凭据支持协议感知
+
           ### ✨ New in v2.1.1 / v2.1.1 修复
 
           - 🪟 **Project Create Dialog Size Fix** — Local mode height 200px→340px, Collaboration mode height 480px→580px. All fields and OK button now fully visible in both modes / **添加项目对话框尺寸修复** — 本地模式高度 200→340，协作模式高度 480→580，所有字段和按钮完整可见

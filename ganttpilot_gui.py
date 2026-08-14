@@ -985,24 +985,45 @@ class GanttPilotGUI:
     def _get_project_git(self, proj):
         """Construct a GitSync for a specific project directory.
 
-        Committer info and priv_branch: project-specific (from global config
-        keyed by project name), falling back to global default.
-        Project.json fields are NEVER used for committer/priv_branch to prevent
-        other users' data from overriding local branch settings.
+        Committer info, priv_branch, and credentials: project-specific
+        (from global config keyed by project name), falling back to global
+        default.  Project.json fields are NEVER used for sensitive/local data.
         """
         proj_dir = os.path.join(self.config.data_dir, proj["name"])
-        # Resolve committer: project-specific > global
+        # Resolve from project_committers in global config
         proj_committers = self.config.get("project_committers", {}) or {}
         proj_comm = proj_committers.get(proj["name"], {})
         committer_name = proj_comm.get("name", "") or self.config.get("committer_name", "")
         committer_email = proj_comm.get("email", "") or self.config.get("committer_email", "")
-        # priv_branch: from global config only (never from project.json)
         priv_branch = proj_comm.get("priv_branch", "")
+        # Credentials: from global config only (never from project.json)
+        remote_username = proj_comm.get("remote_username", "")
+        remote_password = proj_comm.get("remote_password", "")
+
+        # Migrate legacy credentials from project.json to global config
+        legacy_user = proj.get("remote_username", "")
+        legacy_pass = proj.get("remote_password", "")
+        if legacy_user or legacy_pass:
+            if proj["name"] not in proj_committers:
+                proj_committers[proj["name"]] = {}
+            if legacy_user and not remote_username:
+                proj_committers[proj["name"]]["remote_username"] = legacy_user
+                remote_username = legacy_user
+            if legacy_pass and not remote_password:
+                proj_committers[proj["name"]]["remote_password"] = legacy_pass
+                remote_password = legacy_pass
+            self.config.set("project_committers", proj_committers)
+            self.config.save()
+            # Remove from project.json
+            proj.pop("remote_username", None)
+            proj.pop("remote_password", None)
+            self.store.save()
+
         return GitSync(
             proj_dir,
             proj.get("remote_url", ""),
-            proj.get("remote_username", ""),
-            proj.get("remote_password", ""),
+            remote_username,
+            remote_password,
             proj.get("remote_branch", "main"),
             committer_name=committer_name,
             committer_email=committer_email,
@@ -2413,10 +2434,11 @@ class GanttPilotGUI:
         remote_password = dlg.result.get("remote_password", "")
         priv_branch = dlg.result.get("priv_branch", "")
 
-        # Committer info: save to project_committers in global config
+        # Save local-only fields to project_committers in global config
         dlg_committer_name = dlg.result.get("committer_name", "")
         dlg_committer_email = dlg.result.get("committer_email", "")
-        if dlg_committer_name or dlg_committer_email or priv_branch:
+        if (dlg_committer_name or dlg_committer_email or priv_branch
+                or remote_username or remote_password):
             proj_committers = self.config.get("project_committers", {}) or {}
             if name not in proj_committers:
                 proj_committers[name] = {}
@@ -2426,6 +2448,10 @@ class GanttPilotGUI:
                 proj_committers[name]["email"] = dlg_committer_email
             if priv_branch:
                 proj_committers[name]["priv_branch"] = priv_branch
+            if remote_username:
+                proj_committers[name]["remote_username"] = remote_username
+            if remote_password:
+                proj_committers[name]["remote_password"] = remote_password
             self.config.set("project_committers", proj_committers)
             self.config.save()
 
@@ -2462,12 +2488,12 @@ class GanttPilotGUI:
                     with open(pj_file, "r", encoding="utf-8") as f:
                         pj_data = json.load(f)
                     real_name = pj_data.get("name", name)
-                    # Update project.json with Git config fields (no committer, no priv_branch)
+                    # Update project.json with Git config fields (no credentials, no committer, no priv_branch)
                     pj_data["remote_url"] = remote_url
-                    pj_data["remote_username"] = remote_username
-                    pj_data["remote_password"] = remote_password
                     pj_data["remote_branch"] = remote_branch
-                    # Remove legacy personal fields from project.json if present
+                    # Remove sensitive/local fields from project.json
+                    pj_data.pop("remote_username", None)
+                    pj_data.pop("remote_password", None)
                     pj_data.pop("committer_name", None)
                     pj_data.pop("committer_email", None)
                     pj_data.pop("priv_branch", None)
@@ -2482,8 +2508,6 @@ class GanttPilotGUI:
                         "name": name,
                         "description": description,
                         "remote_url": remote_url,
-                        "remote_username": remote_username,
-                        "remote_password": remote_password,
                         "remote_branch": remote_branch,
                         "requirements": [],
                         "milestones": [],
@@ -2861,18 +2885,20 @@ class GanttPilotGUI:
             self.undo_manager.save_snapshot()
             proj["remote_url"] = dlg.result["remote_url"]
             proj["remote_branch"] = dlg.result["remote_branch"]
-            proj["remote_username"] = dlg.result["remote_username"]
-            proj["remote_password"] = dlg.result["remote_password"]
-            # priv_branch saved to global config (not project.json)
-            priv_branch = dlg.result["priv_branch"]
+            # Credentials saved to global config (not project.json)
+            remote_username = dlg.result["remote_username"]
+            remote_password = dlg.result["remote_password"]
             proj_committers = self.config.get("project_committers", {}) or {}
             if proj_name not in proj_committers:
                 proj_committers[proj_name] = {}
-            proj_committers[proj_name]["priv_branch"] = priv_branch
+            proj_committers[proj_name]["remote_username"] = remote_username
+            proj_committers[proj_name]["remote_password"] = remote_password
             self.config.set("project_committers", proj_committers)
             self.config.save()
-            # Remove legacy priv_branch from project.json
+            # Remove sensitive/local fields from project.json
             proj.pop("priv_branch", None)
+            proj.pop("remote_username", None)
+            proj.pop("remote_password", None)
             self.store.save()
             self._commit(f"Configure Git for project: {proj_name}")
             self._update_undo_redo_buttons()
@@ -5190,66 +5216,137 @@ class ActivityEditDialog:
 
 
 class ProjectGitConfigDialog:
-    """Dialog for configuring project Git remote"""
+    """Dialog for configuring project Git remote with protocol-aware fields"""
     def __init__(self, parent, t_func, lang, project, config=None):
         self.result = None
         self.t_func = t_func
         self.lang = lang
         self.config = config
         self.top = make_toplevel(parent, "\U0001f517 " + t_func("git_config"))
-        _center_dialog(self.top, parent, 560, 380)
+        _center_dialog(self.top, parent, 560, 300)
         self.top.transient(parent)
         self.top.focus_set()
         self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
         self.top.bind("<Escape>", lambda e: self.top.destroy())
         self.top.columnconfigure(1, weight=1)
 
-        # Resolve priv_branch from global config (not project.json)
+        # Resolve local-only fields from global config (not project.json)
         proj_committers = config.get("project_committers", {}) if config else {}
         proj_comm = proj_committers.get(project.get("name", ""), {})
-        current_priv_branch = proj_comm.get("priv_branch", "")
+        current_username = proj_comm.get("remote_username", "")
+        current_password = proj_comm.get("remote_password", "")
 
-        fields = [
-            ("remote_url", t_func("remote_url"), project.get("remote_url", "")),
-            ("remote_branch", t_func("remote_branch") if lang == "en" else "远端主分支", project.get("remote_branch", "main")),
-            ("remote_username", t_func("username"), project.get("remote_username", "")),
-            ("remote_password", t_func("password"), project.get("remote_password", "")),
-            ("priv_branch", t_func("priv_branch"), current_priv_branch),
-        ]
         self.entries = {}
-        for i, (key, label, val) in enumerate(fields):
-            ttk.Label(self.top, text=label).grid(row=i, column=0, padx=8, pady=5, sticky=tk.W)
-            entry = ttk.Entry(self.top, width=40)
-            entry.insert(0, val)
-            if key == "remote_password":
-                entry.configure(show="*")
-            entry.grid(row=i, column=1, padx=8, pady=5, sticky=tk.EW)
-            self.entries[key] = entry
+        row = 0
 
+        # Remote URL
+        ttk.Label(self.top, text=t_func("remote_url")).grid(
+            row=row, column=0, padx=8, pady=5, sticky=tk.W)
+        url_entry = ttk.Entry(self.top, width=40)
+        url_entry.insert(0, project.get("remote_url", ""))
+        url_entry.grid(row=row, column=1, padx=8, pady=5, sticky=tk.EW)
+        url_entry.bind("<KeyRelease>", self._on_url_changed)
+        self.entries["remote_url"] = url_entry
+
+        # Remote branch
+        row += 1
+        lbl_branch = t_func("remote_branch") if lang == "en" else "远端主分支"
+        ttk.Label(self.top, text=lbl_branch).grid(
+            row=row, column=0, padx=8, pady=5, sticky=tk.W)
+        branch_entry = ttk.Entry(self.top, width=40)
+        branch_entry.insert(0, project.get("remote_branch", "main"))
+        branch_entry.grid(row=row, column=1, padx=8, pady=5, sticky=tk.EW)
+        self.entries["remote_branch"] = branch_entry
+
+        # Username (conditional)
+        row += 1
+        self._username_row = row
+        lbl_user = t_func("username") + " " + t_func("desc_optional")
+        self._username_label = ttk.Label(self.top, text=lbl_user)
+        self._username_label.grid(row=row, column=0, padx=8, pady=5, sticky=tk.W)
+        username_entry = ttk.Entry(self.top, width=40)
+        username_entry.insert(0, current_username)
+        username_entry.grid(row=row, column=1, padx=8, pady=5, sticky=tk.EW)
+        self.entries["remote_username"] = username_entry
+
+        # Password (conditional)
+        row += 1
+        self._password_row = row
+        lbl_pass = t_func("password") + " " + t_func("desc_optional")
+        self._password_label = ttk.Label(self.top, text=lbl_pass)
+        self._password_label.grid(row=row, column=0, padx=8, pady=5, sticky=tk.W)
+        password_entry = ttk.Entry(self.top, width=40, show="*")
+        password_entry.insert(0, current_password)
+        password_entry.grid(row=row, column=1, padx=8, pady=5, sticky=tk.EW)
+        self.entries["remote_password"] = password_entry
+
+        # SSH hint (shown when SSH URL detected)
+        row += 1
+        self._hint_row = row
+        ssh_hint_text = (t_func("ssh_auth_hint") if lang == "en"
+                         else "使用 SSH 密钥认证，请确保已在服务器端添加公钥")
+        self._ssh_hint_label = ttk.Label(
+            self.top, text="\U0001f511 " + ssh_hint_text,
+            foreground="gray")
+
+        # HTTPS hint — clearly state credentials can be left empty
+        self._https_hint_label = ttk.Label(
+            self.top, text="\U0001f4a1 " + t_func("https_cred_optional"),
+            foreground="gray")
+
+        # OK button
+        row += 1
         ttk.Button(self.top, text="OK", command=self._ok).grid(
-            row=len(fields), column=0, columnspan=2, pady=10)
+            row=row, column=0, columnspan=2, pady=10)
+
+        # Apply initial URL state
+        self._on_url_changed()
+
+    def _is_ssh_url(self, url):
+        """判断 URL 是否为 SSH 协议"""
+        return url.startswith("git@") or url.startswith("ssh://")
+
+    def _on_url_changed(self, event=None):
+        """根据 URL 协议动态显示/隐藏凭据字段"""
+        url = self.entries["remote_url"].get().strip()
+        if self._is_ssh_url(url):
+            # Hide credential fields, show SSH hint
+            self._username_label.grid_remove()
+            self.entries["remote_username"].grid_remove()
+            self._password_label.grid_remove()
+            self.entries["remote_password"].grid_remove()
+            self._https_hint_label.grid_remove()
+            self._ssh_hint_label.grid(
+                row=self._username_row, column=0, columnspan=2,
+                padx=8, pady=5, sticky=tk.W)
+        else:
+            # Show credential fields, hide SSH hint
+            self._ssh_hint_label.grid_remove()
+            self._username_label.grid(
+                row=self._username_row, column=0, padx=8, pady=5, sticky=tk.W)
+            self.entries["remote_username"].grid(
+                row=self._username_row, column=1, padx=8, pady=5, sticky=tk.EW)
+            self._password_label.grid(
+                row=self._password_row, column=0, padx=8, pady=5, sticky=tk.W)
+            self.entries["remote_password"].grid(
+                row=self._password_row, column=1, padx=8, pady=5, sticky=tk.EW)
+            # Always show the "credentials can be left empty" hint for non-SSH
+            self._https_hint_label.grid(
+                row=self._hint_row, column=0, columnspan=2,
+                padx=8, pady=2, sticky=tk.W)
 
     def _ok(self):
         url = self.entries["remote_url"].get().strip()
-        if url and not (re.match(r'^(https?://|git@)', url) or os.path.isabs(url)):
+        if url and not (re.match(r'^(https?://|git@|ssh://)', url)
+                        or os.path.isabs(url)):
             messagebox.showwarning("", self.t_func("invalid_url"))
-            return
-
-        priv_branch = self.entries["priv_branch"].get().strip()
-
-        # Validate private branch name (if provided)
-        main_branch = self.entries["remote_branch"].get().strip() or "main"
-        valid, err_key = validate_priv_branch_name(priv_branch, main_branch)
-        if not valid:
-            messagebox.showwarning("", self.t_func(err_key))
             return
 
         self.result = {
             "remote_url": url,
-            "remote_branch": main_branch,
+            "remote_branch": self.entries["remote_branch"].get().strip() or "main",
             "remote_username": self.entries["remote_username"].get().strip(),
             "remote_password": self.entries["remote_password"].get().strip(),
-            "priv_branch": priv_branch,
         }
         self.top.destroy()
 
@@ -5306,7 +5403,7 @@ def validate_remote_url(url: str) -> bool:
 class ProjectCreateDialog:
     """Dialog for creating a new project with local/collaboration mode support."""
 
-    DIALOG_SIZE_LOCAL = "450x340"
+    DIALOG_SIZE_LOCAL = "450x220"
     DIALOG_SIZE_COLLAB = "500x580"
 
     def __init__(self, parent, t_func, lang, config=None):
@@ -5318,7 +5415,7 @@ class ProjectCreateDialog:
         self.config = config
 
         self.top = make_toplevel(parent, t_func("add") + " " + t_func("project"))
-        _center_dialog(self.top, parent, 450, 340)
+        _center_dialog(self.top, parent, 450, 220)
         self.top.resizable(True, True)
         self.top.focus_set()
         self.top.after(100, lambda: self.top.grab_set() if self.top.winfo_exists() else None)
@@ -5364,7 +5461,7 @@ class ProjectCreateDialog:
     # Task 4.2: Local mode fields
     # ──────────────────────────────────────────────
     def _build_local_fields(self):
-        """项目名称 + 描述 + 提交者（始终显示）"""
+        """项目名称 + 描述（始终显示）"""
         self.local_frame = ttk.Frame(self.top)
         self.local_frame.pack(fill=tk.X, padx=8, pady=2)
         self.local_frame.columnconfigure(1, weight=1)
@@ -5384,25 +5481,11 @@ class ProjectCreateDialog:
             self.local_frame, placeholder=self.t("ph_description"), width=35)
         self.desc_entry.grid(row=1, column=1, padx=4, pady=4, sticky=tk.EW)
 
-        # Committer name (optional, falls back to global)
-        ttk.Label(self.local_frame, text=self.t("committer_name")).grid(
-            row=2, column=0, padx=4, pady=4, sticky=tk.W)
-        self.local_committer_name_entry = PlaceholderEntry(
-            self.local_frame, placeholder=self.t("ph_committer_name"), width=35)
-        self.local_committer_name_entry.grid(row=2, column=1, padx=4, pady=4, sticky=tk.EW)
-
-        # Committer email (optional, falls back to global)
-        ttk.Label(self.local_frame, text=self.t("committer_email")).grid(
-            row=3, column=0, padx=4, pady=4, sticky=tk.W)
-        self.local_committer_email_entry = PlaceholderEntry(
-            self.local_frame, placeholder=self.t("ph_committer_email"), width=35)
-        self.local_committer_email_entry.grid(row=3, column=1, padx=4, pady=4, sticky=tk.EW)
-
     # ──────────────────────────────────────────────
     # Task 4.3: Collaboration mode fields
     # ──────────────────────────────────────────────
     def _build_collab_fields(self):
-        """Git 配置字段组（仅协作模式显示）"""
+        """Git 协作配置字段组，支持协议感知动态字段"""
         self.collab_frame = ttk.Frame(self.top)
         self.collab_frame.columnconfigure(1, weight=1)
 
@@ -5413,6 +5496,7 @@ class ProjectCreateDialog:
         self.url_entry = PlaceholderEntry(
             self.collab_frame, placeholder=self.t("ph_remote_url"), width=35)
         self.url_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
+        self.url_entry.bind("<KeyRelease>", self._on_collab_url_changed)
 
         # 2. Remote branch (prefilled "main")
         row += 1
@@ -5420,39 +5504,57 @@ class ProjectCreateDialog:
             row=row, column=0, padx=4, pady=3, sticky=tk.W)
         self.branch_entry = PlaceholderEntry(
             self.collab_frame, placeholder=self.t("ph_remote_branch"), width=35)
-        # Pre-fill with "main"
         self.branch_entry.delete(0, tk.END)
         self.branch_entry.insert(0, "main")
         self.branch_entry.configure(foreground="")
         self.branch_entry._is_placeholder = False
         self.branch_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
 
-        # 3. Username
+        # 3. Username (conditional)
         row += 1
-        ttk.Label(self.collab_frame, text=self.t("username")).grid(
+        self._collab_username_row = row
+        lbl_user = self.t("username") + " " + self.t("desc_optional")
+        self._collab_username_label = ttk.Label(self.collab_frame, text=lbl_user)
+        self._collab_username_label.grid(
             row=row, column=0, padx=4, pady=3, sticky=tk.W)
         self.username_entry = PlaceholderEntry(
             self.collab_frame, placeholder=self.t("ph_username"), width=35)
         self.username_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
 
-        # 4. Password/Token (masked)
+        # 4. Password/Token (conditional)
         row += 1
-        ttk.Label(self.collab_frame, text=self.t("password")).grid(
+        self._collab_password_row = row
+        lbl_pass = self.t("password") + " " + self.t("desc_optional")
+        self._collab_password_label = ttk.Label(self.collab_frame, text=lbl_pass)
+        self._collab_password_label.grid(
             row=row, column=0, padx=4, pady=3, sticky=tk.W)
         self.password_entry = PlaceholderEntry(
             self.collab_frame, placeholder=self.t("ph_password"),
             width=35, show="*")
         self.password_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
 
-        # 5. Committer name
+        # SSH/HTTPS hint labels
+        row += 1
+        self._collab_hint_row = row
+        self._collab_ssh_hint = ttk.Label(
+            self.collab_frame,
+            text="\U0001f511 " + self.t("ssh_auth_hint"),
+            foreground="gray")
+        self._collab_https_hint = ttk.Label(
+            self.collab_frame,
+            text="\U0001f4a1 " + self.t("https_cred_optional"),
+            foreground="gray")
+
+        # 5. Committer name (pre-filled from global config or git config)
         row += 1
         ttk.Label(self.collab_frame, text=self.t("committer_name")).grid(
             row=row, column=0, padx=4, pady=3, sticky=tk.W)
         self.committer_name_entry = PlaceholderEntry(
             self.collab_frame, placeholder=self.t("ph_committer_name"), width=35)
         self.committer_name_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
+        self.committer_name_entry.bind("<KeyRelease>", self._on_committer_name_changed)
 
-        # 6. Committer email
+        # 6. Committer email (pre-filled from global config or git config)
         row += 1
         ttk.Label(self.collab_frame, text=self.t("committer_email")).grid(
             row=row, column=0, padx=4, pady=3, sticky=tk.W)
@@ -5460,13 +5562,93 @@ class ProjectCreateDialog:
             self.collab_frame, placeholder=self.t("ph_committer_email"), width=35)
         self.committer_email_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
 
-        # 7. Private branch name
+        # 7. Private branch name (auto-generated, readonly)
         row += 1
         ttk.Label(self.collab_frame, text=self.t("priv_branch")).grid(
             row=row, column=0, padx=4, pady=3, sticky=tk.W)
-        self.priv_branch_entry = PlaceholderEntry(
-            self.collab_frame, placeholder=self.t("ph_priv_branch"), width=35)
+        self.priv_branch_entry = ttk.Entry(self.collab_frame, width=35,
+                                           state="readonly")
         self.priv_branch_entry.grid(row=row, column=1, padx=4, pady=3, sticky=tk.EW)
+
+        # Pre-fill committer from global config → git config
+        self._prefill_committer()
+
+    def _prefill_committer(self):
+        """用全局配置或 git 全局配置预填充提交者名称和邮箱"""
+        committer_name = ""
+        committer_email = ""
+        # Try global config first
+        if self.config:
+            committer_name = self.config.get("committer_name", "")
+            committer_email = self.config.get("committer_email", "")
+        # Fallback to git global config
+        if not committer_name or not committer_email:
+            detected_name, detected_email = self._detect_git_user()
+            if not committer_name:
+                committer_name = detected_name
+            if not committer_email:
+                committer_email = detected_email
+        # Fill entries
+        if committer_name:
+            self.committer_name_entry.delete(0, tk.END)
+            self.committer_name_entry.insert(0, committer_name)
+            self.committer_name_entry.configure(foreground="")
+            self.committer_name_entry._is_placeholder = False
+        if committer_email:
+            self.committer_email_entry.delete(0, tk.END)
+            self.committer_email_entry.insert(0, committer_email)
+            self.committer_email_entry.configure(foreground="")
+            self.committer_email_entry._is_placeholder = False
+        # Update priv_branch based on committer_name
+        self._update_priv_branch()
+
+    def _on_committer_name_changed(self, event=None):
+        """提交者名称变更时更新私有分支名"""
+        self._update_priv_branch()
+
+    def _update_priv_branch(self):
+        """根据提交者名称自动生成私有分支名（只读）"""
+        name = self.committer_name_entry.get().strip()
+        if hasattr(self.committer_name_entry, '_is_placeholder') and \
+                self.committer_name_entry._is_placeholder:
+            name = ""
+        priv_name = f"priv_{name}" if name else ""
+        self.priv_branch_entry.configure(state="normal")
+        self.priv_branch_entry.delete(0, tk.END)
+        self.priv_branch_entry.insert(0, priv_name)
+        self.priv_branch_entry.configure(state="readonly")
+
+    def _on_collab_url_changed(self, event=None):
+        """协作模式：根据 URL 协议动态显示/隐藏凭据字段"""
+        url = self.url_entry.get_value().strip()
+        is_ssh = url.startswith("git@") or url.startswith("ssh://")
+        if is_ssh:
+            self._collab_username_label.grid_remove()
+            self.username_entry.grid_remove()
+            self._collab_password_label.grid_remove()
+            self.password_entry.grid_remove()
+            self._collab_https_hint.grid_remove()
+            self._collab_ssh_hint.grid(
+                row=self._collab_username_row, column=0, columnspan=2,
+                padx=4, pady=3, sticky=tk.W)
+        else:
+            self._collab_ssh_hint.grid_remove()
+            self._collab_username_label.grid(
+                row=self._collab_username_row, column=0,
+                padx=4, pady=3, sticky=tk.W)
+            self.username_entry.grid(
+                row=self._collab_username_row, column=1,
+                padx=4, pady=3, sticky=tk.EW)
+            self._collab_password_label.grid(
+                row=self._collab_password_row, column=0,
+                padx=4, pady=3, sticky=tk.W)
+            self.password_entry.grid(
+                row=self._collab_password_row, column=1,
+                padx=4, pady=3, sticky=tk.EW)
+            # Always show "credentials can be left empty" hint
+            self._collab_https_hint.grid(
+                row=self._collab_hint_row, column=0, columnspan=2,
+                padx=4, pady=2, sticky=tk.W)
 
     # ──────────────────────────────────────────────
     # Task 4.4: Mode switching logic
@@ -5477,9 +5659,11 @@ class ProjectCreateDialog:
             self.collab_frame.pack(fill=tk.X, padx=8, pady=2,
                                    before=self.btn_frame)
             _center_dialog(self.top, self.parent, 500, 580)
+            # Trigger URL protocol detection to show/hide hints
+            self._on_collab_url_changed()
         else:
             self.collab_frame.pack_forget()
-            _center_dialog(self.top, self.parent, 450, 340)
+            _center_dialog(self.top, self.parent, 450, 220)
 
     # ──────────────────────────────────────────────
     # Task 4.5: Validation and confirm logic
@@ -5521,33 +5705,23 @@ class ProjectCreateDialog:
             return
 
         if mode == "local":
-            # Local mode: get committer from local fields, fallback to global → system git
-            committer_name = self.local_committer_name_entry.get_value().strip()
-            committer_email = self.local_committer_email_entry.get_value().strip()
-
-            if not committer_name or not committer_email:
-                if self.config:
-                    if not committer_name:
-                        committer_name = self.config.get("committer_name", "")
-                    if not committer_email:
-                        committer_email = self.config.get("committer_email", "")
-
+            # Local mode: resolve committer from global config → git config
+            committer_name = ""
+            committer_email = ""
+            if self.config:
+                committer_name = self.config.get("committer_name", "")
+                committer_email = self.config.get("committer_email", "")
             if not committer_name or not committer_email:
                 detected_name, detected_email = self._detect_git_user()
-                if detected_name and detected_email:
-                    msg = self.t("detect_git_user_confirm").format(
-                        detected_name, detected_email)
-                    if messagebox.askyesno(self.t("warning"), msg):
-                        if not committer_name:
-                            committer_name = detected_name
-                        if not committer_email:
-                            committer_email = detected_email
-                    else:
-                        return
-                else:
-                    messagebox.showwarning(
-                        self.t("warning"), self.t("committer_required"))
-                    return
+                if not committer_name:
+                    committer_name = detected_name
+                if not committer_email:
+                    committer_email = detected_email
+
+            if not committer_name or not committer_email:
+                messagebox.showwarning(
+                    self.t("warning"), self.t("committer_required"))
+                return
 
             self.result = {
                 "name": name,
@@ -5568,37 +5742,23 @@ class ProjectCreateDialog:
                 messagebox.showwarning(self.t("warning"), self.t("invalid_url_format"))
                 return
 
-            committer_name = self.committer_name_entry.get_value().strip()
-            committer_email = self.committer_email_entry.get_value().strip()
-
-            # Fallback: global config → system git config → require manual input
-            if not committer_name or not committer_email:
-                # Try global config first
-                if self.config:
-                    if not committer_name:
-                        committer_name = self.config.get("committer_name", "")
-                    if not committer_email:
-                        committer_email = self.config.get("committer_email", "")
+            committer_name = self.committer_name_entry.get().strip()
+            committer_email = self.committer_email_entry.get().strip()
+            # Handle placeholder state
+            if hasattr(self.committer_name_entry, '_is_placeholder') and \
+                    self.committer_name_entry._is_placeholder:
+                committer_name = ""
+            if hasattr(self.committer_email_entry, '_is_placeholder') and \
+                    self.committer_email_entry._is_placeholder:
+                committer_email = ""
 
             if not committer_name or not committer_email:
-                # Try system git config
-                detected_name, detected_email = self._detect_git_user()
-                if detected_name and detected_email:
-                    msg = self.t("detect_git_user_confirm").format(
-                        detected_name, detected_email)
-                    if messagebox.askyesno(self.t("warning"), msg):
-                        if not committer_name:
-                            committer_name = detected_name
-                        if not committer_email:
-                            committer_email = detected_email
-                    else:
-                        return
-                else:
-                    messagebox.showwarning(
-                        self.t("warning"), self.t("committer_required"))
-                    return
+                messagebox.showwarning(
+                    self.t("warning"), self.t("committer_required"))
+                return
 
-            priv_branch = self.priv_branch_entry.get_value().strip()
+            # priv_branch is auto-generated from committer_name
+            priv_branch = self.priv_branch_entry.get().strip()
             main_branch = self.branch_entry.get_value().strip() or "main"
 
             # Validate private branch name
